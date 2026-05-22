@@ -1,13 +1,11 @@
 # MyProject
 
-## GitHub configuration
+A Lean 4 formalization of **Lawrence C. Evans' *Partial Differential Equations*** (2nd ed.),
+focusing on the four important linear PDEs treated in Chapter 2:
 
-To set up your new GitHub repository, follow these steps:
+1. **Transport equation** — `u_t + b · Du = 0`
+2. **Laplace's / Poisson's equation** — `−Δu = f`
+3. **Heat equation** — `u_t − Δu = 0`
+4. **Wave equation** — `u_tt − Δu = 0`
 
-* Under your repository name, click **Settings**.
-* In the **Actions** section of the sidebar, click "General".
-* Check the box **Allow GitHub Actions to create and approve pull requests**.
-* Click the **Pages** section of the settings sidebar.
-* In the **Source** dropdown menu, select "GitHub Actions".
-
-After following the steps above, you can remove this section from the README file.
+Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
