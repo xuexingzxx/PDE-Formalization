@@ -94,6 +94,35 @@ theorem evansFormula_solves_transport (b : ℝⁿ) (g : ℝⁿ → ℝ) (hg : Di
   rw [timeDerivative_evansFormula b g hg p, spatialGradient_evansFormula b g hg p]
   simp [real_inner_comm]
 
+/-! ## §2.1.2 Inhomogeneous Transport Equation -/
+
+/-- `u` satisfies the inhomogeneous transport equation `u_t + b · Du = f`. -/
+def IsInhomTransportSolution (b : ℝⁿ) (f : ℝⁿ × ℝ → ℝ) (u : ℝⁿ × ℝ → ℝ) : Prop :=
+  ∀ p : ℝⁿ × ℝ, timeDerivative u p + ⟪spatialGradient u p, b⟫_ℝ = f p
+
+/-- Duhamel's formula: `u(x,t) = g(x−tb) + ∫₀ᵗ f(x−(t−s)b, s) ds`.
+    The first term solves the homogeneous equation; the integral corrects for the source `f`. -/
+noncomputable def duhamelFormula (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × ℝ → ℝ) :
+    ℝⁿ × ℝ → ℝ :=
+  fun p => g (p.1 - p.2 • b) + ∫ s in (0 : ℝ)..p.2, f (p.1 - (p.2 - s) • b, s)
+
+/-- **Initial condition**: `u(x, 0) = g(x)`. The Duhamel integral vanishes at `t = 0`. -/
+theorem duhamelFormula_initial (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × ℝ → ℝ) (x : ℝⁿ) :
+    duhamelFormula b g f (x, 0) = g x := by
+  simp [duhamelFormula, intervalIntegral.integral_same]
+
+/-- **Evans §2.1.2, Theorem 2**: Duhamel's formula solves the inhomogeneous transport equation.
+
+    **Proof sketch**: Split `u = v + w` where `v(x,t) = g(x−tb)` and
+    `w(x,t) = ∫₀ᵗ f(x−(t−s)b, s) ds`. We know `v_t + b·Dv = 0`. For `w`, the
+    Leibniz rule gives `w_t = f(x,t) + ∫₀ᵗ ∂_t[f(x−(t−s)b,s)] ds` (FTC boundary term)
+    and `b·Dw = ∫₀ᵗ b·∇f(x−(t−s)b,s) ds`. Since `∂_t[f(x−(t−s)b,s)] = −b·∇f(x−(t−s)b,s)`,
+    the two integrals cancel and `w_t + b·Dw = f(x,t)`. -/
+theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × ℝ → ℝ)
+    (hg : Differentiable ℝ g) (hf : ContDiff ℝ 1 f) :
+    IsInhomTransportSolution b f (duhamelFormula b g f) := by
+  sorry
+
 /-! ### Uniqueness via Characteristics (TODO)
 
 The idea: if `u` is C¹, solves the IVP, and `v = evansFormula b g`, then
