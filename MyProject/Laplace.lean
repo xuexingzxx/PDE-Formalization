@@ -196,16 +196,121 @@ lemma fundamentalSolution_contDiff_off_zero :
     -- ‖x‖^(2-n) is C∞ on {0}ᶜ since ‖x‖ ≠ 0 there
     exact contDiffOn_const.mul (hn_smooth.rpow_const_of_ne hn_ne)
 
+/-! #### Helpers for harmonicity of the fundamental solution -/
+
+/-- Our `laplacian` definition equals Mathlib's `Laplacian.laplacian`.
+    Both reduce to `∑ i, iteratedFDeriv ℝ 2 f x ![eᵢ, eᵢ]` for the same orthonormal basis. -/
+private lemma laplacian_eq_mathlib (f : ℝⁿ → ℝ) (x : ℝⁿ) :
+    laplacian f x = Laplacian.laplacian f x := by
+  simp only [laplacian]
+  exact (congr_fun (InnerProductSpace.laplacian_eq_iteratedFDeriv_orthonormalBasis f
+    (EuclideanSpace.basisFun (Fin n) ℝ)) x).symm
+
+/-- Linearity of `laplacian` under scalar multiplication:
+    `laplacian (c * f) = c * laplacian f` (pointwise), given `f` is `C²` at `x`. -/
+private lemma laplacian_const_mul (c : ℝ) (f : ℝⁿ → ℝ) (hf : ContDiffAt ℝ 2 f x) :
+    laplacian (fun y => c * f y) x = c * laplacian f x := by
+  have key : laplacian (fun y => c * f y) x = Laplacian.laplacian (fun y => c * f y) x :=
+    laplacian_eq_mathlib _ _
+  rw [key, laplacian_eq_mathlib]
+  have smul_eq : (fun y : ℝⁿ => c * f y) = c • f := funext fun y => (smul_eq_mul c (f y)).symm
+  rw [smul_eq, InnerProductSpace.laplacian_smul c hf]
+  simp [smul_eq_mul]
+
+/-- First Fréchet derivative of `‖·‖^p` at `x ≠ 0` for any real exponent `p`.
+    This extends `hasFDerivAt_norm_rpow` (which requires `p > 1`) via the chain rule
+    applied to the decomposition `‖x‖^p = (‖x‖²)^(p/2)`.
+
+    **Key formula**: `D(‖·‖^p)(x) = (p · ‖x‖^(p−2)) · ⟨x, ·⟩`. -/
+private lemma hasFDerivAt_norm_rpow_of_ne (x : ℝⁿ) (hx : x ≠ 0) (p : ℝ) :
+    HasFDerivAt (fun x : ℝⁿ => ‖x‖ ^ p)
+      ((p * ‖x‖ ^ (p - 2)) • innerSL ℝ x) x := by
+  sorry
+
+/-- **Laplacian of a radial power**: for `x ≠ 0` and any `p : ℝ`,
+    `Δ(‖·‖^p)(x) = p · (n + p − 2) · ‖x‖^(p−2)`.
+
+    **Proof sketch**:
+    - First derivative: `∇(‖·‖^p) = p ‖x‖^(p−2) x` (from `hasFDerivAt_norm_rpow_of_ne`).
+    - Second derivative via product rule:
+      `D²(‖·‖^p)(x)(v,v) = p(p−2)‖x‖^(p−4)⟨x,v⟩² + p‖x‖^(p−2)‖v‖²`.
+    - Sum over orthonormal basis using Parseval (`∑ ⟨x,eᵢ⟩² = ‖x‖²`, `∑ ‖eᵢ‖² = n`):
+      `Δ = p(p−2)‖x‖^(p−2) + pn‖x‖^(p−2) = p(n+p−2)‖x‖^(p−2)`. -/
+private lemma laplacian_norm_rpow_eq (p : ℝ) (x : ℝⁿ) (hx : x ≠ 0) :
+    laplacian (fun x : ℝⁿ => ‖x‖ ^ p) x = p * ((n : ℝ) + p - 2) * ‖x‖ ^ (p - 2) := by
+  sorry
+
+/-- **Laplacian of `log ‖·‖`**: for `x ≠ 0`,
+    `Δ(log ‖·‖)(x) = (n − 2) · ‖x‖^(−2)`.
+
+    For `n = 2` this vanishes, reflecting the harmonicity of `log ‖·‖` in the plane.
+
+    **Proof sketch**: Same computation as `laplacian_norm_rpow_eq` with the substitution
+    `‖·‖^p → log ‖·‖`: gradient is `‖x‖^(−2) x`, second derivative sum gives `(n−2)/‖x‖²`. -/
+private lemma laplacian_log_norm_eq (x : ℝⁿ) (hx : x ≠ 0) :
+    laplacian (fun x : ℝⁿ => Real.log ‖x‖) x = ((n : ℝ) - 2) * ‖x‖ ^ (-(2 : ℝ)) := by
+  sorry
+
 /-- **Key Lemma**: `fundamentalSolution` is harmonic on `ℝⁿ \ {0}`:
     `Δ(Φ)(x) = 0` for all `x ≠ 0`.
 
-    **Proof**: Direct computation using `Φ(x) = c · ‖x‖^(2−n)` for `n ≥ 3`.
-    In polar coordinates `r = ‖x‖`, the Laplacian is
-    `Δ = ∂²/∂r² + (n−1)/r · ∂/∂r`, and one checks
-    `Δ(r^(2−n)) = (2−n)(1−n)r^(−n) + (n−1)(2−n)r^(−n) = 0`. -/
+    **Proof**: Case split on `n`, then:
+    - `n = 0`: Φ = 0, trivially harmonic.
+    - `n = 1`: Φ = (1/2)‖x‖ = (1/2)‖x‖¹, use `laplacian_norm_rpow_eq` with `p = 1`;
+      the factor `n + p − 2 = 1 + 1 − 2 = 0` kills the result.
+    - `n = 2`: Φ = −(1/2π) log‖x‖, use `laplacian_log_norm_eq`;
+      the factor `n − 2 = 0` kills the result.
+    - `n ≥ 3`: Φ = c‖x‖^(2−n), use `laplacian_norm_rpow_eq` with `p = 2 − n`;
+      the factor `n + p − 2 = n + (2−n) − 2 = 0` kills the result. -/
 lemma fundamentalSolution_harmonic_off_zero (x : ℝⁿ) (hx : x ≠ 0) :
     laplacian fundamentalSolution x = 0 := by
-  sorry
+  -- ContDiffAt for the components (from fundamentalSolution_contDiff_off_zero)
+  have hx_mem : x ∈ ({0} : Set ℝⁿ)ᶜ := Set.mem_compl_singleton_iff.mpr hx
+  have hcd : ContDiffAt ℝ 2 (fundamentalSolution (n := n)) x :=
+    (fundamentalSolution_contDiff_off_zero.contDiffAt
+      (IsOpen.mem_nhds isOpen_compl_singleton hx_mem)).of_le le_top
+  rcases Nat.lt_or_ge n 3 with hn3 | hn3
+  · interval_cases n
+    · -- n = 0: Φ = 0
+      have heq : (fundamentalSolution (n := 0) : EuclideanSpace ℝ (Fin 0) → ℝ) = fun _ => 0 :=
+        funext (by simp [fundamentalSolution])
+      simp [laplacian, heq]
+    · -- n = 1: Φ = (1/2) * ‖x‖ = (1/2) * ‖x‖^(1:ℝ)
+      have heq : (fundamentalSolution (n := 1) : EuclideanSpace ℝ (Fin 1) → ℝ) =
+          fun x => (1 / 2 : ℝ) * ‖x‖ ^ (1 : ℝ) :=
+        funext (by simp [fundamentalSolution, Real.rpow_one])
+      have hf : ContDiffAt ℝ 2 (fun x : EuclideanSpace ℝ (Fin 1) => ‖x‖ ^ (1 : ℝ)) x := by
+        simp_rw [Real.rpow_one]; exact (contDiffAt_norm ℝ hx).of_le le_top
+      simp only [show laplacian fundamentalSolution x =
+          laplacian (fun x : EuclideanSpace ℝ (Fin 1) => (1/2 : ℝ) * ‖x‖^(1:ℝ)) x from
+          congr_arg (· x) (congr_arg laplacian heq)]
+      rw [laplacian_const_mul (1/2) _ hf, laplacian_norm_rpow_eq 1 x hx]
+      norm_num
+    · -- n = 2: Φ = −(1/2π) * log ‖x‖
+      have heq : (fundamentalSolution (n := 2) : EuclideanSpace ℝ (Fin 2) → ℝ) =
+          fun x => -(1 / (2 * Real.pi)) * Real.log ‖x‖ :=
+        funext (by simp [fundamentalSolution])
+      have hf : ContDiffAt ℝ 2 (fun x : EuclideanSpace ℝ (Fin 2) => Real.log ‖x‖) x := by
+        exact ((contDiffAt_norm ℝ hx).log (norm_ne_zero_iff.mpr hx)).of_le le_top
+      simp only [show laplacian fundamentalSolution x =
+          laplacian (fun x : EuclideanSpace ℝ (Fin 2) => -(1/(2*Real.pi)) * Real.log ‖x‖) x from
+          congr_arg (· x) (congr_arg laplacian heq)]
+      rw [laplacian_const_mul _ _ hf, laplacian_log_norm_eq x hx]
+      norm_num
+  · -- n ≥ 3: Φ = c * ‖x‖^(2−n)
+    set c := (1 / ((n : ℝ) * ((n : ℝ) - 2) *
+        (volume (Metric.ball (0 : ℝⁿ) 1)).toReal))
+    have heq : (fundamentalSolution (n := n) : ℝⁿ → ℝ) = fun x => c * ‖x‖ ^ (2 - (n : ℝ)) :=
+      funext (by simp [fundamentalSolution, c, show n ≠ 0 from by omega,
+        show n ≠ 1 from by omega, show n ≠ 2 from by omega])
+    have hf : ContDiffAt ℝ 2 (fun x : ℝⁿ => ‖x‖ ^ (2 - (n : ℝ))) x := by
+      exact ((contDiffAt_norm ℝ hx).rpow_const_of_ne (norm_ne_zero_iff.mpr hx)).of_le le_top
+    simp only [show laplacian fundamentalSolution x =
+        laplacian (fun x : ℝⁿ => c * ‖x‖ ^ (2 - (n : ℝ))) x from
+        congr_arg (· x) (congr_arg laplacian heq)]
+    rw [laplacian_const_mul c _ hf, laplacian_norm_rpow_eq (2 - (n:ℝ)) x hx]
+    -- (2−n) * (n + (2−n) − 2) = (2−n) * 0 = 0
+    simp
 
 /-- The near-singularity integral is small:
     `∫_{B(x,ε)} |Φ(x−y)| dy → 0` as `ε → 0`.
