@@ -34,14 +34,7 @@ noncomputable def spatialGradient (u : ℝⁿ × ℝ → ℝ) (p : ℝⁿ × ℝ
 noncomputable def timeDerivative (u : ℝⁿ × ℝ → ℝ) (p : ℝⁿ × ℝ) : ℝ :=
   deriv (fun t => u (p.1, t)) p.2
 
-/-! ### Laplacian -/
-
-/-- The Laplacian `Δu(x) = ∑ᵢ ∂²u/∂xᵢ²`, used in Poisson/heat/wave equations. -/
-noncomputable def laplacian (u : ℝⁿ → ℝ) (x : ℝⁿ) : ℝ :=
-  let e := EuclideanSpace.basisFun (Fin n) ℝ
-  ∑ i : Fin n, iteratedFDeriv ℝ 2 u x ![e i, e i]
-
 /-- Spatial Laplacian of a spacetime function: `Δ_x u(x, t)`. -/
 noncomputable def spatialLaplacian (u : ℝⁿ × ℝ → ℝ) (p : ℝⁿ × ℝ) : ℝ :=
-  laplacian (fun x => u (x, p.2)) p.1
+  Laplacian.laplacian (fun x => u (x, p.2)) p.1
 
