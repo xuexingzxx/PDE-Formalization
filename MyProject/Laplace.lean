@@ -225,7 +225,10 @@ private lemma laplacian_const_mul (c : ℝ) (f : ℝⁿ → ℝ) (hf : ContDiffA
 private lemma hasFDerivAt_norm_rpow_of_ne (x : ℝⁿ) (hx : x ≠ 0) (p : ℝ) :
     HasFDerivAt (fun x : ℝⁿ => ‖x‖ ^ p)
       ((p * ‖x‖ ^ (p - 2)) • innerSL ℝ x) x := by
-  sorry
+  apply HasStrictFDerivAt.hasFDerivAt
+  convert (hasStrictFDerivAt_norm_sq x).rpow_const (p := p / 2) (by simp [hx]) using 0
+  simp_rw [← Real.rpow_natCast_mul (norm_nonneg _), ← Nat.cast_smul_eq_nsmul ℝ, smul_smul]
+  ring_nf
 
 /-- **Laplacian of a radial power**: for `x ≠ 0` and any `p : ℝ`,
     `Δ(‖·‖^p)(x) = p · (n + p − 2) · ‖x‖^(p−2)`.
