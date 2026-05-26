@@ -41,15 +41,11 @@ lemma isHarmonic_iff_isPoissonSolution_zero (U : Set ℝⁿ) (u : ℝⁿ → ℝ
 
 /-! ### Fundamental Solution -/
 
-/-- Volume of the unit ball in `ℝⁿ`, used in the normalization of `fundamentalSolution`. -/
-noncomputable def unitBallVol (n : ℕ) : ℝ :=
-  (volume (Metric.ball (0 : EuclideanSpace ℝ (Fin n)) 1)).toReal
-
 /-- The fundamental solution of the Laplacian (Evans §2.2.1).
 
     For `n ≥ 3`: `Φ(x) = 1 / (n(n−2)ωₙ) · |x|^(2−n)`
     For `n = 2`: `Φ(x) = −1/(2π) · log |x|`
-    where `ωₙ = unitBallVol` is the volume of the unit ball in `ℝⁿ`.
+    where `ωₙ` is the volume of the unit ball in `ℝⁿ`.
 
     `Φ` is defined for `x ≠ 0` and satisfies `−ΔΦ = δ₀` in the distributional sense. -/
 noncomputable def fundamentalSolution : ℝⁿ → ℝ :=
