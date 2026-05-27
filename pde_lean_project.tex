@@ -14,6 +14,48 @@
 \usepackage{datetime2}
 \usepackage{tcolorbox}
 \tcbuselibrary{skins, breakable}
+\usepackage[utf8]{inputenc}
+\usepackage{newunicodechar}
+\newunicodechar{ℝ}{\ensuremath{\mathbb{R}}}
+\newunicodechar{ℕ}{\ensuremath{\mathbb{N}}}
+\newunicodechar{ℤ}{\ensuremath{\mathbb{Z}}}
+\newunicodechar{α}{\ensuremath{\alpha}}
+\newunicodechar{β}{\ensuremath{\beta}}
+\newunicodechar{γ}{\ensuremath{\gamma}}
+\newunicodechar{δ}{\ensuremath{\delta}}
+\newunicodechar{ε}{\ensuremath{\varepsilon}}
+\newunicodechar{φ}{\ensuremath{\phi}}
+\newunicodechar{ω}{\ensuremath{\omega}}
+\newunicodechar{Ω}{\ensuremath{\Omega}}
+\newunicodechar{∀}{\ensuremath{\forall}}
+\newunicodechar{∃}{\ensuremath{\exists}}
+\newunicodechar{→}{\ensuremath{\to}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}
+\newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+\newunicodechar{∧}{\ensuremath{\wedge}}
+\newunicodechar{∨}{\ensuremath{\vee}}
+\newunicodechar{¬}{\ensuremath{\neg}}
+\newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{≤}{\ensuremath{\leq}}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{∈}{\ensuremath{\in}}
+\newunicodechar{∉}{\ensuremath{\notin}}
+\newunicodechar{⊆}{\ensuremath{\subseteq}}
+\newunicodechar{∣}{\ensuremath{\mid}}
+\newunicodechar{⟨}{\ensuremath{\langle}}
+\newunicodechar{⟩}{\ensuremath{\rangle}}
+\newunicodechar{∑}{\ensuremath{\sum}}
+\newunicodechar{∫}{\ensuremath{\int}}
+\newunicodechar{∞}{\ensuremath{\infty}}
+\newunicodechar{∂}{\ensuremath{\partial}}
+\newunicodechar{∇}{\ensuremath{\nabla}}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+\newunicodechar{⁻}{\ensuremath{^{-}}}
+\newunicodechar{⟫}{\ensuremath{\rangle\!\rangle}}
+\newunicodechar{⟪}{\ensuremath{\langle\!\langle}}
+\newunicodechar{‖}{\ensuremath{\|}}
+\newunicodechar{·}{\ensuremath{\cdot}}
+\newunicodechar{×}{\ensuremath{\times}}
 
 % ── Colors ────────────────────────────────────────────────────────────────────
 \definecolor{leanblue}{RGB}{41, 103, 178}
@@ -234,7 +276,7 @@ already exists in Mathlib}.
   $L^p$ space & \texttt{MeasureTheory.Lp} & (future) \\
   Lebesgue integral & \texttt{MeasureTheory.integral} & \texttt{Transport.lean} \\
   Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{Transport.lean} \\
-  Average integral & \texttt{MeasureTheory.average} (\texttt{⨍}) & \texttt{Laplace.lean} \\
+  Average integral & \texttt{MeasureTheory.average} (\texttt{average}) & \texttt{Laplace.lean} \\
   Hausdorff measure & \texttt{Measure.hausdorffMeasure} & \texttt{Laplace.lean} \\
   Volume of unit ball & \texttt{EuclideanSpace.volume\_ball} & \texttt{Laplace.lean} \\
   Open / closed ball & \texttt{Metric.ball}, \texttt{Metric.closedBall} & \texttt{Laplace.lean} \\
@@ -373,15 +415,22 @@ can unfold \texttt{charFlow} and \texttt{evansFormula} automatically in proofs.
 
 \begin{lstlisting}[caption={Initial condition and regularity (proved)}]
 theorem evansFormula_initial (b : Rn) (g : Rn -> R) (x : Rn) :
-    evansFormula b g (x, 0) = g x := by simp
+    evansFormula b g (x, 0) = g x
 
 theorem evansFormula_differentiable (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) :
-    Differentiable R (evansFormula b g) :=
-  hg.comp (charFlow b).differentiable
+    Differentiable R (evansFormula b g)
 \end{lstlisting}
 
-The two chain rule lemmas are the remaining technical core:
+\begin{proof}[Proof of \texttt{evansFormula\_initial}]
+By definition, $u(x,0) = g(\texttt{charFlow}\,b\,(x,0)) = g(x - 0 \cdot b) = g(x)$.
+\end{proof}
+
+\begin{proof}[Proof of \texttt{evansFormula\_differentiable}]
+Since $u = g \circ \texttt{charFlow}\,b$ and \texttt{charFlow} $b$ is a continuous
+linear map, it is differentiable. By the chain rule, the composition of two
+differentiable maps is differentiable. Hence $u$ is differentiable whenever $g$ is.
+\end{proof}
 
 \begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (sorry)}]
 lemma spatialGradient_evansFormula (b : Rn) (g : Rn -> R)
@@ -482,9 +531,13 @@ The integral uses Mathlib's interval integral \texttt{intervalIntegral}
 \begin{lstlisting}[caption={Initial condition: integral vanishes at t=0}]
 theorem duhamelFormula_initial (b : Rn) (g : Rn -> R)
     (f : Rn x R -> R) (x : Rn) :
-    duhamelFormula b g f (x, 0) = g x := by
-  simp [duhamelFormula, intervalIntegral.integral_same]
+    duhamelFormula b g f (x, 0) = g x
 \end{lstlisting}
+
+\begin{proof}
+At $t = 0$, the integral term $\int_0^0 f(x-(0-s)b, s)\,ds = 0$ since the
+integration domain is empty. The remaining term is $g(x - 0 \cdot b) = g(x)$.
+\end{proof}
 
 \begin{lstlisting}[caption={Existence (sorry)}]
 theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
@@ -535,9 +588,13 @@ def IsPoissonSolution (U : Set Rn) (f : Rn -> R) (u : Rn -> R) : Prop :=
 
 \begin{lstlisting}[caption={Laplace is Poisson with f=0 (proved)}]
 lemma isHarmonic_iff_isPoissonSolution_zero (U : Set Rn) (u : Rn -> R) :
-    IsHarmonic U u <-> IsPoissonSolution U 0 u := by
-  simp [IsHarmonic, IsPoissonSolution, neg_eq_zero]
+    IsHarmonic U u <-> IsPoissonSolution U 0 u
 \end{lstlisting}
+
+\begin{proof}
+$u$ is harmonic if and only if $\Delta u = 0$ on $U$, which holds if and only if
+$-\Delta u = 0 = f$ on $U$, i.e., $u$ solves Poisson's equation with $f = 0$.
+\end{proof}
 
 \subsection{§2.2.1 Fundamental Solution}
 
@@ -553,20 +610,20 @@ denotes the volume of the unit ball in $\mathbb{R}^n$:
 \]
 \end{definition}
 
-\begin{lstlisting}[caption={Fundamental solution (all dimensions, proved smooth off zero)}]
-noncomputable def fundamentalSolution : Rn -> R :=
-  fun x =>
-    if n = 0 then 0
-    else if n = 1 then (1/2) * norm x
-    else if n = 2 then -(1/(2*pi)) * log (norm x)
-    else (1 / (n * (n-2) * omega_n)) * norm x ^ (2 - n)
-
+\begin{lstlisting}[caption={Fundamental solution smooth off zero (proved)}]
 lemma fundamentalSolution_contDiff_off_zero :
     ContDiffOn R Top fundamentalSolution ({0} : Set Rn)^c
 \end{lstlisting}
 
-The smoothness proof handles all four cases via chain rule compositions.
-The volume $\omega_n$ is computed via \texttt{MeasureTheory.volume}.
+\begin{proof}
+We check each case separately. For $n = 0$, $\Phi = 0$ is trivially smooth.
+For $n = 1$, $\Phi(x) = \frac{1}{2}\|x\|$, which is smooth since $\|x\|$ is
+$C^\infty$ on $\mathbb{R} \setminus \{0\}$.
+For $n = 2$, $\Phi(x) = c\log\|x\|$. Since $\|x\| > 0$ for $x \neq 0$, and
+$\log$ is $C^\infty$ on $(0,\infty)$, the composition is $C^\infty$.
+For $n \geq 3$, $\Phi(x) = c\|x\|^{2-n}$. Since $\|x\| \neq 0$ for $x \neq 0$,
+and $t \mapsto t^{2-n}$ is $C^\infty$ on $(0,\infty)$, the composition is $C^\infty$.
+\end{proof}
 
 The \textbf{Newtonian potential} is the convolution of $\Phi$ with a source $f$:
 
@@ -602,32 +659,48 @@ lemma laplacian_const_mul (c : R) (f : Rn -> R) (hf : ContDiffAt R 2 f x) :
     Delta (fun y => c * f y) x = c * Delta f x
 \end{lstlisting}
 
+\begin{proof}
+Since $\Delta$ is a linear operator, $\Delta(c \cdot f) = c \cdot \Delta f$
+for any constant $c \in \mathbb{R}$ and $C^2$ function $f$.
+\end{proof}
+
 \begin{lstlisting}[caption={First derivative of radial power (proved)}]
 lemma hasFDerivAt_norm_rpow_of_ne (x : Rn) (hx : x != 0) (p : R) :
     HasFDerivAt (fun x => norm x ^ p)
       ((p * norm x ^ (p - 2)) * realInnerL x) x
 \end{lstlisting}
 
-Proof: write $\|x\|^p = (\|x\|^2)^{p/2}$ and apply the chain rule to
-\texttt{hasStrictFDerivAt\_norm\_sq}.
+\begin{proof}
+Write $\|x\|^p = (\|x\|^2)^{p/2}$. By the chain rule:
+\[
+  D(\|x\|^p)(x)(v) = \frac{p}{2}(\|x\|^2)^{p/2 - 1} \cdot D(\|x\|^2)(x)(v)
+  = \frac{p}{2}\|x\|^{p-2} \cdot 2\langle x, v\rangle = p\|x\|^{p-2}\langle x, v\rangle.
+\]
+Hence the Fréchet derivative at $x$ is the linear map $v \mapsto p\|x\|^{p-2}\langle x, v\rangle$.
+\end{proof}
 
 \begin{lstlisting}[caption={Laplacian of radial power (proved)}]
 lemma laplacian_norm_rpow_eq (p : R) (x : Rn) (hx : x != 0) :
     Delta (fun x => norm x ^ p) x = p * (n + p - 2) * norm x ^ (p - 2)
 \end{lstlisting}
 
-\textbf{Proof strategy:}
-\begin{enumerate}
-  \item Expand $\Delta$ via \texttt{laplacian\_eq\_iteratedFDeriv\_orthonormalBasis}.
-  \item Use \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} to identify the first derivative
-        in a neighborhood of $x$.
-  \item Differentiate the first derivative using \texttt{fderiv\_smul} and
-        \texttt{realInnerBiL.hasFDerivAt}.
-  \item Evaluate at basis vectors $e_i$: use $\langle e_i, e_i\rangle = 1$
-        (from \texttt{orthonormal\_iff\_ite}) and $\langle x, e_i\rangle$ values.
-  \item Sum over basis using Parseval: $\sum_i \langle x, e_i\rangle^2 = \|x\|^2$.
-  \item Simplify: when $p = 2-n$, the factor $p(n+p-2) = (2-n)\cdot 0 = 0$.
-\end{enumerate}
+\begin{proof}
+From \texttt{hasFDerivAt\_norm\_rpow\_of\_ne}, the gradient is
+$\nabla(\|x\|^p) = p\|x\|^{p-2}x$.
+Differentiating again using the product rule:
+\[
+  D^2(\|x\|^p)(x)(v,w) = p(p-2)\|x\|^{p-4}\langle x,v\rangle\langle x,w\rangle
+  + p\|x\|^{p-2}\langle v,w\rangle.
+\]
+Taking the trace over an orthonormal basis $\{e_i\}$:
+\begin{align*}
+  \Delta(\|x\|^p)(x)
+  &= \sum_i D^2(\|x\|^p)(x)(e_i, e_i) \\
+  &= p(p-2)\|x\|^{p-4}\underbrace{\sum_i\langle x,e_i\rangle^2}_{=\|x\|^2}
+   + p\|x\|^{p-2}\underbrace{\sum_i\langle e_i,e_i\rangle}_{=n} \\
+  &= p(p-2)\|x\|^{p-2} + pn\|x\|^{p-2} = p(n+p-2)\|x\|^{p-2}.
+\end{align*}
+\end{proof}
 
 \begin{lstlisting}[caption={Laplacian of log norm (sorry)}]
 lemma laplacian_log_norm_eq (x : Rn) (hx : x != 0) :
@@ -641,9 +714,26 @@ lemma fundamentalSolution_harmonic_off_zero (x : Rn) (hx : x != 0) :
     Delta fundamentalSolution x = 0
 \end{lstlisting}
 
-Proof by cases on $n$: for $n \geq 3$, use \texttt{laplacian\_norm\_rpow\_eq} with
-$p = 2-n$ and note $p(n+p-2) = 0$. For $n=2$, use \texttt{laplacian\_log\_norm\_eq}
-and note $n-2=0$. For $n=1$, use $p=1$ and note $1+1-2=0$. For $n=0$, $\Phi=0$.
+\begin{proof}
+We consider each dimension separately.
+
+\textbf{Case $n = 0$:} $\Phi \equiv 0$, so $\Delta\Phi = 0$ trivially.
+
+\textbf{Case $n = 1$:} $\Phi(x) = \frac{1}{2}\|x\|^1$.
+By \texttt{laplacian\_const\_mul} and \texttt{laplacian\_norm\_rpow\_eq} with $p = 1$:
+\[ \Delta\Phi = \frac{1}{2} \cdot 1 \cdot (1 + 1 - 2) \cdot \|x\|^{-1} = 0. \]
+
+\textbf{Case $n = 2$:} $\Phi(x) = -\frac{1}{2\pi}\log\|x\|$.
+By \texttt{laplacian\_const\_mul} and \texttt{laplacian\_log\_norm\_eq}:
+\[ \Delta\Phi = -\frac{1}{2\pi} \cdot (2-2) \cdot \|x\|^{-2} = 0. \]
+
+\textbf{Case $n \geq 3$:} $\Phi(x) = \frac{1}{n(n-2)\omega_n}\|x\|^{2-n}$.
+By \texttt{laplacian\_const\_mul} and \texttt{laplacian\_norm\_rpow\_eq} with $p = 2-n$:
+\[ \Delta\Phi = c \cdot (2-n) \cdot (n + (2-n) - 2) \cdot \|x\|^{-n}
+             = c \cdot (2-n) \cdot 0 = 0. \]
+
+In all cases $\Delta\Phi(x) = 0$ for $x \neq 0$.
+\end{proof}
 
 \subsection{§2.2.2 Mean Value Property}
 
