@@ -1,0 +1,842 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{datetime2}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% ── Colors ────────────────────────────────────────────────────────────────────
+\definecolor{leanblue}{RGB}{41, 103, 178}
+\definecolor{mathgreen}{RGB}{0, 128, 80}
+\definecolor{sorryred}{RGB}{180, 40, 40}
+\definecolor{codebg}{RGB}{245, 247, 250}
+\definecolor{titlegray}{RGB}{60, 60, 80}
+
+% ── Hyperref setup ────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=leanblue,
+  urlcolor=leanblue,
+  citecolor=mathgreen
+}
+
+% ── Lean listings style ───────────────────────────────────────────────────────
+\lstdefinelanguage{Lean4}{
+  keywords={def, theorem, lemma, structure, class, instance, import,
+            noncomputable, variable, section, end, namespace, open,
+            where, by, fun, let, have, show, exact, apply, intro,
+            rw, simp, calc, sorry, rfl, constructor, infer_instance},
+  keywordstyle=\color{leanblue}\bfseries,
+  comment=[l]{--},
+  commentstyle=\color{gray}\itshape,
+  string=[b]",
+  stringstyle=\color{mathgreen},
+  sensitive=true,
+  literate=
+    {∀}{{$\forall$}}1
+    {∃}{{$\exists$}}1
+    {→}{{$\to$}}1
+    {←}{{$\leftarrow$}}1
+    {↔}{{$\leftrightarrow$}}1
+    {∧}{{$\wedge$}}1
+    {∨}{{$\vee$}}1
+    {¬}{{$\neg$}}1
+    {≠}{{$\neq$}}1
+    {≤}{{$\leq$}}1
+    {≥}{{$\geq$}}1
+    {∈}{{$\in$}}1
+    {∉}{{$\notin$}}1
+    {⊆}{{$\subseteq$}}1
+    {ℝ}{{$\mathbb{R}$}}1
+    {ℕ}{{$\mathbb{N}$}}1
+    {ℤ}{{$\mathbb{Z}$}}1
+    {α}{{$\alpha$}}1
+    {β}{{$\beta$}}1
+    {ε}{{$\varepsilon$}}1
+    {δ}{{$\delta$}}1
+    {∣}{{$\mid$}}1
+    {•}{{$\bullet$}}1
+    {:=}{{$:=$}}2
+}
+
+\lstset{
+  language=Lean4,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{leanblue!40},
+  xleftmargin=10pt,
+  xrightmargin=10pt,
+  breaklines=true,
+  showstringspaces=false,
+  tabsize=2,
+  captionpos=b
+}
+
+% ── Theorem environments ──────────────────────────────────────────────────────
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{remark}{Remark}[section]
+\newtheorem{todo}{TODO}[section]
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+
+% ── Custom boxes ──────────────────────────────────────────────────────────────
+\newtcolorbox{leanbox}[1][]{
+  colback=codebg, colframe=leanblue!60,
+  fonttitle=\bfseries\small, title=Lean 4,
+  #1
+}
+
+\newtcolorbox{statusbox}[2][]{
+  colback=#2!8, colframe=#2!60,
+  fonttitle=\bfseries\small, title=Status,
+  #1
+}
+
+% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small PDE Formalization in Lean 4}
+\lhead{}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Title formatting ──────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{titlegray}}{\thesection}{1em}{}[\titlerule]
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{leanblue}}{\thesubsection}{1em}{}
+
+% ── Document ──────────────────────────────────────────────────────────────────
+\begin{document}
+
+% Title page
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\Huge\bfseries\color{titlegray} Formalizing PDE Theory\\[0.4em]
+   \large in Lean 4 and Mathlib}\\[3cm]
+  \begin{tcolorbox}[colback=leanblue!5, colframe=leanblue!40, width=0.85\textwidth]
+    \centering
+    \textbf{Main Objective}\\[0.5em]
+    Introduce and organize foundational PDE objects inside Mathlib
+    so that future formalization of major PDE theorems becomes possible.
+    The immediate goal is not to prove large theorems, but to build
+    the infrastructure.
+  \end{tcolorbox}
+  \vfill
+  {\small Based on: L.C. Evans, \textit{Partial Differential Equations}, AMS 1998}\\
+  {\small Reference: \href{https://leanprover-community.github.io/mathematics_in_lean/}
+    {Mathematics in Lean}, \href{https://leanprover-community.github.io/mathlib4_docs/}{Mathlib4 Docs}}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Project Overview}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{Philosophy}
+
+The project follows the principle:
+\begin{center}
+  \textit{Propositions are types. Proofs are terms.}
+\end{center}
+Every mathematical statement in Lean is a \texttt{Prop} (a type), and proving it
+means constructing a term of that type. The compiler \emph{is} the verifier ---
+if Lean accepts the code with no errors and no \texttt{sorry} warnings, the proof
+is formally and absolutely correct.
+
+\subsection{Golden Rule}
+
+\begin{tcolorbox}[colback=mathgreen!6, colframe=mathgreen!50]
+  Before defining any new mathematical object or concept,
+  \textbf{always check whether it already exists in Mathlib}.
+  Use \texttt{\#check}, \texttt{\#print}, and the
+  \href{https://leanprover-community.github.io/mathlib4_docs/}{online docs}.
+\end{tcolorbox}
+
+\subsection{Key Lean Syntax Reference}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  \textbf{Symbol} & \textbf{Meaning} & \textbf{Example} \\
+  \midrule
+  \texttt{:}  & ``has type'' & \texttt{easy : 2 + 2 = 4} \\
+  \texttt{:=} & ``is defined as'' & \texttt{:= rfl} \\
+  \texttt{=}  & mathematical equality (a \texttt{Prop}) & \texttt{2 + 2 = 4} \\
+  \texttt{def} & name a type or function & \texttt{def FermatLittleTheorem := \ldots} \\
+  \texttt{structure} & define a multi-field object & domains, norms, etc. \\
+  \texttt{class} & shared properties across types & normed spaces, etc. \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Proof Tools}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  \textbf{Tool} & \textbf{Role} & \textbf{Analogy} \\
+  \midrule
+  \texttt{by}   & enter tactic mode     & ``let me work step by step'' \\
+  \texttt{rfl}  & prove $a = a$         & definitional equality \\
+  \texttt{rw}   & rewrite with a lemma  & substitute equals for equals \\
+  \texttt{calc} & chain of equalities   & showing your work line by line \\
+  \texttt{sorry}& placeholder           & mark incomplete proofs \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Mathlib Dependency Tracking}
+% ══════════════════════════════════════════════════════════════════════════════
+
+This section tracks which objects are taken from Mathlib and which are newly
+defined in this project. The key principle is: \textbf{never redefine what
+already exists in Mathlib}.
+
+\subsection{Objects from Mathlib (used directly)}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  \textbf{Mathematical object} & \textbf{Mathlib name} & \textbf{Used in} \\
+  \midrule
+  $\mathbb{R}^n$ & \texttt{EuclideanSpace ℝ (Fin n)} & all files \\
+  $C^k$ functions & \texttt{ContDiff ℝ k} & all files \\
+  $C^k$ on a set & \texttt{ContDiffOn ℝ k} & \texttt{Laplace.lean} \\
+  Differentiability & \texttt{Differentiable ℝ} & \texttt{Transport.lean} \\
+  Differentiability at a point & \texttt{DifferentiableAt ℝ} & \texttt{Laplace.lean} \\
+  Fréchet derivative & \texttt{fderiv} & \texttt{Calculus.lean} \\
+  Gradient vector & \texttt{gradient} & \texttt{Calculus.lean} \\
+  Scalar derivative & \texttt{deriv} & \texttt{Calculus.lean} \\
+  Laplacian $\Delta$ & \texttt{Laplacian.laplacian} (\texttt{Δ}) & \texttt{Laplace.lean} \\
+  Inner product $\langle\cdot,\cdot\rangle$ & \texttt{inner} / \texttt{⟪·,·⟫\_ℝ} & \texttt{Transport.lean} \\
+  Inner product linear map & \texttt{innerSL ℝ} & \texttt{Laplace.lean} \\
+  Continuous linear map & \texttt{ContinuousLinearMap} (\texttt{→L[ℝ]}) & \texttt{Transport.lean} \\
+  $L^p$ space & \texttt{MeasureTheory.Lp} & (future) \\
+  Lebesgue integral & \texttt{MeasureTheory.integral} & \texttt{Transport.lean} \\
+  Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{Transport.lean} \\
+  Average integral & \texttt{MeasureTheory.average} (\texttt{⨍}) & \texttt{Laplace.lean} \\
+  Hausdorff measure & \texttt{Measure.hausdorffMeasure} & \texttt{Laplace.lean} \\
+  Volume of unit ball & \texttt{EuclideanSpace.volume\_ball} & \texttt{Laplace.lean} \\
+  Open / closed ball & \texttt{Metric.ball}, \texttt{Metric.closedBall} & \texttt{Laplace.lean} \\
+  Sphere & \texttt{Metric.sphere} & \texttt{Laplace.lean} \\
+  Frontier & \texttt{frontier} & \texttt{Laplace.lean} \\
+  Compact support & \texttt{HasCompactSupport} & \texttt{Laplace.lean} \\
+  Connected set & \texttt{IsConnected} & \texttt{Laplace.lean} \\
+  Bounded set & \texttt{Bornology.IsBounded} & \texttt{Laplace.lean} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Objects newly defined in this project}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  \textbf{Name} & \textbf{Description} & \textbf{File} \\
+  \midrule
+  \texttt{spatialGradient}          & $Du(x,t)$: gradient of $x'\mapsto u(x',t)$ at $x$  & \texttt{Calculus.lean} \\
+  \texttt{timeDerivative}           & $u_t(x,t)$: derivative of $t'\mapsto u(x,t')$ at $t$ & \texttt{Calculus.lean} \\
+  \texttt{spatialLaplacian}         & $\Delta_x u(x,t)$ for spacetime functions           & \texttt{Calculus.lean} \\
+  \texttt{IsTransportSolution}      & predicate: $u_t + b \cdot Du = 0$                   & \texttt{Transport.lean} \\
+  \texttt{IsInhomTransportSolution} & predicate: $u_t + b \cdot Du = f$                   & \texttt{Transport.lean} \\
+  \texttt{charFlow}                 & characteristic flow $(x,t) \mapsto x - tb$          & \texttt{Transport.lean} \\
+  \texttt{evansFormula}             & solution $u(x,t) = g(x-tb)$                         & \texttt{Transport.lean} \\
+  \texttt{duhamelFormula}           & Duhamel solution with integral term                 & \texttt{Transport.lean} \\
+  \texttt{IsHarmonic}               & predicate: $\Delta u = 0$ on $U$                    & \texttt{Laplace.lean} \\
+  \texttt{IsPoissonSolution}        & predicate: $-\Delta u = f$ on $U$                   & \texttt{Laplace.lean} \\
+  \texttt{fundamentalSolution}      & $\Phi(x)$, all dimensions                           & \texttt{Laplace.lean} \\
+  \texttt{newtonianPotential}       & $\int \Phi(x-y) f(y)\,dy$                           & \texttt{Laplace.lean} \\
+  \texttt{sphereMean}               & average of $u$ over $\partial B(x,r)$               & \texttt{Laplace.lean} \\
+  \texttt{ballMean}                 & average of $u$ over $B(x,r)$                        & \texttt{Laplace.lean} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Definitions removed after review}
+
+The following were initially defined but later found to be redundant:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  \textbf{Name} & \textbf{Reason removed} & \textbf{Replacement} \\
+  \midrule
+  \texttt{laplacian} & Duplicate of \texttt{Laplacian.laplacian} & \texttt{Δ} (Mathlib) \\
+  \texttt{unitBallVol} & Never used; Mathlib has \texttt{EuclideanSpace.volume\_ball} & \texttt{EuclideanSpace.volume\_ball} \\
+  \texttt{laplacian\_eq\_mathlib} & Only needed due to duplicate \texttt{laplacian} & deleted \\
+  \texttt{laplacian\_const\_mul} & Duplicate of \texttt{InnerProductSpace.laplacian\_smul} & Mathlib directly \\
+  \texttt{fderiv\_spacetime} & Bridge lemma no longer needed & deleted \\
+  \texttt{fderiv\_transport\_dir} & Bridge lemma no longer needed & deleted \\
+  \texttt{inner\_spatialGradient} & Bridge lemma no longer needed & deleted \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Objects not yet in Mathlib (future work)}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  \toprule
+  \textbf{Object} & \textbf{Needed for} \\
+  \midrule
+  Stokes theorem on spherical domains        & Green's identity, Poisson representation \\
+  Green's second identity on annular domains & Poisson representation formula \\
+  Harmonic function predicate                & (currently defined manually as \texttt{IsHarmonic}) \\
+  Weak derivative $D^\alpha u$               & Sobolev spaces \\
+  Sobolev space $W^{k,p}(\Omega)$            & Evans Ch.~5 \\
+  Sobolev norm $\|\cdot\|_{W^{k,p}}$         & Evans Ch.~5 \\
+  Trace operator $u|_{\partial\Omega}$       & boundary value problems \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Chapter 1: Transport Equation (Evans §2.1)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{§2.1.1 Homogeneous Case}
+
+The homogeneous transport equation is:
+\begin{equation}
+  u_t + b \cdot Du = 0 \quad \text{in } \mathbb{R}^n \times (0, \infty),
+  \label{eq:transport}
+\end{equation}
+with initial condition $u = g$ on $\mathbb{R}^n \times \{t = 0\}$.
+Here $b \in \mathbb{R}^n$ is a constant vector and $g : \mathbb{R}^n \to \mathbb{R}$
+is given initial data. By the method of characteristics, the unique $C^1$ solution is:
+\[
+  u(x, t) = g(x - tb).
+\]
+
+\subsubsection{Definitions}
+
+The PDE predicate uses \texttt{spatialGradient} and \texttt{timeDerivative}
+from \texttt{Calculus.lean}, matching Evans' notation directly:
+
+\begin{lstlisting}[caption={PDE predicate}]
+def IsTransportSolution (b : Rn) (u : Rn x R -> R) : Prop :=
+  ForAll p : Rn x R,
+    timeDerivative u p + <spatialGradient u p, b>_R = 0
+\end{lstlisting}
+
+The characteristic flow $(x,t) \mapsto x - tb$ is a continuous linear map.
+Two simp lemmas are registered so that Lean can compute with it automatically:
+
+\begin{lstlisting}[caption={Characteristic flow}]
+noncomputable def charFlow (b : Rn) : Rn x R ->L[R] Rn :=
+  ContinuousLinearMap.fst R Rn R -
+  (ContinuousLinearMap.snd R Rn R).smulRight b
+
+@[simp]
+lemma charFlow_apply (b x : Rn) (t : R) :
+    charFlow b (x, t) = x - t * b := by simp [charFlow]
+
+lemma charFlow_direction_zero (b : Rn) :
+    charFlow b (b, 1) = 0 := by simp
+\end{lstlisting}
+
+The solution formula is the composition of $g$ with the characteristic flow:
+
+\begin{lstlisting}[caption={Evans formula}]
+noncomputable def evansFormula (b : Rn) (g : Rn -> R) : Rn x R -> R :=
+  g o charFlow b
+
+@[simp]
+lemma evansFormula_apply (b : Rn) (g : Rn -> R) (x : Rn) (t : R) :
+    evansFormula b g (x, t) = g (x - t * b) := by simp [evansFormula]
+\end{lstlisting}
+
+The \texttt{@[simp]} attribute registers these as rewrite rules, so \texttt{simp}
+can unfold \texttt{charFlow} and \texttt{evansFormula} automatically in proofs.
+
+\subsubsection{Results}
+
+\begin{lstlisting}[caption={Initial condition and regularity (proved)}]
+theorem evansFormula_initial (b : Rn) (g : Rn -> R) (x : Rn) :
+    evansFormula b g (x, 0) = g x := by simp
+
+theorem evansFormula_differentiable (b : Rn) (g : Rn -> R)
+    (hg : Differentiable R g) :
+    Differentiable R (evansFormula b g) :=
+  hg.comp (charFlow b).differentiable
+\end{lstlisting}
+
+The two chain rule lemmas are the remaining technical core:
+
+\begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (sorry)}]
+lemma spatialGradient_evansFormula (b : Rn) (g : Rn -> R)
+    (hg : Differentiable R g) (p : Rn x R) :
+    spatialGradient (evansFormula b g) p = gradient g (charFlow b p) := by
+  simp only [spatialGradient, evansFormula, Function.comp, charFlow_apply]
+  sorry
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Time derivative equals minus inner product with b (sorry)}]
+lemma timeDerivative_evansFormula (b : Rn) (g : Rn -> R)
+    (hg : Differentiable R g) (p : Rn x R) :
+    timeDerivative (evansFormula b g) p = -<gradient g (charFlow b p), b>_R := by
+  simp only [timeDerivative, evansFormula, Function.comp, charFlow_apply]
+  sorry
+\end{lstlisting}
+
+Both follow from the chain rule: $x \mapsto x - tb$ has derivative $\text{id}$,
+so the spatial gradient of $g(x-tb)$ is just $\nabla g(x-tb)$; and
+$\partial_t[g(x-tb)] = \nabla g(x-tb) \cdot (-b) = -\langle \nabla g(x-tb), b \rangle$.
+Once these are proved, the existence theorem closes by \texttt{simp}:
+
+\begin{lstlisting}[caption={Existence (proved modulo two chain rule lemmas)}]
+theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
+    (hg : Differentiable R g) :
+    IsTransportSolution b (evansFormula b g) := by
+  intro p
+  rw [timeDerivative_evansFormula b g hg p,
+      spatialGradient_evansFormula b g hg p]
+  simp [real_inner_comm]
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Uniqueness via characteristics (sorry)}]
+theorem evansFormula_unique (b : Rn) (g : Rn -> R)
+    (u : Rn x R -> R)
+    (hu_pde  : IsTransportSolution b u)
+    (hu_init : ForAll x : Rn, u (x, 0) = g x)
+    (hu_diff : Differentiable R u) :
+    u = evansFormula b g := by sorry
+\end{lstlisting}
+
+Proof sketch for uniqueness: let $w = u - \texttt{evansFormula}\,b\,g$.
+For fixed $(x,t)$, define $z(s) = w(x+sb,\, t+s)$. Then
+$z'(s) = \text{timeDerivative}\,w + \langle \text{spatialGradient}\,w, b \rangle = 0$,
+so $z$ is constant. Since $z(-t) = w(x-tb, 0) = 0$, we get $w \equiv 0$.
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{evansFormula\_initial}              & $u(x,0) = g(x)$                        & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{evansFormula\_differentiable}       & regularity from $g$                     & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{spatialGradient\_evansFormula}      & chain rule for spatial gradient         & \textcolor{sorryred}{sorry} \\
+  \texttt{timeDerivative\_evansFormula}       & chain rule for time derivative          & \textcolor{sorryred}{sorry} \\
+  \texttt{evansFormula\_solves\_transport}    & existence (modulo two lemmas)           & \textcolor{orange}{partial} \\
+  \texttt{evansFormula\_unique}               & uniqueness via characteristics          & \textcolor{sorryred}{sorry} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{§2.1.2 Inhomogeneous Case}
+
+The inhomogeneous transport equation introduces a source term $f$:
+\begin{equation}
+  u_t + b \cdot Du = f \quad \text{in } \mathbb{R}^n \times (0, \infty),
+  \label{eq:inhomog_transport}
+\end{equation}
+with initial condition $u = g$ on $\mathbb{R}^n \times \{t = 0\}$.
+By Duhamel's principle, the solution is:
+\begin{equation}
+  u(x, t) = g(x - tb) + \int_0^t f(x - (t-s)b,\ s)\, ds.
+  \label{eq:duhamel}
+\end{equation}
+The first term solves the homogeneous equation; the integral corrects for the source.
+
+\subsubsection{Definitions}
+
+\begin{lstlisting}[caption={Inhomogeneous PDE predicate}]
+def IsInhomTransportSolution (b : Rn) (f : Rn x R -> R)
+    (u : Rn x R -> R) : Prop :=
+  ForAll p : Rn x R,
+    timeDerivative u p + <spatialGradient u p, b>_R = f p
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Duhamel's formula}]
+noncomputable def duhamelFormula (b : Rn) (g : Rn -> R)
+    (f : Rn x R -> R) : Rn x R -> R :=
+  fun p => g (p.1 - p.2 * b) +
+           integral s in 0..p.2, f (p.1 - (p.2 - s) * b, s)
+\end{lstlisting}
+
+The integral uses Mathlib's interval integral \texttt{intervalIntegral}
+(\texttt{∫ s in a..b, ...}).
+
+\subsubsection{Results}
+
+\begin{lstlisting}[caption={Initial condition: integral vanishes at t=0}]
+theorem duhamelFormula_initial (b : Rn) (g : Rn -> R)
+    (f : Rn x R -> R) (x : Rn) :
+    duhamelFormula b g f (x, 0) = g x := by
+  simp [duhamelFormula, intervalIntegral.integral_same]
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Existence (sorry)}]
+theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
+    (f : Rn x R -> R) (hg : Differentiable R g)
+    (hf : ContDiff R 1 f) :
+    IsInhomTransportSolution b f (duhamelFormula b g f) := by
+  sorry
+\end{lstlisting}
+
+\textbf{Proof sketch:} Split $u = v + w$ where $v(x,t) = g(x-tb)$ and
+$w(x,t) = \int_0^t f(x-(t-s)b, s)\,ds$. We know $v_t + b \cdot Dv = 0$.
+For $w$, the Leibniz rule gives a boundary term $f(x,t)$ from the fundamental
+theorem of calculus, while $\partial_t[f(x-(t-s)b,s)] = -b \cdot \nabla f$
+cancels with the spatial part $b \cdot Dw$. Hence $w_t + b \cdot Dw = f$.
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{duhamelFormula\_initial} & $u(x,0) = g(x)$        & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{duhamelFormula\_solves}  & existence via Duhamel  & \textcolor{sorryred}{sorry} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Chapter 2: Laplace and Poisson Equations (Evans §2.2)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{The PDEs}
+
+The two equations covered in this section are:
+\begin{align}
+  -\Delta u &= 0 \quad \text{in } U \subseteq \mathbb{R}^n \quad \text{(Laplace)} \\
+  -\Delta u &= f \quad \text{in } U \subseteq \mathbb{R}^n \quad \text{(Poisson)}
+\end{align}
+where $U$ is an open set. A solution to Laplace's equation is called \textbf{harmonic}.
+The Laplacian $\Delta$ is Mathlib's \texttt{Laplacian.laplacian}, opened as \texttt{Δ}.
+
+\begin{lstlisting}[caption={PDE predicates}]
+def IsHarmonic (U : Set Rn) (u : Rn -> R) : Prop :=
+  ForAll x in U, Delta u x = 0
+
+def IsPoissonSolution (U : Set Rn) (f : Rn -> R) (u : Rn -> R) : Prop :=
+  ForAll x in U, -Delta u x = f x
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Laplace is Poisson with f=0 (proved)}]
+lemma isHarmonic_iff_isPoissonSolution_zero (U : Set Rn) (u : Rn -> R) :
+    IsHarmonic U u <-> IsPoissonSolution U 0 u := by
+  simp [IsHarmonic, IsPoissonSolution, neg_eq_zero]
+\end{lstlisting}
+
+\subsection{§2.2.1 Fundamental Solution}
+
+\begin{definition}
+The \textbf{fundamental solution} $\Phi : \mathbb{R}^n \setminus \{0\} \to \mathbb{R}$
+satisfies $-\Delta \Phi = \delta_0$ in the distributional sense, where $\omega_n$
+denotes the volume of the unit ball in $\mathbb{R}^n$:
+\[
+  \Phi(x) = \begin{cases}
+    \dfrac{1}{n(n-2)\omega_n} |x|^{2-n} & n \geq 3 \\[6pt]
+    -\dfrac{1}{2\pi} \log|x| & n = 2
+  \end{cases}
+\]
+\end{definition}
+
+\begin{lstlisting}[caption={Fundamental solution (all dimensions, proved smooth off zero)}]
+noncomputable def fundamentalSolution : Rn -> R :=
+  fun x =>
+    if n = 0 then 0
+    else if n = 1 then (1/2) * norm x
+    else if n = 2 then -(1/(2*pi)) * log (norm x)
+    else (1 / (n * (n-2) * omega_n)) * norm x ^ (2 - n)
+
+lemma fundamentalSolution_contDiff_off_zero :
+    ContDiffOn R Top fundamentalSolution ({0} : Set Rn)^c
+\end{lstlisting}
+
+The smoothness proof handles all four cases via chain rule compositions.
+The volume $\omega_n$ is computed via \texttt{MeasureTheory.volume}.
+
+The \textbf{Newtonian potential} is the convolution of $\Phi$ with a source $f$:
+
+\begin{lstlisting}[caption={Newtonian potential}]
+noncomputable def newtonianPotential (f : Rn -> R) : Rn -> R :=
+  fun x => integral y, fundamentalSolution (x - y) * f y
+\end{lstlisting}
+
+\subsection{§2.2.1 Harmonicity of the Fundamental Solution}
+
+This subsection contains the key analytic computation: proving $\Delta\Phi = 0$
+away from the origin. The proof requires three helper lemmas.
+
+\subsubsection{Helper definitions}
+
+To avoid type ambiguity with Mathlib's conjugate-linear \texttt{innerSL}, we
+introduce wrapper definitions with unambiguous types:
+
+\begin{lstlisting}[caption={Real inner product CLMs (avoiding conjugate-linear ambiguity)}]
+noncomputable def realInnerBiL : Rn ->L[R] Rn ->L[R] R :=
+  (innerSL R : Rn ->L[R] Rn ->L[R] R)
+
+noncomputable def realInnerL (x : Rn) : Rn ->L[R] R :=
+  realInnerBiL x
+
+lemma realInnerL_apply (x y : Rn) : realInnerL x y = <x, y>_R
+\end{lstlisting}
+
+\subsubsection{Helper lemmas (all proved)}
+
+\begin{lstlisting}[caption={Scalar linearity of Laplacian (proved)}]
+lemma laplacian_const_mul (c : R) (f : Rn -> R) (hf : ContDiffAt R 2 f x) :
+    Delta (fun y => c * f y) x = c * Delta f x
+\end{lstlisting}
+
+\begin{lstlisting}[caption={First derivative of radial power (proved)}]
+lemma hasFDerivAt_norm_rpow_of_ne (x : Rn) (hx : x != 0) (p : R) :
+    HasFDerivAt (fun x => norm x ^ p)
+      ((p * norm x ^ (p - 2)) * realInnerL x) x
+\end{lstlisting}
+
+Proof: write $\|x\|^p = (\|x\|^2)^{p/2}$ and apply the chain rule to
+\texttt{hasStrictFDerivAt\_norm\_sq}.
+
+\begin{lstlisting}[caption={Laplacian of radial power (proved)}]
+lemma laplacian_norm_rpow_eq (p : R) (x : Rn) (hx : x != 0) :
+    Delta (fun x => norm x ^ p) x = p * (n + p - 2) * norm x ^ (p - 2)
+\end{lstlisting}
+
+\textbf{Proof strategy:}
+\begin{enumerate}
+  \item Expand $\Delta$ via \texttt{laplacian\_eq\_iteratedFDeriv\_orthonormalBasis}.
+  \item Use \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} to identify the first derivative
+        in a neighborhood of $x$.
+  \item Differentiate the first derivative using \texttt{fderiv\_smul} and
+        \texttt{realInnerBiL.hasFDerivAt}.
+  \item Evaluate at basis vectors $e_i$: use $\langle e_i, e_i\rangle = 1$
+        (from \texttt{orthonormal\_iff\_ite}) and $\langle x, e_i\rangle$ values.
+  \item Sum over basis using Parseval: $\sum_i \langle x, e_i\rangle^2 = \|x\|^2$.
+  \item Simplify: when $p = 2-n$, the factor $p(n+p-2) = (2-n)\cdot 0 = 0$.
+\end{enumerate}
+
+\begin{lstlisting}[caption={Laplacian of log norm (sorry)}]
+lemma laplacian_log_norm_eq (x : Rn) (hx : x != 0) :
+    Delta (fun x => log (norm x)) x = (n - 2) * norm x ^ (-2)
+\end{lstlisting}
+
+\subsubsection{Main result}
+
+\begin{lstlisting}[caption={Fundamental solution is harmonic off zero (proved modulo log lemma)}]
+lemma fundamentalSolution_harmonic_off_zero (x : Rn) (hx : x != 0) :
+    Delta fundamentalSolution x = 0
+\end{lstlisting}
+
+Proof by cases on $n$: for $n \geq 3$, use \texttt{laplacian\_norm\_rpow\_eq} with
+$p = 2-n$ and note $p(n+p-2) = 0$. For $n=2$, use \texttt{laplacian\_log\_norm\_eq}
+and note $n-2=0$. For $n=1$, use $p=1$ and note $1+1-2=0$. For $n=0$, $\Phi=0$.
+
+\subsection{§2.2.2 Mean Value Property}
+
+\begin{lstlisting}[caption={Mean value property (sorry)}]
+theorem harmonic_sphereMeanValue ... : u x = sphereMean u x r := by sorry
+theorem harmonic_ballMeanValue   ... : u x = ballMean u x r  := by sorry
+theorem meanValue_implies_harmonic ... : IsHarmonic U u       := by sorry
+\end{lstlisting}
+
+Proof sketch: apply Green's identity to $u$ and $\Phi(\cdot - x)$ on
+$B(x,r) \setminus B(x,\varepsilon)$, then let $\varepsilon \to 0$.
+
+\subsection{§2.2.3 Maximum Principles and Regularity}
+
+\begin{lstlisting}[caption={Maximum principles and regularity (all sorry)}]
+theorem harmonic_weakMax   ... : ForAll x in U, u x <= sSup (u '' frontier U)
+theorem harmonic_strongMax ... : ForAll x in U, u x = u x0
+theorem harmonic_smooth    ... : ContDiffOn R Top u U
+\end{lstlisting}
+
+\subsection{§2.2.4 Representation Formula}
+
+The proof of the representation formula requires the following intermediate lemmas,
+whose status reflects the current state of Mathlib:
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Lemma} & \textbf{Blocker} & \textbf{Status} \\
+  \midrule
+  \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
+    & $L^1$ estimate near singularity & \textcolor{sorryred}{sorry} \\
+  \texttt{green\_identity\_annulus}
+    & Stokes theorem on spherical domains & \textcolor{sorryred}{sorry} \\
+  \texttt{fundamentalSolution\_totalFlux}
+    & explicit sphere integral & \textcolor{sorryred}{sorry} \\
+  \texttt{green\_boundary\_tendsto\_f}
+    & depends on Green's identity & \textcolor{sorryred}{sorry} \\
+  \texttt{newtonianPotential\_solves\_poisson}
+    & depends on all above & \textcolor{sorryred}{sorry} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The primary blocker is \texttt{green\_identity\_annulus}: Mathlib's divergence theorem
+currently covers only rectangular boxes, not spherical domains.
+
+\subsection{Status Summary}
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{isHarmonic\_iff\_isPoissonSolution\_zero} & Laplace is Poisson with $f=0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fundamentalSolution\_contDiff\_off\_zero} & $\Phi \in C^\infty(\mathbb{R}^n \setminus \{0\})$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_const\_mul}     & linearity of $\Delta$              & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p)$ formula        & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_log\_norm\_eq}  & $\Delta(\log\|x\|) = (n-2)\|x\|^{-2}$ & \textcolor{sorryred}{sorry} \\
+  \texttt{fundamentalSolution\_harmonic\_off\_zero} & $\Delta\Phi = 0$ off origin & \textcolor{orange}{partial} \\
+  \texttt{harmonic\_sphereMeanValue} & mean value on spheres              & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_ballMeanValue}   & mean value on balls                & \textcolor{sorryred}{sorry} \\
+  \texttt{meanValue\_implies\_harmonic} & converse of MVP                & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_weakMax}         & weak maximum principle             & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_strongMax}       & strong maximum principle           & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$    & \textcolor{sorryred}{sorry} \\
+  \texttt{newtonianPotential\_solves\_poisson} & representation formula   & \textcolor{sorryred}{sorry} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Calculus Utilities: \texttt{Calculus.lean}}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{Motivation}
+
+\texttt{Calculus.lean} provides a shared library of spacetime calculus definitions
+for functions $u : \mathbb{R}^n \times \mathbb{R} \to \mathbb{R}$, matching Evans'
+notation throughout the project.
+
+\subsection{Definitions}
+
+\subsubsection{Spatial Gradient}
+
+\begin{definition}
+The \textbf{spatial gradient} $Du(x,t)$ is the gradient of the map
+$x' \mapsto u(x', t)$ at $x$, viewed as a vector in $\mathbb{R}^n$.
+\end{definition}
+
+\begin{lstlisting}[caption={Spatial gradient in Lean}]
+noncomputable def spatialGradient (u : Rn x R -> R) (p : Rn x R) : Rn :=
+  gradient (fun x => u (x, p.2)) p.1
+\end{lstlisting}
+
+In Mathlib, \texttt{gradient f x} is defined for $f : F \to \mathbb{R}$ on an
+inner product space $F$, and returns the unique vector $\nabla f(x) \in F$
+satisfying $\langle \nabla f(x), v \rangle = \text{fderiv}_{\mathbb{R}}\, f\, x\, v$
+for all $v$. Note: \texttt{gradient} does \emph{not} take $\mathbb{R}$ as an
+explicit argument --- the field is inferred automatically from the function's type.
+
+\subsubsection{Time Derivative}
+
+\begin{definition}
+The \textbf{time derivative} $u_t(x,t)$ is the derivative of the map
+$t' \mapsto u(x, t')$ at $t$.
+\end{definition}
+
+\begin{lstlisting}[caption={Time derivative in Lean}]
+noncomputable def timeDerivative (u : Rn x R -> R) (p : Rn x R) : R :=
+  deriv (fun t => u (p.1, t)) p.2
+\end{lstlisting}
+
+Here \texttt{deriv} is Mathlib's scalar derivative for functions $\mathbb{R} \to \mathbb{R}$.
+When $u$ is not differentiable, \texttt{deriv} returns $0$ by convention,
+so no differentiability hypothesis is needed in the definition itself.
+
+\subsubsection{Laplacian}
+
+The Laplacian $\Delta u$ is \textbf{not} redefined in \texttt{Calculus.lean}.
+Instead, \texttt{Laplace.lean} uses Mathlib's \texttt{Laplacian.laplacian} directly
+(opened as \texttt{Δ}). The \texttt{spatialLaplacian} wrapper is provided for
+spacetime functions:
+
+\begin{lstlisting}[caption={Spatial Laplacian for spacetime functions}]
+noncomputable def spatialLaplacian (u : Rn x R -> R) (p : Rn x R) : R :=
+  Laplacian.laplacian (fun x => u (x, p.2)) p.1
+\end{lstlisting}
+
+\subsection{Status Summary}
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Definition} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{spatialGradient}  & $Du(x,t)$ as a vector in $\mathbb{R}^n$          & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{timeDerivative}   & $u_t(x,t)$ as a scalar                            & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{spatialLaplacian} & $\Delta_x u(x,t)$ wrapping \texttt{Δ}             & \textcolor{mathgreen}{\checkmark} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Upcoming: Sobolev Spaces (Evans Ch.~5)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+This is the \textbf{main target} of the project. All of modern PDE theory is
+phrased in the language of Sobolev spaces, and Mathlib has almost nothing here.
+
+\subsection{Key definitions to formalize}
+
+\begin{enumerate}
+  \item \textbf{Weak derivative} (Evans Definition 5.1):
+    $v \in L^1_{\mathrm{loc}}(\Omega)$ is the $\alpha$-th weak derivative of
+    $u \in L^1_{\mathrm{loc}}(\Omega)$ if
+    \[
+      \int_\Omega u\, D^\alpha \phi \, dx
+      = (-1)^{|\alpha|} \int_\Omega v\, \phi \, dx
+      \quad \forall \phi \in C^\infty_c(\Omega).
+    \]
+
+  \item \textbf{Sobolev space} $W^{k,p}(\Omega)$:
+    \[
+      W^{k,p}(\Omega) = \{ u \in L^p(\Omega) :
+      D^\alpha u \in L^p(\Omega) \text{ for all } |\alpha| \leq k \}
+    \]
+    with norm $\|u\|_{W^{k,p}} = \left(\sum_{|\alpha|\leq k}
+    \|D^\alpha u\|_{L^p}^p\right)^{1/p}$.
+
+  \item \textbf{Sobolev embedding theorem.}
+  \item \textbf{Trace theorem.}
+\end{enumerate}
+
+\begin{todo}
+  Check Mathlib for any existing infrastructure around
+  \texttt{MeasureTheory.Lp} that could serve as a foundation
+  for $W^{k,p}$.
+\end{todo}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Resources}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\begin{itemize}
+  \item \href{https://leanprover-community.github.io/mathematics_in_lean/}
+    {Mathematics in Lean} — primary tutorial
+  \item \href{https://leanprover-community.github.io/mathlib4_docs/}
+    {Mathlib4 Documentation} — search before defining
+  \item \href{https://adam.math.hhu.de}{Natural Number Game} — interactive basics
+  \item L.C. Evans, \textit{Partial Differential Equations}, AMS Graduate Studies
+    in Mathematics, Vol.~19, 1998
+\end{itemize}
+
+\end{document}
