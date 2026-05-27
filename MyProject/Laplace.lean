@@ -273,7 +273,82 @@ private lemma laplacian_norm_rpow_eq (p : ℝ) (x : ℝⁿ) (hx : x ≠ 0) :
 /-- **Laplacian of `log ‖·‖`**: `Δ(log ‖·‖)(x) = (n − 2) · ‖x‖^(−2)`. -/
 private lemma laplacian_log_norm_eq (x : ℝⁿ) (hx : x ≠ 0) :
     Δ (fun x : ℝⁿ => Real.log ‖x‖) x = ((n : ℝ) - 2) * ‖x‖ ^ (-(2 : ℝ)) := by
-  sorry
+  let e := EuclideanSpace.basisFun (Fin n) ℝ
+  rw [show Δ (fun y : ℝⁿ => Real.log ‖y‖) x =
+        ∑ i, iteratedFDeriv ℝ 2 (fun y : ℝⁿ => Real.log ‖y‖) x ![e i, e i] from
+      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis (fun y : ℝⁿ => Real.log ‖y‖) e) x]
+  simp_rw [iteratedFDeriv_two_apply]
+  -- fderiv of log ‖·‖ near x is ‖y‖^(-2) • realInnerL y
+  have hfderiv : ∀ᶠ y in 𝓝 x,
+      fderiv ℝ (fun y : ℝⁿ => Real.log ‖y‖) y = ‖y‖ ^ (-(2 : ℝ)) • realInnerL y := by
+    filter_upwards [isOpen_compl_singleton.mem_nhds (Set.mem_compl_singleton_iff.mpr hx)]
+    intro y hy
+    have hyne : y ≠ 0 := Set.mem_compl_singleton_iff.mp hy
+    have hynorm : 0 < ‖y‖ := norm_pos_iff.mpr hyne
+    have hfn : HasFDerivAt (fun z : ℝⁿ => ‖z‖) (‖y‖ ^ (-(1 : ℝ)) • realInnerL y) y := by
+      have := hasFDerivAt_norm_rpow_of_ne y hyne 1
+      simp only [one_mul, show (1 : ℝ) - 2 = -(1 : ℝ) by norm_num, Real.rpow_one] at this
+      exact this
+    have hlog := hfn.log hynorm.ne'
+    convert hlog.fderiv using 1
+    rw [smul_smul]
+    congr 1
+    rw [show ‖y‖⁻¹ = ‖y‖ ^ (-(1 : ℝ)) by
+          rw [Real.rpow_neg (norm_nonneg y), Real.rpow_one],
+        ← Real.rpow_add hynorm]
+    norm_num
+  -- per-basis second derivative
+  have hderiv2 : ∀ i : Fin n,
+      fderiv ℝ (fderiv ℝ (fun y : ℝⁿ => Real.log ‖y‖)) x (e i) (e i) =
+      -(2 : ℝ) * ‖x‖ ^ (-(4 : ℝ)) * ⟪x, e i⟫_ℝ ^ 2 + ‖x‖ ^ (-(2 : ℝ)) := by
+    intro i
+    have hfe : fderiv ℝ (fderiv ℝ (fun y : ℝⁿ => Real.log ‖y‖)) x =
+        fderiv ℝ (fun y : ℝⁿ => ‖y‖ ^ (-(2 : ℝ)) • realInnerL y) x :=
+      Filter.EventuallyEq.fderiv_eq hfderiv
+    rw [hfe]
+    have hc := hasFDerivAt_norm_rpow_of_ne x hx (-(2 : ℝ))
+    have hcd : DifferentiableAt ℝ (fun y : ℝⁿ => ‖y‖ ^ (-(2 : ℝ))) x := hc.differentiableAt
+    have hgd : DifferentiableAt ℝ (fun y : ℝⁿ => realInnerL y) x :=
+      realInnerBiL.hasFDerivAt.differentiableAt
+    have hconv : (fun y : ℝⁿ => ‖y‖ ^ (-(2 : ℝ)) • realInnerL y) =
+        (fun y : ℝⁿ => ‖y‖ ^ (-(2 : ℝ))) • (fun y : ℝⁿ => realInnerL y) :=
+      funext fun y => rfl
+    rw [show fderiv ℝ (fun y : ℝⁿ => ‖y‖ ^ (-(2 : ℝ)) • realInnerL y) x =
+        fderiv ℝ ((fun y : ℝⁿ => ‖y‖ ^ (-(2 : ℝ))) • fun y : ℝⁿ => realInnerL y) x from
+      congr_arg (fderiv ℝ · x) hconv]
+    rw [fderiv_smul hcd hgd]
+    have hgfderiv : fderiv ℝ (fun y : ℝⁿ => realInnerL y) x = realInnerBiL :=
+      realInnerBiL.hasFDerivAt.fderiv
+    simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply,
+              ContinuousLinearMap.smulRight_apply, hc.fderiv, hgfderiv]
+    have hei : realInnerBiL (e i) (e i) = 1 := by
+      have h := (orthonormal_iff_ite (𝕜 := ℝ)).mp
+        (EuclideanSpace.basisFun (Fin n) ℝ).orthonormal i i
+      simp at h
+      have heq : realInnerBiL (e i) (e i) = ⟪e i, e i⟫_ℝ := realInnerL_apply (e i) (e i)
+      rw [heq]; simp only [e, EuclideanSpace.basisFun_apply]; exact h
+    have hxi : realInnerL x (e i) = ⟪x, e i⟫_ℝ := realInnerL_apply x (e i)
+    rw [hei, hxi]
+    simp only [smul_eq_mul, mul_one]
+    ring
+  simp_rw [show ∀ i : Fin n, ![e i, e i] 0 = e i from fun i => rfl,
+           show ∀ i : Fin n, ![e i, e i] 1 = e i from fun i => rfl]
+  simp_rw [hderiv2]
+  have hxpos : 0 < ‖x‖ := norm_pos_iff.mpr hx
+  have hparseval := e.sum_sq_inner_left x
+  have hcombine : ‖x‖ ^ (-(4 : ℝ)) * ‖x‖ ^ 2 = ‖x‖ ^ (-(2 : ℝ)) := by
+    rw [← Real.rpow_natCast ‖x‖ 2, ← Real.rpow_add hxpos]; congr 1; ring
+  rw [Finset.sum_add_distrib]
+  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+  simp_rw [← Finset.mul_sum]
+  conv_lhs =>
+    rw [show ∑ i : Fin n, ⟪x, e i⟫_ℝ ^ 2 = ‖x‖ ^ 2 from hparseval]
+  conv_lhs =>
+    rw [show -(2 : ℝ) * ‖x‖ ^ (-(4 : ℝ)) * ‖x‖ ^ 2 = -(2 : ℝ) * ‖x‖ ^ (-(2 : ℝ)) from by
+      rw [show -(2 : ℝ) * ‖x‖ ^ (-(4 : ℝ)) * ‖x‖ ^ 2 =
+          -(2 : ℝ) * (‖x‖ ^ (-(4 : ℝ)) * ‖x‖ ^ 2) from by ring]
+      rw [hcombine]]
+  ring
 
 /-- **Key Lemma**: `fundamentalSolution` is harmonic on `ℝⁿ \ {0}`. -/
 lemma fundamentalSolution_harmonic_off_zero (x : ℝⁿ) (hx : x ≠ 0) :
