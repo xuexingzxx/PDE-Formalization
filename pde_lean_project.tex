@@ -337,17 +337,35 @@ The following were initially defined but later found to be redundant:
 \subsection{Objects not yet in Mathlib (future work)}
 
 \begin{center}
-\begin{tabular}{@{}ll@{}}
+\begin{tabular}{@{}lll@{}}
   \toprule
-  \textbf{Object} & \textbf{Needed for} \\
+  \textbf{Object} & \textbf{Needed for} & \textbf{Notes} \\
   \midrule
-  Stokes theorem on spherical domains        & Green's identity, Poisson representation \\
-  Green's second identity on annular domains & Poisson representation formula \\
-  Harmonic function predicate                & (currently defined manually as \texttt{IsHarmonic}) \\
-  Weak derivative $D^\alpha u$               & Sobolev spaces \\
-  Sobolev space $W^{k,p}(\Omega)$            & Evans Ch.~5 \\
-  Sobolev norm $\|\cdot\|_{W^{k,p}}$         & Evans Ch.~5 \\
-  Trace operator $u|_{\partial\Omega}$       & boundary value problems \\
+  Stokes theorem on spherical domains
+    & Green's identity, Poisson representation
+    & Main blocker; Mathlib only has rectangular domains \\
+  Green's second identity on annular domains
+    & Poisson representation formula
+    & Depends on Stokes \\
+  $n$-dimensional polar/spherical coordinates
+    & $\int_{B(0,1)} \|x\|^p\,dx < \infty$, integrability of $\Phi$
+    & \texttt{polarCoord} exists only for $\mathbb{R}^2$ \\
+  $L^1$ integrability of $\|x\|^p$ on balls
+    & \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
+    & Needs polar coordinates or dedicated Mathlib lemma \\
+  \texttt{integrableOn\_rpow\_norm}
+    & $\int_{B(0,r)} \|x\|^s\,dx < \infty$ for $s > -n$
+    & Not in Mathlib; would unblock several proofs \\
+  Translation of set integrals
+    & \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
+    & Proved manually via \texttt{integral\_sub\_left\_eq\_self} \\
+  Harmonic function predicate
+    & (currently defined manually as \texttt{IsHarmonic})
+    & Could be added to Mathlib \\
+  Weak derivative $D^\alpha u$               & Sobolev spaces & \\
+  Sobolev space $W^{k,p}(\Omega)$            & Evans Ch.~5 & \\
+  Sobolev norm $\|\cdot\|_{W^{k,p}}$         & Evans Ch.~5 & \\
+  Trace operator $u|_{\partial\Omega}$       & boundary value problems & \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -702,10 +720,44 @@ Taking the trace over an orthonormal basis $\{e_i\}$:
 \end{align*}
 \end{proof}
 
-\begin{lstlisting}[caption={Laplacian of log norm (sorry)}]
+\begin{lstlisting}[caption={Laplacian of log norm (proved)}]
 lemma laplacian_log_norm_eq (x : Rn) (hx : x != 0) :
     Delta (fun x => log (norm x)) x = (n - 2) * norm x ^ (-2)
 \end{lstlisting}
+
+\begin{proof}
+The proof follows the same structure as \texttt{laplacian\_norm\_rpow\_eq}.
+
+\textbf{Step 1: First derivative.}
+Write $\log\|y\| = \log(\|y\|^1)$ and apply the chain rule.
+Since $D(\|y\|)(y)(v) = \|y\|^{-1}\langle y, v\rangle$, and
+$\frac{d}{dt}\log t\big|_{t=\|y\|} = \|y\|^{-1}$, the chain rule gives:
+\[
+  D(\log\|y\|)(y)(v) = \|y\|^{-1} \cdot \|y\|^{-1}\langle y, v\rangle
+  = \|y\|^{-2}\langle y, v\rangle.
+\]
+Hence $\nabla(\log\|y\|) = \|y\|^{-2}y$, and the first derivative is
+the linear map $v \mapsto \|y\|^{-2}\langle y, v\rangle$.
+
+\textbf{Step 2: Second derivative.}
+Differentiating $y \mapsto \|y\|^{-2}\langle y, v\rangle$ using the product rule:
+\[
+  D^2(\log\|x\|)(x)(v,w)
+  = -2\|x\|^{-4}\langle x,v\rangle\langle x,w\rangle + \|x\|^{-2}\langle v,w\rangle.
+\]
+
+\textbf{Step 3: Trace over orthonormal basis.}
+Taking the trace over an orthonormal basis $\{e_i\}$:
+\begin{align*}
+  \Delta(\log\|x\|)
+  &= \sum_i D^2(\log\|x\|)(x)(e_i,e_i) \\
+  &= -2\|x\|^{-4}\underbrace{\sum_i\langle x,e_i\rangle^2}_{=\|x\|^2}
+   + \|x\|^{-2}\underbrace{\sum_i\langle e_i,e_i\rangle}_{=n} \\
+  &= -2\|x\|^{-2} + n\|x\|^{-2} = (n-2)\|x\|^{-2}.
+\end{align*}
+In particular, when $n = 2$, $\Delta(\log\|x\|) = 0$, confirming that
+$\log\|x\|$ is harmonic in $\mathbb{R}^2 \setminus \{0\}$.
+\end{proof}
 
 \subsubsection{Main result}
 
@@ -765,7 +817,7 @@ whose status reflects the current state of Mathlib:
   \textbf{Lemma} & \textbf{Blocker} & \textbf{Status} \\
   \midrule
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-    & $L^1$ estimate near singularity & \textcolor{sorryred}{sorry} \\
+    & $\|\Phi\|$ integrable on $B(0,1)$: needs \texttt{integrableOn\_rpow\_norm} & \textcolor{orange}{partial} \\
   \texttt{green\_identity\_annulus}
     & Stokes theorem on spherical domains & \textcolor{sorryred}{sorry} \\
   \texttt{fundamentalSolution\_totalFlux}
@@ -778,8 +830,17 @@ whose status reflects the current state of Mathlib:
 \end{tabular}
 \end{center}
 
-The primary blocker is \texttt{green\_identity\_annulus}: Mathlib's divergence theorem
-currently covers only rectangular boxes, not spherical domains.
+The primary blocker for \texttt{green\_identity\_annulus} is Stokes' theorem on spherical
+domains, not yet in Mathlib. For \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero},
+the missing tool is a Mathlib lemma of the form
+\texttt{integrableOn\_rpow\_norm}: $\int_{B(0,r)} \|x\|^s\,dx < \infty$ for $s > -n$.
+Both require either polar coordinates in $\mathbb{R}^n$ (only $\mathbb{R}^2$ is in Mathlib)
+or dedicated measure-theoretic infrastructure.
+
+The proof framework of \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} is
+otherwise complete: translation invariance (\texttt{integral\_ball\_translate}, proved),
+sequential convergence via antitone balls (proved), and transfer to \texttt{nhdsWithin}
+(proved). Only the integrability of $\|\Phi\|$ on $B(0,1)$ remains as a sorry.
 
 \subsection{Status Summary}
 
@@ -793,8 +854,10 @@ currently covers only rectangular boxes, not spherical domains.
   \texttt{laplacian\_const\_mul}     & linearity of $\Delta$              & \textcolor{mathgreen}{\checkmark} \\
   \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p)$ formula        & \textcolor{mathgreen}{\checkmark} \\
   \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{laplacian\_log\_norm\_eq}  & $\Delta(\log\|x\|) = (n-2)\|x\|^{-2}$ & \textcolor{sorryred}{sorry} \\
-  \texttt{fundamentalSolution\_harmonic\_off\_zero} & $\Delta\Phi = 0$ off origin & \textcolor{orange}{partial} \\
+  \texttt{laplacian\_log\_norm\_eq}  & $\Delta(\log\|x\|) = (n-2)\|x\|^{-2}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fundamentalSolution\_harmonic\_off\_zero} & $\Delta\Phi = 0$ off origin & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integral\_ball\_translate} & $\int_{B(x,\varepsilon)} f(x-y)\,dy = \int_{B(0,\varepsilon)} f(z)\,dz$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} & $\int_{B(x,\varepsilon)}\|\Phi\| \to 0$ & \textcolor{orange}{partial} \\
   \texttt{harmonic\_sphereMeanValue} & mean value on spheres              & \textcolor{sorryred}{sorry} \\
   \texttt{harmonic\_ballMeanValue}   & mean value on balls                & \textcolor{sorryred}{sorry} \\
   \texttt{meanValue\_implies\_harmonic} & converse of MVP                & \textcolor{sorryred}{sorry} \\

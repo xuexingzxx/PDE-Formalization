@@ -386,15 +386,129 @@ lemma fundamentalSolution_harmonic_off_zero (x : ℝⁿ) (hx : x ≠ 0) :
     rw [heq, laplacian_const_mul c _ hf, laplacian_norm_rpow_eq (2 - (n:ℝ)) x hx]
     simp
 
-/-- Near-singularity integral vanishes as ε → 0. -/
+/-! #### Helper lemmas for near-singularity integral -/
+
+/-- Translation invariance of ball integrals:
+    ∫_{B(x,ε)} f(x - y) dy = ∫_{B(0,ε)} f(z) dz.
+    Proved via Set.indicator + integral_sub_left_eq_self. -/
+private lemma integral_ball_translate (f : ℝⁿ → ℝ) (x : ℝⁿ) (ε : ℝ) :
+    ∫ y in Metric.ball x ε, f (x - y) =
+    ∫ z in Metric.ball (0 : ℝⁿ) ε, f z := by
+  rw [← MeasureTheory.integral_indicator measurableSet_ball,
+      ← MeasureTheory.integral_indicator measurableSet_ball]
+  have h : (fun y : ℝⁿ => (Metric.ball x ε).indicator (fun y => f (x - y)) y) =
+      (fun y : ℝⁿ => (Metric.ball (0 : ℝⁿ) ε).indicator f (x - y)) := by
+    ext y
+    unfold Set.indicator
+    simp only [Metric.mem_ball, dist_eq_norm, norm_sub_rev, sub_zero]
+  rw [h]
+  exact MeasureTheory.integral_sub_left_eq_self
+    ((Metric.ball (0 : ℝⁿ) ε).indicator f) MeasureTheory.volume x
+
+/-- Near-singularity integral vanishes as ε → 0 (Evans §2.2.4, p.23).
+    ∫_{B(x,ε)} ‖Φ(x-y)‖ dy → 0 as ε → 0⁺.
+
+    Proof strategy:
+    1. Translate: ∫_{B(x,ε)} ‖Φ(x-y)‖ = ∫_{B(0,ε)} ‖Φ‖ via integral_ball_translate.
+    2. ‖Φ‖ integrable on B(0,1): sorry (requires n-dim polar coordinates, not in Mathlib).
+       Evans proof: ∫_{B(0,ε)} ‖y‖^(2-n) dy = nωₙ ∫₀^ε r^(2-n)·r^(n-1) dr = nωₙ·ε²/2 → 0.
+    3. Sequential convergence: B(0,1/(k+1)) ↘ {0}, use tendsto_setIntegral_of_antitone.
+    4. Transfer: sequential → nhdsWithin via Metric.tendsto_nhdsWithin_nhds. -/
 lemma fundamentalSolution_near_integral_tendsto_zero (x : ℝⁿ) :
     Filter.Tendsto
       (fun ε => ∫ y in Metric.ball x ε, ‖fundamentalSolution (x - y)‖)
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds 0) := by
-  sorry
+  have hshift : ∀ ε : ℝ, ∫ y in Metric.ball x ε, ‖fundamentalSolution (x - y)‖ =
+      ∫ z in Metric.ball (0 : ℝⁿ) ε, ‖fundamentalSolution z‖ :=
+    fun ε => integral_ball_translate (fun z => ‖fundamentalSolution z‖) x ε
+  simp_rw [hshift]
+  -- Step 2: ‖Φ‖ is locally integrable on B(0, 1)
+  -- Blocked: n-dimensional polar coordinates not in Mathlib.
+  -- Evans §2.2.4: ∫_{B(0,1)} ‖y‖^(2-n) dy = nωₙ ∫₀¹ r dr < ∞.
+  have hint : MeasureTheory.IntegrableOn (fun y : ℝⁿ => ‖fundamentalSolution y‖)
+      (Metric.ball 0 1) := by
+    sorry
+  -- Step 3: sequential convergence via antitone balls B(0, 1/(k+1)) → {0}
+  have hinter : ⋂ k : ℕ, Metric.ball (0 : ℝⁿ) (1 / ((k : ℝ) + 1)) = {0} := by
+    ext y; simp only [Set.mem_iInter, Metric.mem_ball, dist_zero_right, Set.mem_singleton_iff]
+    constructor
+    · intro h
+      rw [← norm_eq_zero]; apply le_antisymm _ (norm_nonneg _)
+      apply le_of_forall_pos_le_add; intro ε hε
+      obtain ⟨k, hk⟩ := exists_nat_gt (1 / ε)
+      have hle : ‖y‖ ≤ 1 / ((k : ℝ) + 1) := le_of_lt (h k)
+      have hlt : 1 / ((k : ℝ) + 1) ≤ ε := by
+        rw [div_le_iff₀ (by positivity : (0 : ℝ) < (k : ℝ) + 1)]
+        have := (div_lt_iff₀ hε).mp hk
+        nlinarith [Nat.cast_nonneg (α := ℝ) k]
+      linarith
+    · rintro rfl k
+      simp only [norm_zero]
+      positivity
+  have hseq : Filter.Tendsto
+      (fun k : ℕ => ∫ z in Metric.ball (0 : ℝⁿ) (1 / ((k : ℝ) + 1)), ‖fundamentalSolution z‖)
+      Filter.atTop (nhds 0) := by
+    -- ∫_{B(0,1/(k+1))} ‖Φ‖ → ∫_{{0}} ‖Φ‖ = 0
+    -- {0} integral vanishes: n=0 by fundamentalSolution=0; n≥1 by volume {0} = 0 (NoAtoms).
+    have hfin : ∫ z in ({0} : Set ℝⁿ), ‖fundamentalSolution z‖ = 0 := by
+      rcases Nat.eq_zero_or_pos n with rfl | hn
+      · simp [fundamentalSolution]
+      · rw [MeasureTheory.integral_singleton]
+        have h0 : (MeasureTheory.volume : MeasureTheory.Measure ℝⁿ) {0} = 0 := by
+          haveI : Nontrivial ℝⁿ :=
+            ⟨0, EuclideanSpace.single ⟨0, hn⟩ 1, by
+              intro h
+              have : (EuclideanSpace.single ⟨0, hn⟩ (1:ℝ) : Fin n → ℝ) ⟨0, hn⟩ = 0 := by
+                rw [← h]; simp
+              simp at this⟩
+          haveI : (𝓝[≠] (0 : ℝⁿ)).NeBot := Real.punctured_nhds_module_neBot 0
+          haveI : MeasureTheory.NoAtoms (MeasureTheory.volume : MeasureTheory.Measure ℝⁿ) :=
+            MeasureTheory.Measure.IsAddHaarMeasure.noAtoms _
+          exact MeasureTheory.NoAtoms.measure_singleton 0
+        simp [MeasureTheory.Measure.real, h0]
+    rw [← hfin, ← hinter]
+    apply MeasureTheory.tendsto_setIntegral_of_antitone
+    · intro k; exact measurableSet_ball
+    · intro a b hab
+      exact Metric.ball_subset_ball (by
+        apply div_le_div_of_nonneg_left one_pos.le (by positivity) (by
+          exact_mod_cast Nat.add_le_add_right hab 1))
+    · exact ⟨0, hint.mono (Metric.ball_subset_ball (by norm_cast; norm_num)) le_rfl⟩
+  -- Step 4: transfer sequential → nhdsWithin 0 (Ioi 0)
+  rw [Metric.tendsto_nhdsWithin_nhds]
+  intro δ hδ
+  obtain ⟨k, hk⟩ := Metric.tendsto_atTop.mp hseq δ hδ
+  refine ⟨1 / ((k : ℝ) + 1), by positivity, fun ε hεpos hεδ => ?_⟩
+  have hεpos' : 0 < ε := Set.mem_Ioi.mp hεpos
+  have hεlt : ε < 1 / ((k : ℝ) + 1) := by
+    simp only [Real.dist_eq, sub_zero, abs_of_pos hεpos'] at hεδ; exact hεδ
+  have hint_k : MeasureTheory.IntegrableOn (fun y : ℝⁿ => ‖fundamentalSolution y‖)
+      (Metric.ball 0 (1 / ((k : ℝ) + 1))) :=
+    hint.mono (Metric.ball_subset_ball (by
+      rw [div_le_one (by positivity : (0 : ℝ) < (k : ℝ) + 1)]
+      linarith [Nat.cast_nonneg (α := ℝ) k])) le_rfl
+  have hball_sub : Metric.ball (0 : ℝⁿ) ε ⊆ Metric.ball (0 : ℝⁿ) (1 / ((k : ℝ) + 1)) :=
+    Metric.ball_subset_ball hεlt.le
+  have hmono : ∫ z in Metric.ball (0 : ℝⁿ) ε, ‖fundamentalSolution z‖ ≤
+      ∫ z in Metric.ball (0 : ℝⁿ) (1 / ((k : ℝ) + 1)), ‖fundamentalSolution z‖ := by
+    apply MeasureTheory.setIntegral_mono_set hint_k
+    · exact Filter.Eventually.of_forall (fun z =>
+        show (0 : ℝ) ≤ ‖fundamentalSolution z‖ from norm_nonneg _)
+    · exact MeasureTheory.ae_of_all _ (fun z hz => hball_sub hz)
+  have hkle := hk k le_rfl
+  have hk_nn : 0 ≤ ∫ z in Metric.ball (0 : ℝⁿ) (1 / ((k : ℝ) + 1)),
+      ‖fundamentalSolution z‖ :=
+    MeasureTheory.integral_nonneg (fun z => norm_nonneg (fundamentalSolution z))
+  rw [Real.dist_eq, sub_zero, abs_of_nonneg hk_nn] at hkle
+  have hint_nn : 0 ≤ ∫ z in Metric.ball (0 : ℝⁿ) ε, ‖fundamentalSolution z‖ :=
+    MeasureTheory.integral_nonneg (fun z => norm_nonneg _)
+  simp only [Real.dist_eq, sub_zero, abs_of_nonneg hint_nn]
+  linarith
 
-/-- **Green's second identity** on annular domain `B(x,r) \ B(x,ε)`. -/
+/-- **Green's second identity** on annular domain `B(x,r) \ B(x,ε)`.
+    Blocked by: Stokes' theorem on spherical domains, not yet in Mathlib.
+    Mathlib's divergence theorem covers rectangular boxes only. -/
 lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v)
     (x : ℝⁿ) (r ε : ℝ) (hr : 0 < r) (hε : 0 < ε) (hεr : ε < r) :
     ∫ y in Metric.ball x r \ Metric.ball x ε, (v y * Δ u y - u y * Δ v y)
@@ -427,7 +541,10 @@ lemma green_boundary_tendsto_f (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
       (nhds (f x)) := by
   sorry
 
-/-- **Representation Formula** (Evans §2.2.4, Theorem 9). -/
+/-- **Representation Formula** (Evans §2.2.4, Theorem 9).
+    u(x) = ∫ Φ(x-y) f(y) dy solves −Δu = f.
+    Proof requires: green_identity_annulus + fundamentalSolution_totalFlux
+    + fundamentalSolution_near_integral_tendsto_zero + green_boundary_tendsto_f. -/
 theorem newtonianPotential_solves_poisson (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
     (hf_supp : HasCompactSupport f) :
     IsPoissonSolution Set.univ f (newtonianPotential f) := by
