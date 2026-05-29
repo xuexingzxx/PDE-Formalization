@@ -507,8 +507,12 @@ lemma fundamentalSolution_near_integral_tendsto_zero (x : ℝⁿ) :
   linarith
 
 /-- **Green's second identity** on annular domain `B(x,r) \ B(x,ε)`.
-    Blocked by: Stokes' theorem on spherical domains, not yet in Mathlib.
-    Mathlib's divergence theorem covers rectangular boxes only. -/
+    Evans §2.2.4 strategy:
+    (1) Algebra:  v Δu − u Δv = div(v ∇u − u ∇v)      [product rule, cross terms cancel]
+    (2) Gauss–Green on annulus: ∫_Ω div F = ∫_{S_r} F·ν dσ − ∫_{S_ε} F·ν dσ
+        Sign: annulus outward normal on inner sphere is −ν (inward to B(x,ε)).
+    Blocked: step (2) needs Stokes on smooth domains, not yet in Mathlib.
+    (Mathlib's divergence theorem covers rectangular boxes only.) -/
 lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v)
     (x : ℝⁿ) (r ε : ℝ) (hr : 0 < r) (hε : 0 < ε) (hεr : ε < r) :
     ∫ y in Metric.ball x r \ Metric.ball x ε, (v y * Δ u y - u y * Δ v y)
@@ -520,6 +524,73 @@ lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv 
         (v y * ⟪gradient u y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ -
          u y * ⟪gradient v y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
         ∂(Measure.hausdorffMeasure ((n : ℝ) - 1))) := by
+  -- Standard ONB for ℝⁿ
+  set e := EuclideanSpace.basisFun (Fin n) ℝ with he_def
+  -- Step 1 (Evans §2.2, algebra): v Δu − u Δv = ∑ᵢ ∂_{eᵢ}(v·∂_{eᵢ}u − u·∂_{eᵢ}v)
+  -- Proof: product rule gives ∂_{eᵢ}(v·∂_{eᵢ}u) = (∂_{eᵢ}v)(∂_{eᵢ}u) + v·∂²_{eᵢeᵢ}u,
+  -- and the cross terms (∂_{eᵢ}v)(∂_{eᵢ}u) cancel when we subtract the same with u↔v.
+  have hdivid : ∀ y : ℝⁿ,
+      v y * Δ u y - u y * Δ v y =
+      ∑ i : Fin n, fderiv ℝ (fun z =>
+          v z * fderiv ℝ u z (e i) - u z * fderiv ℝ v z (e i)) y (e i) := by
+    intro y
+    -- Expand Δu, Δv using the ONB: Δf y = ∑ᵢ iteratedFDeriv 2 f y ![eᵢ, eᵢ]
+    have hΔu : Δ u y = ∑ i : Fin n, iteratedFDeriv ℝ 2 u y ![e i, e i] :=
+      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis u e) y
+    have hΔv : Δ v y = ∑ i : Fin n, iteratedFDeriv ℝ 2 v y ![e i, e i] :=
+      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis v e) y
+    rw [hΔu, hΔv]
+    simp only [Finset.mul_sum, ← Finset.sum_sub_distrib]
+    congr 1; ext i; symm
+    -- For each i: compute fderiv via product rule and chain rule
+    -- HasFDerivAt for fun z => fderiv u z (eᵢ):
+    --   fderiv u is C¹ (from hu : ContDiff 2 u), evaluate the CLM at eᵢ for chain rule.
+    have hfdu_i : HasFDerivAt (fun z : ℝⁿ => fderiv ℝ u z (e i))
+        ((fderiv ℝ (fderiv ℝ u) y).flip (e i)) y := by
+      have h1 : ContDiff ℝ 1 (fderiv ℝ u) := hu.fderiv_right (by norm_num)
+      have h2 : HasFDerivAt (fderiv ℝ u) (fderiv ℝ (fderiv ℝ u) y) y :=
+        (h1.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+      have h3 := h2.clm_apply (hasFDerivAt_const (e i) y)
+      simp only [ContinuousLinearMap.comp_zero, zero_add] at h3
+      exact h3
+    have hfdv_i : HasFDerivAt (fun z : ℝⁿ => fderiv ℝ v z (e i))
+        ((fderiv ℝ (fderiv ℝ v) y).flip (e i)) y := by
+      have h1 : ContDiff ℝ 1 (fderiv ℝ v) := hv.fderiv_right (by norm_num)
+      have h2 : HasFDerivAt (fderiv ℝ v) (fderiv ℝ (fderiv ℝ v) y) y :=
+        (h1.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+      have h3 := h2.clm_apply (hasFDerivAt_const (e i) y)
+      simp only [ContinuousLinearMap.comp_zero, zero_add] at h3
+      exact h3
+    -- HasFDerivAt for v and u themselves
+    have hv_hfd : HasFDerivAt v (fderiv ℝ v y) y :=
+      (hv.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+    have hu_hfd : HasFDerivAt u (fderiv ℝ u y) y :=
+      (hu.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+    -- Product rule + subtraction: first term v*(fderiv u · eᵢ), second u*(fderiv v · eᵢ)
+    have hterm : HasFDerivAt (fun z : ℝⁿ => v z * fderiv ℝ u z (e i) - u z * fderiv ℝ v z (e i))
+        (v y • (fderiv ℝ (fderiv ℝ u) y).flip (e i) + fderiv ℝ u y (e i) • fderiv ℝ v y -
+         (u y • (fderiv ℝ (fderiv ℝ v) y).flip (e i) + fderiv ℝ v y (e i) • fderiv ℝ u y)) y :=
+      (hv_hfd.mul hfdu_i).sub (hu_hfd.mul hfdv_i)
+    -- Evaluate at eᵢ and use iteratedFDeriv_two_apply to identify ∂²u
+    rw [hterm.fderiv]
+    simp only [ContinuousLinearMap.sub_apply, ContinuousLinearMap.add_apply,
+               ContinuousLinearMap.smul_apply, ContinuousLinearMap.flip_apply, smul_eq_mul]
+    -- iteratedFDeriv_two_apply: fderiv(fderiv u) y (eᵢ) (eᵢ) = iteratedFDeriv 2 u y ![eᵢ,eᵢ]
+    have hd2u : fderiv ℝ (fderiv ℝ u) y (e i) (e i) = iteratedFDeriv ℝ 2 u y ![e i, e i] := by
+      have h := iteratedFDeriv_two_apply (𝕜 := ℝ) u y ![e i, e i]
+      simp only [Matrix.cons_val_zero, Matrix.cons_val_one] at h
+      exact h.symm
+    have hd2v : fderiv ℝ (fderiv ℝ v) y (e i) (e i) = iteratedFDeriv ℝ 2 v y ![e i, e i] := by
+      have h := iteratedFDeriv_two_apply (𝕜 := ℝ) v y ![e i, e i]
+      simp only [Matrix.cons_val_zero, Matrix.cons_val_one] at h
+      exact h.symm
+    rw [hd2u, hd2v]; ring
+  -- Step 2 (Evans §2.2): Gauss–Green theorem on the annulus Ω = B(x,r) \ B̄(x,ε).
+  --   ∫_Ω ∑ᵢ ∂_{eᵢ} Fᵢ = ∫_{S(x,r)} ∑ᵢ Fᵢ ⟨eᵢ, ν⟩ dσ − ∫_{S(x,ε)} ∑ᵢ Fᵢ ⟨eᵢ, ν⟩ dσ
+  -- where Fᵢ(y) = v(y)·∂_{eᵢ}u(y) − u(y)·∂_{eᵢ}v(y) and ν = ‖y−x‖⁻¹(y−x).
+  -- Inner product expansion: ∑ᵢ Fᵢ ⟨eᵢ, ν⟩ = ∑ᵢ(v·∂_{eᵢ}u − u·∂_{eᵢ}v)⟨eᵢ,ν⟩
+  --   = v·⟨∇u, ν⟩ − u·⟨∇v, ν⟩  (linearity + ⟨∇f, w⟩ = fderiv f · w = ∑ᵢ ∂_{eᵢ}f · ⟨eᵢ,w⟩).
+  -- BLOCKED: Stokes/Gauss-Green on smooth domains is not in Mathlib.
   sorry
 
 /-- Total outward normal flux of `∇Φ` through `∂B(0, ε)` equals `−1`. -/

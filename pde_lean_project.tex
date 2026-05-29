@@ -819,7 +819,7 @@ whose status reflects the current state of Mathlib:
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
     & $\|\Phi\|$ integrable on $B(0,1)$: needs \texttt{integrableOn\_rpow\_norm} & \textcolor{orange}{partial} \\
   \texttt{green\_identity\_annulus}
-    & Stokes theorem on spherical domains & \textcolor{sorryred}{sorry} \\
+    & Stokes theorem on spherical domains & \textcolor{orange}{partial} \\
   \texttt{fundamentalSolution\_totalFlux}
     & explicit sphere integral & \textcolor{sorryred}{sorry} \\
   \texttt{green\_boundary\_tendsto\_f}
@@ -841,6 +841,13 @@ The proof framework of \texttt{fundamentalSolution\_near\_integral\_tendsto\_zer
 otherwise complete: translation invariance (\texttt{integral\_ball\_translate}, proved),
 sequential convergence via antitone balls (proved), and transfer to \texttt{nhdsWithin}
 (proved). Only the integrability of $\|\Phi\|$ on $B(0,1)$ remains as a sorry.
+
+For \texttt{green\_identity\_annulus}, Step 1 is proved: the algebraic identity
+\[
+  v\,\Delta u - u\,\Delta v = \sum_i \partial_{e_i}(v\,\partial_{e_i}u - u\,\partial_{e_i}v)
+\]
+follows from the product rule and \texttt{iteratedFDeriv\_two\_apply}.
+Step 2 (Gauss--Green on the annulus) is blocked by Stokes' theorem on spherical domains.
 
 \subsection{Status Summary}
 
