@@ -73,16 +73,32 @@ theorem evansFormula_differentiable (b : ℝⁿ) (g : ℝⁿ → ℝ) (hg : Diff
 lemma spatialGradient_evansFormula (b : ℝⁿ) (g : ℝⁿ → ℝ) (hg : Differentiable ℝ g)
     (p : ℝⁿ × ℝ) :
     spatialGradient (evansFormula b g) p = gradient g (charFlow b p) := by
+  obtain ⟨x, t⟩ := p
   simp only [spatialGradient, evansFormula, Function.comp, charFlow_apply]
-  sorry
+  -- Goal: gradient (fun x => g (x - t • b)) x = gradient g (x - t • b)
+  -- Translation y ↦ y - t·b has derivative id, so chain rule gives fderiv g at the foot.
+  have hφ : HasFDerivAt (fun y : ℝⁿ => y - t • b) (ContinuousLinearMap.id ℝ ℝⁿ) x :=
+    hasFDerivAt_sub_const (t • b)
+  have hchain : HasFDerivAt (fun y : ℝⁿ => g (y - t • b)) (fderiv ℝ g (x - t • b)) x := by
+    have h := hg.differentiableAt.hasFDerivAt.comp x hφ
+    simpa [ContinuousLinearMap.comp_id] using h
+  -- gradient = (toDual ℝ ℝⁿ).symm ∘ fderiv; both sides reduce to the same thing.
+  simp only [gradient, hchain.fderiv]
 
 /-- The time derivative of `evansFormula b g` at `p` equals `−⟪∇g(x−tb), b⟫`.
     Proof: by the chain rule, `∂_t[g(x−tb)] = ∇g(x−tb) · (−b) = −⟪∇g(x−tb), b⟫`. -/
 lemma timeDerivative_evansFormula (b : ℝⁿ) (g : ℝⁿ → ℝ) (hg : Differentiable ℝ g)
     (p : ℝⁿ × ℝ) :
     timeDerivative (evansFormula b g) p = -⟪gradient g (charFlow b p), b⟫_ℝ := by
+  obtain ⟨x, t⟩ := p
   simp only [timeDerivative, evansFormula, Function.comp, charFlow_apply]
-  sorry
+  have hψ : HasDerivAt (fun s : ℝ => x - s • b) (-b) t := by
+    simpa using (hasDerivAt_const t x).sub ((hasDerivAt_id t).smul_const b)
+  have hchain : HasDerivAt (fun s => g (x - s • b)) (fderiv ℝ g (x - t • b) (-b)) t :=
+    hg.differentiableAt.hasFDerivAt.comp_hasDerivAt t hψ
+  rw [hchain.deriv, map_neg]
+  congr 1
+  exact (inner_gradient_left hg.differentiableAt).symm
 
 /-- **Evans §2.1.1, Theorem 1**: `u(x, t) = g(x − tb)` solves the transport equation.
 
@@ -137,4 +153,69 @@ theorem evansFormula_unique (b : ℝⁿ) (g : ℝⁿ → ℝ)
     (hu_init : ∀ x : ℝⁿ, u (x, 0) = g x)
     (hu_diff : Differentiable ℝ u) :
     u = evansFormula b g := by
-  sorry
+  have const_of_deriv_zero : ∀ (f : ℝ → ℝ), (∀ s, HasDerivAt f 0 s) →
+      ∀ a c, f a = f c := by
+    intro f hf a c
+    have hdiff : Differentiable ℝ f := fun x => (hf x).differentiableAt
+    have h1 : ∀ x, deriv f x ≤ 0 := fun x => le_of_eq (hf x).deriv
+    have h1' : ∀ x, deriv (fun x => -f x) x ≤ 0 := fun x => by simp [(hf x).deriv]
+    suffices h : ∀ x y, x ≤ y → f x = f y by
+      rcases le_total a c with hac | hac
+      · exact h a c hac
+      · exact (h c a hac).symm
+    intro x y hxy
+    have hle := image_sub_le_mul_sub_of_deriv_le hdiff h1 hxy
+    have hge := image_sub_le_mul_sub_of_deriv_le hdiff.neg h1' hxy
+    simp only [Pi.neg_apply] at hge
+    linarith
+  funext ⟨x, t⟩
+  set z : ℝ → ℝ := fun s => u (x + s • b, t + s)
+  have hz_deriv : ∀ s, HasDerivAt z 0 s := by
+    intro s
+    have h1 : HasDerivAt (fun s => x + s • b) b s := by
+      simpa using ((hasDerivAt_id s).smul_const b).const_add x
+    have h2 : HasDerivAt (fun s => t + s) (1 : ℝ) s := by
+      simpa using (hasDerivAt_id s).const_add t
+    have hγ : HasDerivAt (fun s => (x + s • b, t + s)) (b, (1 : ℝ)) s :=
+      h1.prodMk h2
+    have hchain := hu_diff.differentiableAt.hasFDerivAt.comp_hasDerivAt s hγ
+    have hdir : fderiv ℝ u (x + s • b, t + s) (b, (1 : ℝ)) =
+        ⟪spatialGradient u (x + s • b, t + s), b⟫_ℝ +
+        timeDerivative u (x + s • b, t + s) := by
+      have hu_at := hu_diff.differentiableAt (x := (x + s • b, t + s))
+      simp only [spatialGradient, timeDerivative]
+      have hx' : HasFDerivAt (fun y => u (y, t + s))
+          (fderiv ℝ u (x + s • b, t + s) ∘L ContinuousLinearMap.inl ℝ ℝⁿ ℝ) (x + s • b) :=
+        hu_at.hasFDerivAt.comp (x + s • b) (hasFDerivAt_prodMk_left (x + s • b) (t + s))
+      have ht' : HasDerivAt (fun r => u (x + s • b, r))
+          (fderiv ℝ u (x + s • b, t + s) (0, 1)) (t + s) := by
+        have hprod : HasFDerivAt (fun r : ℝ => (x + s • b, r))
+            (ContinuousLinearMap.inr ℝ ℝⁿ ℝ) (t + s) :=
+          hasFDerivAt_prodMk_right (x + s • b) (t + s)
+        have := hu_at.hasFDerivAt.comp_hasDerivAt (t + s) hprod.hasDerivAt
+        simp only [ContinuousLinearMap.inr_apply] at this
+        exact this
+      have hsplit : fderiv ℝ u (x + s • b, t + s) (b, (1 : ℝ)) =
+          fderiv ℝ u (x + s • b, t + s) (b, 0) +
+          fderiv ℝ u (x + s • b, t + s) (0, 1) := by
+        rw [← map_add]; congr 1; simp
+      have hspace : fderiv ℝ u (x + s • b, t + s) (b, 0) =
+          ⟪gradient (fun y => u (y, t + s)) (x + s • b), b⟫_ℝ := by
+        rw [inner_gradient_left hx'.differentiableAt, hx'.fderiv]
+        simp [ContinuousLinearMap.comp_apply, ContinuousLinearMap.inl_apply]
+      rw [hsplit, hspace, ht'.deriv.symm]
+    rw [hdir] at hchain
+    have hpde := hu_pde (x + s • b, t + s)
+    convert hchain using 1
+    linarith
+  have hz_const : ∀ s, z s = z (-t) :=
+    fun s => const_of_deriv_zero z hz_deriv s (-t)
+  have hz_neg_t : z (-t) = g (x - t • b) := by
+    change u (x + -t • b, t + -t) = g (x - t • b)
+    have h1 : x + -t • b = x - t • b := by
+      simp [neg_smul, sub_eq_add_neg]
+    have h2 : t + -t = (0 : ℝ) := add_neg_cancel t
+    rw [h1, h2, hu_init]
+  have hz_zero : z 0 = u (x, t) := by simp [z]
+  simp only [evansFormula, Function.comp, charFlow_apply]
+  rw [← hz_zero, hz_const 0, hz_neg_t]

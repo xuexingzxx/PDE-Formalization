@@ -38,3 +38,25 @@ noncomputable def timeDerivative (u : ℝⁿ × ℝ → ℝ) (p : ℝⁿ × ℝ)
 noncomputable def spatialLaplacian (u : ℝⁿ × ℝ → ℝ) (p : ℝⁿ × ℝ) : ℝ :=
   Laplacian.laplacian (fun x => u (x, p.2)) p.1
 
+/-- The Fréchet derivative of `u` at `(x,t)` in the characteristic direction `(b,1)`
+    equals the sum of the spatial inner product and the time derivative. -/
+lemma fderiv_transport_dir (u : ℝⁿ × ℝ → ℝ) (x : ℝⁿ) (t : ℝ) (b : ℝⁿ)
+    (hu : DifferentiableAt ℝ u (x, t)) :
+    fderiv ℝ u (x, t) (b, (1 : ℝ)) =
+    ⟪spatialGradient u (x, t), b⟫_ℝ + timeDerivative u (x, t) := by
+  simp only [spatialGradient, timeDerivative]
+  have hx : HasFDerivAt (fun x => u (x, t))
+      (fderiv ℝ u (x, t) ∘L ContinuousLinearMap.inl ℝ ℝⁿ ℝ) x :=
+    hu.hasFDerivAt.comp x (hasFDerivAt_prodMk_left x t)
+  have ht : HasDerivAt (fun t => u (x, t))
+      (fderiv ℝ u (x, t) (0, 1)) t :=
+    hu.hasFDerivAt.comp_hasDerivAt t (hasFDerivAt_prodMk_right x t).hasDerivAt
+  have hsplit : fderiv ℝ u (x, t) (b, (1:ℝ)) =
+      fderiv ℝ u (x, t) (b, 0) + fderiv ℝ u (x, t) (0, 1) := by
+    rw [← map_add]; congr 1; simp
+  have hspace : fderiv ℝ u (x, t) (b, 0) = ⟪gradient (fun x => u (x, t)) x, b⟫_ℝ := by
+    rw [inner_gradient_left hx.differentiableAt, hx.fderiv]
+    simp [ContinuousLinearMap.comp_apply, ContinuousLinearMap.inl_apply]
+  have htime : fderiv ℝ u (x, t) (0, 1) = deriv (fun t => u (x, t)) t :=
+    ht.deriv.symm
+  rw [hsplit, hspace, htime]
