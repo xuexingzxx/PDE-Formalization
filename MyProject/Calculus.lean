@@ -60,3 +60,18 @@ lemma fderiv_transport_dir (u : ℝⁿ × ℝ → ℝ) (x : ℝⁿ) (t : ℝ) (b
   have htime : fderiv ℝ u (x, t) (0, 1) = deriv (fun t => u (x, t)) t :=
     ht.deriv.symm
   rw [hsplit, hspace, htime]
+
+
+/-- Leibniz rule for integrals with parameter-dependent integrand and upper limit.
+    d/dt ∫₀ᵗ H(t,s) ds = H(t,t) + ∫₀ᵗ ∂_t H(t,s) ds
+    Proof: combine FTC (integral_hasDerivAt_right) with differentiation under
+    integral sign (hasDerivAt_integral_of_dominated_loc_of_lip).
+    Blocked: Mathlib has these separately but no combined version. -/
+lemma leibniz_integral {H : ℝ → ℝ → ℝ} {H' : ℝ → ℝ} {t : ℝ}
+    (hH_cont : Continuous (fun p : ℝ × ℝ => H p.1 p.2))
+    (hH'_cont : Continuous (fun p : ℝ × ℝ => H' p.2))
+    (hH_diff : ∀ s : ℝ, HasDerivAt (fun t => H t s) (H' s) t)
+    (hH_int : ∀ t₀ : ℝ, IntervalIntegrable (fun s => H t₀ s) MeasureTheory.volume 0 t₀) :
+    HasDerivAt (fun t => ∫ s in (0:ℝ)..t, H t s)
+      (H t t + ∫ s in (0:ℝ)..t, H' s) t := by
+  sorry

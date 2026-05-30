@@ -129,6 +129,7 @@ theorem duhamelFormula_initial (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × 
 
 /-- **Evans §2.1.2, Theorem 2**: Duhamel's formula solves the inhomogeneous transport equation.
 
+
     **Proof sketch**: Split `u = v + w` where `v(x,t) = g(x−tb)` and
     `w(x,t) = ∫₀ᵗ f(x−(t−s)b, s) ds`. We know `v_t + b·Dv = 0`. For `w`, the
     Leibniz rule gives `w_t = f(x,t) + ∫₀ᵗ ∂_t[f(x−(t−s)b,s)] ds` (FTC boundary term)
@@ -137,7 +138,70 @@ theorem duhamelFormula_initial (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × 
 theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × ℝ → ℝ)
     (hg : Differentiable ℝ g) (hf : ContDiff ℝ 1 f) :
     IsInhomTransportSolution b f (duhamelFormula b g f) := by
-  sorry
+  intro ⟨x, t⟩
+  simp only [duhamelFormula, timeDerivative, spatialGradient]
+  have hf1 : Differentiable ℝ f := hf.differentiable (by norm_num)
+  -- Step 1: ∂_t[f(x-(t-s)b, s)] = -⟪∇_x f(x-(t-s)b,s), b⟫
+  have hchain : ∀ s : ℝ, HasDerivAt (fun t => f (x - (t - s) • b, s))
+      (-⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ) t := by
+    intro s
+    have hpath : HasDerivAt (fun t => x - (t - s) • b) (-b) t := by
+      have h1 : HasDerivAt (fun t => (t - s) • b) b t := by
+        simpa using ((hasDerivAt_id t).sub_const s).smul_const b
+      convert h1.neg.const_add x using 2
+    have hfs : Differentiable ℝ (fun y : ℝⁿ => f (y, s)) :=
+      fun y => hf1.differentiableAt.comp y (by fun_prop)
+    have hcomp := hfs.differentiableAt.hasFDerivAt.comp_hasDerivAt t hpath
+    convert hcomp using 1
+    rw [map_neg, inner_gradient_left hfs.differentiableAt]
+  -- Step 2: Leibniz rule (sorry: no combined Leibniz in Mathlib)
+  have hleibniz : HasDerivAt
+      (fun t => ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s))
+      (f (x, t) + ∫ s in (0:ℝ)..t,
+        (-⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ)) t := by
+    sorry
+  -- Step 3: time derivative of g(x-tb)
+  have hg_deriv : HasDerivAt (fun t => g (x - t • b))
+      (-⟪gradient g (x - t • b), b⟫_ℝ) t := by
+    have hpath : HasDerivAt (fun t => x - t • b) (-b) t := by
+      have h1 : HasDerivAt (fun t => t • b) b t := by
+        simpa using (hasDerivAt_id t).smul_const b
+      convert h1.neg.const_add x using 2
+    have hcomp := hg.differentiableAt.hasFDerivAt.comp_hasDerivAt t hpath
+    convert hcomp using 1
+    rw [map_neg, inner_gradient_left hg.differentiableAt]
+  -- Step 4: time derivative of full Duhamel formula
+  have htime : HasDerivAt
+      (fun t => g (x - t • b) + ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s))
+      ((-⟪gradient g (x - t • b), b⟫_ℝ) + (f (x, t) +
+        ∫ s in (0:ℝ)..t, (-⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ))) t :=
+    hg_deriv.add hleibniz
+  -- Step 5: spatial gradient of Duhamel formula
+  have hspace : gradient (fun x =>
+        g (x - t • b) + ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s)) x =
+      gradient g (x - t • b) +
+      ∫ s in (0:ℝ)..t, gradient (fun y => f (y, s)) (x - (t - s) • b) := by
+    sorry
+  -- Step 6: combine
+  rw [htime.deriv, hspace]
+  simp only [inner_add_left, intervalIntegral.integral_neg]
+  have hinner_int : ⟪∫ s in (0:ℝ)..t,
+        gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ =
+      ∫ s in (0:ℝ)..t,
+        ⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ := by
+    have key := ContinuousLinearMap.intervalIntegral_comp_comm
+      (μ := MeasureTheory.volume)
+      (innerSL ℝ b : ℝⁿ →L[ℝ] ℝ)
+      (f := fun s => gradient (fun y => f (y, s)) (x - (t - s) • b))
+      (a := (0:ℝ)) (b := t)
+      (by sorry)
+    simp only [innerSL_apply_apply] at key
+    rw [real_inner_comm]
+    rw [← key]
+    congr 1; ext s
+    exact real_inner_comm _ _
+  linarith [hinner_int]
+
 
 /-! ### Uniqueness via Characteristics (TODO)
 
