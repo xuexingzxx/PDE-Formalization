@@ -588,7 +588,7 @@ theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
   --   + intervalIntegral_comp_comm (sorry: measurability/Lipschitz conditions)
   -- Step 6 (proved): <Int grad f, b> = Int <grad f, b>
   --   via ContinuousLinearMap.intervalIntegral_comp_comm
-  sorry -- remaining: hleibniz + technical measurability/integrability conditions
+  sorry -- remaining: hleibniz (Mathlib gap) + LipschitzOnWith bound condition
 \end{lstlisting}
 
 \textbf{Proof sketch:} Split $u = v + w$ where $v(x,t) = g(x-tb)$ and
@@ -599,6 +599,12 @@ cancels with the spatial part $b \cdot Dw$. Hence $w_t + b \cdot Dw = f$.
 
 The proof structure is complete: all six steps are implemented, with sorry only
 for technical conditions. Remaining sorry:
+The proof structure is complete and most technical conditions are now discharged.
+The continuity of $s \mapsto \nabla_x f(x-(t-s)b, s)$ (needed for the
+\texttt{IntervalIntegrable} hypotheses and the \texttt{toDual}/\texttt{innerSL}
+commutations in Steps 5--6) is proved via the identity
+$\text{fderiv}\,(\lambda y.\,f(y,s))\,z = \text{fderiv}\,f\,(z,s) \circ \text{inl}$
+combined with \texttt{ContDiff.continuous\_fderiv}. Two sorry remain:
 \begin{itemize}
   \item \textbf{Step 2} (\texttt{hleibniz}): Mathlib has
     \texttt{integral\_hasDerivAt\_right} (FTC) and
@@ -606,13 +612,19 @@ for technical conditions. Remaining sorry:
     (differentiation under integral sign) separately, but no combined
     Leibniz formula for $\frac{d}{dt}\int_0^t H(t,s)\,ds = H(t,t) + \int_0^t \partial_t H(t,s)\,ds$.
     A placeholder \texttt{leibniz\_integral} is defined in \texttt{Calculus.lean}.
-  \item \textbf{Step 5 technical conditions}: \texttt{AEStronglyMeasurable} of $F'$,
-    \texttt{LipschitzOnWith} for the dominated convergence bound, and
-    \texttt{IntervalIntegrable} for the bound function and the \texttt{toDual} commutation.
-    These follow from $f \in C^1$ but require careful Mathlib API work.
-  \item \textbf{Step 6}: continuity of $s \mapsto \nabla_x f(x-(t-s)b, s)$
-    needed for \texttt{IntervalIntegrable}; follows from $f \in C^1$.
+    This is a genuine library gap.
+  \item \textbf{Step 5} (\texttt{LipschitzOnWith} hypothesis): the dominated-convergence
+    bound in \texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip} requires a
+    Lipschitz constant valid on the whole ball $B(x,1)$, whereas the natural bound
+    $\|\text{fderiv}\,f\,(x-(t-s)b,s)\|\cdot\|b\|$ only uses the center point.
+    A correct proof needs a uniform bound $\sup_{x' \in \overline{B}(x,1)}
+    \|\text{fderiv}\,f\,(x'-(t-s)b,s)\|$ over the compact product
+    $\overline{B}(x,1) \times [0,t]$ (via \texttt{IsCompact.exists\_bound\_of\_continuousOn}),
+    which is feasible but requires substantial additional API work.
 \end{itemize}
+All other conditions (\texttt{AEStronglyMeasurable} of $F$ and $F'$,
+\texttt{IntervalIntegrable} of the bound, the \texttt{toDual} and \texttt{innerSL}
+commutations) are fully proved.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
