@@ -950,6 +950,96 @@ is fully proved, and the framework of
 \end{center}
 
 % ══════════════════════════════════════════════════════════════════════════════
+\section{Chapter 3: Heat Equation (Evans §2.3)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{The PDEs}
+
+The initial value problem for the heat (diffusion) equation:
+\begin{align}
+  u_t - \Delta u &= 0 \quad \text{in } \mathbb{R}^n \times (0,\infty) \quad \text{(homogeneous)} \\
+  u_t - \Delta u &= f \quad \text{in } \mathbb{R}^n \times (0,\infty) \quad \text{(inhomogeneous)} \\
+  u &= g \quad \text{on } \mathbb{R}^n \times \{t = 0\}.
+\end{align}
+Here $u_t$ is \texttt{timeDerivative} and $\Delta u$ is the spatial Laplacian
+\texttt{spatialLaplacian}, both from \texttt{Calculus.lean}.
+
+Unlike the Laplace chapter, the heat chapter avoids the three Mathlib blockers
+(Stokes on spheres, \texttt{hausdorffMeasure\_sphere}, $n$-dim polar coordinates):
+the fundamental solution is an \emph{explicit} Gaussian, and its normalization uses
+Mathlib's multivariate Gaussian integral directly.
+
+\subsection{§2.3.1 The Heat Kernel}
+
+The fundamental solution (heat kernel) is
+\begin{equation}
+  \Phi(x, t) =
+  \begin{cases}
+    (4\pi t)^{-n/2} \exp\!\left(-\dfrac{|x|^2}{4t}\right) & t > 0, \\[1ex]
+    0 & t \le 0.
+  \end{cases}
+\end{equation}
+
+\begin{lstlisting}[caption={Heat kernel definition}]
+noncomputable def heatKernel (p : Rn x R) : R :=
+  if 0 < p.2 then
+    (4 * pi * p.2) ^ (-n / 2) * exp (-||p.1||^2 / (4 * p.2))
+  else 0
+
+noncomputable def heatSolution (g : Rn -> R) : Rn x R -> R :=
+  fun p => Int y, heatKernel (p.1 - y, p.2) * g y
+\end{lstlisting}
+
+The key computations are the time derivative and spatial Laplacian of the kernel,
+which turn out to be \emph{equal}, so the kernel solves the heat equation:
+\begin{align}
+  \Phi_t(x,t) &= \Phi(x,t) \cdot \left(\frac{|x|^2}{4t^2} - \frac{n}{2t}\right), \\
+  \Delta \Phi(x,t) &= \Phi(x,t) \cdot \left(\frac{|x|^2}{4t^2} - \frac{n}{2t}\right).
+\end{align}
+
+\textbf{Normalization} ($\int_{\mathbb{R}^n} \Phi(\cdot, t) = 1$): the kernel is
+$(4\pi t)^{-n/2}$ times the Gaussian $\exp(-|x|^2/4t)$, whose integral over
+$\mathbb{R}^n$ is $(4\pi t)^{n/2}$ by Mathlib's
+\texttt{GaussianFourier.integral\_rexp\_neg\_mul\_sq\_norm}. The two powers cancel.
+
+\textbf{Time derivative}: on $t > 0$ the kernel agrees with the smooth branch
+$F(s) = (4\pi s)^{-n/2} \exp(-|x|^2/4s)$. Writing $\Phi = u \cdot v$ with
+$u(s) = (4\pi s)^{-n/2}$, $v(s) = \exp(-|x|^2/4s)$, the product and chain rules give the
+claim. The derivative is transferred to the kernel via \texttt{Filter.EventuallyEq}.
+
+\textbf{Spatial Laplacian}: the Gaussian Laplacian is computed by expanding over the
+standard orthonormal basis (\texttt{laplacian\_eq\_iteratedFDeriv\_orthonormalBasis}),
+computing the second directional derivative along each $e_i$ via the product rule, and
+summing using Parseval ($\sum_i \langle x, e_i \rangle^2 = |x|^2$). The constant
+$(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{isHeatSolution\_iff\_isInhomHeatSolution\_zero} & homogeneous $=$ source $0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_of\_nonpos} & $\Phi = 0$ for $t \le 0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_pos} & $\Phi > 0$ for $t > 0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_nonneg} & $\Phi \ge 0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_integral\_eq\_one} & $\int_{\mathbb{R}^n} \Phi(\cdot,t) = 1$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_timeDerivative} & $\Phi_t = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{gaussian\_laplacian} & $\Delta_y \exp(-|y|^2/4t)$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_spatialLaplacian} & $\Delta \Phi = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_solves\_heat} & $\Phi_t - \Delta\Phi = 0$ ($t>0$) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn & \textcolor{sorryred}{sorry} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The only remaining sorry is \texttt{heatSolution\_solves\_heat}: that the convolution
+$u(x,t) = \int \Phi(x-y,t)\,g(y)\,dy$ solves the heat equation. This requires
+differentiation under the integral sign (in both $x$ and $t$), pushing the derivatives
+onto the kernel and applying \texttt{heatKernel\_solves\_heat}, with dominated-convergence
+bounds for the Gaussian and its derivatives. The kernel computations it depends on are
+all complete.
+
+% ══════════════════════════════════════════════════════════════════════════════
 \section{Calculus Utilities: \texttt{Calculus.lean}}
 % ══════════════════════════════════════════════════════════════════════════════
 
