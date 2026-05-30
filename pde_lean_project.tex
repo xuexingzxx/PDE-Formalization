@@ -356,6 +356,10 @@ The following were initially defined but later found to be redundant:
   \texttt{integrableOn\_rpow\_norm}
     & $\int_{B(0,r)} \|x\|^s\,dx < \infty$ for $s > -n$
     & Not in Mathlib; would unblock several proofs \\
+  Sphere Hausdorff measure formula
+    & $\sigma(\partial B(0,r)) = n\omega_n r^{n-1}$
+    & \texttt{hausdorffMeasure\_sphere} not in Mathlib;
+      blocks \texttt{fundamentalSolution\_totalFlux} \\
   Translation of set integrals
     & \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
     & Proved manually via \texttt{integral\_sub\_left\_eq\_self} \\
@@ -487,13 +491,26 @@ theorem evansFormula_unique (b : Rn) (g : Rn -> R)
     (hu_pde  : IsTransportSolution b u)
     (hu_init : ForAll x : Rn, u (x, 0) = g x)
     (hu_diff : Differentiable R u) :
-    u = evansFormula b g := by sorry
+    u = evansFormula b g := by
+  -- proved: see Transport.lean for full proof
+  -- key: z(s) = u(x+sb, t+s) has z' = 0 by chain rule + PDE,
+  -- so z is constant; z(-t) = g(x-tb) gives u(x,t) = g(x-tb)
 \end{lstlisting}
 
-Proof sketch for uniqueness: let $w = u - \texttt{evansFormula}\,b\,g$.
-For fixed $(x,t)$, define $z(s) = w(x+sb,\, t+s)$. Then
-$z'(s) = \text{timeDerivative}\,w + \langle \text{spatialGradient}\,w, b \rangle = 0$,
-so $z$ is constant. Since $z(-t) = w(x-tb, 0) = 0$, we get $w \equiv 0$.
+The uniqueness proof is fully formalized. The key steps are:
+\begin{enumerate}
+  \item \textbf{\texttt{const\_of\_deriv\_zero}}: a function $f : \mathbb{R} \to \mathbb{R}$
+    with $f' \equiv 0$ is constant, proved via
+    \texttt{image\_sub\_le\_mul\_sub\_of\_deriv\_le} (MVT).
+    Note: \texttt{isConst\_of\_deriv\_eq\_zero} does not exist in Mathlib.
+  \item \textbf{Characteristic path}: $\gamma(s) = (x + sb, t+s)$ has derivative
+    $(b, 1)$ by \texttt{HasDerivAt.prodMk}.
+  \item \textbf{Chain rule}: $z'(s) = \text{fderiv}\,u\,(\gamma(s))\,(b,1)$,
+    which equals $\langle \text{spatialGradient}\,u, b\rangle + \text{timeDerivative}\,u = 0$
+    by the PDE hypothesis (inline of \texttt{fderiv\_transport\_dir}).
+  \item \textbf{Conclusion}: $z$ is constant, $z(-t) = u(x-tb, 0) = g(x-tb)$,
+    so $u(x,t) = z(0) = g(x-tb)$.
+\end{enumerate}
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -502,10 +519,10 @@ so $z$ is constant. Since $z(-t) = w(x-tb, 0) = 0$, we get $w \equiv 0$.
   \midrule
   \texttt{evansFormula\_initial}              & $u(x,0) = g(x)$                        & \textcolor{mathgreen}{\checkmark} \\
   \texttt{evansFormula\_differentiable}       & regularity from $g$                     & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{spatialGradient\_evansFormula}      & chain rule for spatial gradient         & \textcolor{sorryred}{sorry} \\
-  \texttt{timeDerivative\_evansFormula}       & chain rule for time derivative          & \textcolor{sorryred}{sorry} \\
-  \texttt{evansFormula\_solves\_transport}    & existence (modulo two lemmas)           & \textcolor{orange}{partial} \\
-  \texttt{evansFormula\_unique}               & uniqueness via characteristics          & \textcolor{sorryred}{sorry} \\
+  \texttt{spatialGradient\_evansFormula}      & chain rule for spatial gradient         & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{timeDerivative\_evansFormula}       & chain rule for time derivative          & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{evansFormula\_solves\_transport}    & existence of solution                   & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{evansFormula\_unique}               & uniqueness via characteristics          & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -817,37 +834,54 @@ whose status reflects the current state of Mathlib:
   \textbf{Lemma} & \textbf{Blocker} & \textbf{Status} \\
   \midrule
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-    & $\|\Phi\|$ integrable on $B(0,1)$: needs \texttt{integrableOn\_rpow\_norm} & \textcolor{orange}{partial} \\
+    & $\|\Phi\|$ integrable on $B(0,1)$: needs $n$-dim polar coordinates & \textcolor{orange}{partial} \\
   \texttt{green\_identity\_annulus}
-    & Stokes theorem on spherical domains & \textcolor{orange}{partial} \\
+    & Gauss--Green on spherical annulus: needs Stokes & \textcolor{orange}{partial} \\
   \texttt{fundamentalSolution\_totalFlux}
-    & explicit sphere integral & \textcolor{sorryred}{sorry} \\
+    & sphere Hausdorff measure $\sigma(\partial B(0,\varepsilon)) = n\omega_n\varepsilon^{n-1}$:
+      \texttt{hausdorffMeasure\_sphere} not in Mathlib & \textcolor{sorryred}{sorry} \\
   \texttt{green\_boundary\_tendsto\_f}
-    & depends on Green's identity & \textcolor{sorryred}{sorry} \\
+    & depends on \texttt{green\_identity\_annulus} and \texttt{fundamentalSolution\_totalFlux} & \textcolor{sorryred}{sorry} \\
   \texttt{newtonianPotential\_solves\_poisson}
     & depends on all above & \textcolor{sorryred}{sorry} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-The primary blocker for \texttt{green\_identity\_annulus} is Stokes' theorem on spherical
-domains, not yet in Mathlib. For \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero},
-the missing tool is a Mathlib lemma of the form
-\texttt{integrableOn\_rpow\_norm}: $\int_{B(0,r)} \|x\|^s\,dx < \infty$ for $s > -n$.
-Both require either polar coordinates in $\mathbb{R}^n$ (only $\mathbb{R}^2$ is in Mathlib)
-or dedicated measure-theoretic infrastructure.
+The entire proof chain for the Poisson representation formula is blocked by three
+independent missing tools in Mathlib, each of which would require substantial
+infrastructure to develop:
 
-The proof framework of \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} is
-otherwise complete: translation invariance (\texttt{integral\_ball\_translate}, proved),
-sequential convergence via antitone balls (proved), and transfer to \texttt{nhdsWithin}
-(proved). Only the integrability of $\|\Phi\|$ on $B(0,1)$ remains as a sorry.
+\begin{enumerate}
+  \item \textbf{Stokes' theorem on spherical domains.}
+    Required by \texttt{green\_identity\_annulus} (Step 2) and
+    \texttt{green\_boundary\_tendsto\_f}.
+    Mathlib's divergence theorem (\texttt{integral\_divergence\_of\_hasFDerivWithinAt\_off\_countable})
+    covers only rectangular boxes; the spherical case is not available.
 
-For \texttt{green\_identity\_annulus}, Step 1 is proved: the algebraic identity
-\[
-  v\,\Delta u - u\,\Delta v = \sum_i \partial_{e_i}(v\,\partial_{e_i}u - u\,\partial_{e_i}v)
-\]
-follows from the product rule and \texttt{iteratedFDeriv\_two\_apply}.
-Step 2 (Gauss--Green on the annulus) is blocked by Stokes' theorem on spherical domains.
+  \item \textbf{Sphere Hausdorff measure formula.}
+    Required by \texttt{fundamentalSolution\_totalFlux}:
+    the computation $\int_{\partial B(0,\varepsilon)} d\sigma = n\omega_n\varepsilon^{n-1}$
+    requires \texttt{hausdorffMeasure\_sphere} or equivalent, which is not in Mathlib.
+    The Evans computation (§2.2.4, p.~23) gives
+    $\int_{\partial B(0,\varepsilon)} \langle\nabla\Phi, \nu\rangle\,d\sigma
+    = c_n(2-n)\varepsilon^{1-n} \cdot n\omega_n\varepsilon^{n-1} = -1$,
+    but the surface area step is unavailable.
+
+  \item \textbf{$n$-dimensional polar coordinates.}
+    Required by \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
+    (integrability of $\|\Phi\|$ on $B(0,1)$) and implicitly by
+    \texttt{fundamentalSolution\_totalFlux}.
+    Mathlib provides \texttt{polarCoord} for $\mathbb{R}^2$ only;
+    the general $\mathbb{R}^n$ version is not available.
+\end{enumerate}
+
+Despite these blockers, significant partial progress has been made:
+\texttt{green\_identity\_annulus} Step~1 (the algebraic identity
+$v\,\Delta u - u\,\Delta v = \sum_i \partial_{e_i}(v\,\partial_{e_i}u - u\,\partial_{e_i}v)$)
+is fully proved, and the framework of
+\texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
+(translation, sequential convergence, \texttt{nhdsWithin} transfer) is complete.
 
 \subsection{Status Summary}
 
@@ -864,6 +898,7 @@ Step 2 (Gauss--Green on the annulus) is blocked by Stokes' theorem on spherical 
   \texttt{laplacian\_log\_norm\_eq}  & $\Delta(\log\|x\|) = (n-2)\|x\|^{-2}$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fundamentalSolution\_harmonic\_off\_zero} & $\Delta\Phi = 0$ off origin & \textcolor{mathgreen}{\checkmark} \\
   \texttt{integral\_ball\_translate} & $\int_{B(x,\varepsilon)} f(x-y)\,dy = \int_{B(0,\varepsilon)} f(z)\,dz$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{green\_identity\_annulus} & Green's 2nd identity on annulus (Step 1 proved) & \textcolor{orange}{partial} \\
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} & $\int_{B(x,\varepsilon)}\|\Phi\| \to 0$ & \textcolor{orange}{partial} \\
   \texttt{harmonic\_sphereMeanValue} & mean value on spheres              & \textcolor{sorryred}{sorry} \\
   \texttt{harmonic\_ballMeanValue}   & mean value on balls                & \textcolor{sorryred}{sorry} \\
