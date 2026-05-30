@@ -141,7 +141,6 @@ theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × �
   intro ⟨x, t⟩
   simp only [duhamelFormula, timeDerivative, spatialGradient]
   have hf1 : Differentiable ℝ f := hf.differentiable (by norm_num)
-  -- Step 1: ∂_t[f(x-(t-s)b, s)] = -⟪∇_x f(x-(t-s)b,s), b⟫
   have hchain : ∀ s : ℝ, HasDerivAt (fun t => f (x - (t - s) • b, s))
       (-⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ) t := by
     intro s
@@ -154,13 +153,11 @@ theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × �
     have hcomp := hfs.differentiableAt.hasFDerivAt.comp_hasDerivAt t hpath
     convert hcomp using 1
     rw [map_neg, inner_gradient_left hfs.differentiableAt]
-  -- Step 2: Leibniz rule (sorry: no combined Leibniz in Mathlib)
   have hleibniz : HasDerivAt
       (fun t => ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s))
       (f (x, t) + ∫ s in (0:ℝ)..t,
         (-⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ)) t := by
     sorry
-  -- Step 3: time derivative of g(x-tb)
   have hg_deriv : HasDerivAt (fun t => g (x - t • b))
       (-⟪gradient g (x - t • b), b⟫_ℝ) t := by
     have hpath : HasDerivAt (fun t => x - t • b) (-b) t := by
@@ -170,19 +167,74 @@ theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × �
     have hcomp := hg.differentiableAt.hasFDerivAt.comp_hasDerivAt t hpath
     convert hcomp using 1
     rw [map_neg, inner_gradient_left hg.differentiableAt]
-  -- Step 4: time derivative of full Duhamel formula
   have htime : HasDerivAt
       (fun t => g (x - t • b) + ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s))
       ((-⟪gradient g (x - t • b), b⟫_ℝ) + (f (x, t) +
         ∫ s in (0:ℝ)..t, (-⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ))) t :=
     hg_deriv.add hleibniz
-  -- Step 5: spatial gradient of Duhamel formula
+  have hgrad_cont : Continuous (fun s => gradient (fun y => f (y, s)) (x - (t - s) • b)) := by
+    simp only [gradient]
+    apply (toDual ℝ ℝⁿ).symm.continuous.comp
+    sorry
   have hspace : gradient (fun x =>
         g (x - t • b) + ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s)) x =
       gradient g (x - t • b) +
       ∫ s in (0:ℝ)..t, gradient (fun y => f (y, s)) (x - (t - s) • b) := by
-    sorry
-  -- Step 6: combine
+    have hg_fderiv : HasFDerivAt (fun x => g (x - t • b))
+        (fderiv ℝ g (x - t • b)) x := by
+      have hφ : HasFDerivAt (fun y : ℝⁿ => y - t • b)
+          (ContinuousLinearMap.id ℝ ℝⁿ) x := hasFDerivAt_sub_const (t • b)
+      have := hg.differentiableAt.hasFDerivAt.comp x hφ
+      simpa [ContinuousLinearMap.comp_id] using this
+    have hint_fderiv : HasFDerivAt
+        (fun x => ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s))
+        (∫ s in (0:ℝ)..t,
+          fderiv ℝ (fun y => f (y, s)) (x - (t - s) • b) ∘L
+          ContinuousLinearMap.id ℝ ℝⁿ) x := by
+      refine (intervalIntegral.hasFDerivAt_integral_of_dominated_loc_of_lip
+        (μ := MeasureTheory.volume)
+        (F := fun x s => f (x - (t - s) • b, s))
+        (F' := fun s => fderiv ℝ (fun y => f (y, s)) (x - (t - s) • b) ∘L
+          ContinuousLinearMap.id ℝ ℝⁿ)
+        (bound := fun s => ‖fderiv ℝ f (x - (t - s) • b, s)‖ * ‖b‖)
+        (x₀ := x) (a := 0) (b := t)
+        (Metric.ball_mem_nhds x one_pos)
+        ?_ ?_ ?_ ?_ ?_ ?_).2
+      · apply Filter.Eventually.of_forall; intro x'
+        exact (hf1.continuous.comp (by fun_prop)).aestronglyMeasurable
+      · exact (hf1.continuous.comp (by fun_prop)).continuousOn.intervalIntegrable
+      · sorry
+      · sorry
+      · sorry
+      · filter_upwards with s _
+        have hφ : HasFDerivAt (fun y : ℝⁿ => y - (t - s) • b)
+            (ContinuousLinearMap.id ℝ ℝⁿ) x := hasFDerivAt_sub_const _
+        have hfs : HasFDerivAt (fun y : ℝⁿ => f (y, s))
+            (fderiv ℝ (fun y => f (y, s)) (x - (t - s) • b))
+            (x - (t - s) • b) :=
+          (hf1.differentiableAt.comp (x - (t - s) • b)
+            (differentiableAt_id.prodMk (differentiableAt_const s))).hasFDerivAt
+        exact hfs.comp x hφ
+    have hsum : HasFDerivAt
+        (fun x => g (x - t • b) + ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s))
+        (fderiv ℝ g (x - t • b) +
+          ∫ s in (0:ℝ)..t,
+            fderiv ℝ (fun y => f (y, s)) (x - (t - s) • b) ∘L
+            ContinuousLinearMap.id ℝ ℝⁿ) x := by
+      have := hg_fderiv.add hint_fderiv
+      simp only [ContinuousLinearMap.comp_id] at this ⊢
+      exact this
+    simp only [gradient]
+    rw [hsum.fderiv]
+    simp only [map_add, ContinuousLinearMap.comp_id]
+    congr 1
+    have htoDual := ContinuousLinearMap.intervalIntegral_comp_comm
+      (μ := MeasureTheory.volume)
+      ((toDual ℝ ℝⁿ).symm.toContinuousLinearMap)
+      (f := fun s => fderiv ℝ (fun y => f (y, s)) (x - (t - s) • b))
+      (a := (0:ℝ)) (b := t)
+      (by sorry)
+    convert htoDual.symm using 1
   rw [htime.deriv, hspace]
   simp only [inner_add_left, intervalIntegral.integral_neg]
   have hinner_int : ⟪∫ s in (0:ℝ)..t,
@@ -194,10 +246,9 @@ theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × �
       (innerSL ℝ b : ℝⁿ →L[ℝ] ℝ)
       (f := fun s => gradient (fun y => f (y, s)) (x - (t - s) • b))
       (a := (0:ℝ)) (b := t)
-      (by sorry)
+      (hgrad_cont.continuousOn.intervalIntegrable)
     simp only [innerSL_apply_apply] at key
-    rw [real_inner_comm]
-    rw [← key]
+    rw [real_inner_comm, ← key]
     congr 1; ext s
     exact real_inner_comm _ _
   linarith [hinner_int]
