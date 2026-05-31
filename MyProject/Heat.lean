@@ -82,6 +82,10 @@ lemma heatKernel_nonneg (x : ℝⁿ) (t : ℝ) : 0 ≤ heatKernel (x, t) := by
   · exact (heatKernel_pos x ht).le
   · simp [heatKernel_of_nonpos x (not_lt.mp ht)]
 
+/-- The heat kernel is radial, hence even in space: `Φ(−x, t) = Φ(x, t)`. -/
+lemma heatKernel_even (x : ℝⁿ) (t : ℝ) : heatKernel (-x, t) = heatKernel (x, t) := by
+  simp only [heatKernel_apply, norm_neg]
+
 /-! ### Solution of the Initial Value Problem -/
 
 /-- The solution of the heat IVP with initial data `g`, given by convolution of `g`
@@ -125,6 +129,24 @@ theorem heatKernel_integral_eq_one {t : ℝ} (ht : 0 < t) :
     _ = 1 := by
         rw [← Real.rpow_add h4t]
         rw [show -(n : ℝ) / 2 + (n : ℝ) / 2 = 0 from by ring, Real.rpow_zero]
+
+/-- The kernel still integrates to `1` after the convolution shift `y ↦ x − y`
+    (the reflection-translation `y ↦ x − y` preserves Lebesgue measure). -/
+lemma heatKernel_integral_translate_eq_one (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
+    ∫ y : ℝⁿ, heatKernel (x - y, t) = 1 := by
+  calc ∫ y : ℝⁿ, heatKernel (x - y, t)
+      = ∫ y : ℝⁿ, heatKernel (y, t) :=
+        MeasureTheory.integral_sub_left_eq_self
+          (fun z : ℝⁿ => heatKernel (z, t)) MeasureTheory.volume x
+    _ = 1 := heatKernel_integral_eq_one ht
+
+/-- **Constant initial data is preserved**: the solution with `g ≡ c` is the constant `c`.
+    A consistency check on the solution formula — constants solve the heat equation — and a
+    direct corollary of the kernel's unit mass. -/
+theorem heatSolution_const (c : ℝ) (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
+    heatSolution (fun _ => c) (x, t) = c := by
+  simp only [heatSolution]
+  rw [integral_mul_const, heatKernel_integral_translate_eq_one x ht, one_mul]
 
 /-- **Time derivative of the heat kernel**: `Φ_t = Φ · (|x|²/(4t²) − n/(2t))`.
 
@@ -311,15 +333,64 @@ theorem heatKernel_solves_heat (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
   rw [heatKernel_timeDerivative x ht, heatKernel_spatialLaplacian x ht]
   ring
 
+/-- **Translation invariance of the Laplacian**: `Δ(f(· − y))(x) = (Δf)(x − y)`.
+    The Laplacian is a sum of second derivatives, which commute with the constant shift
+    `· − y` (`iteratedFDeriv_comp_sub`). -/
+lemma laplacian_comp_sub (f : ℝⁿ → ℝ) (y x : ℝⁿ) :
+    Laplacian.laplacian (fun z => f (z - y)) x = Laplacian.laplacian f (x - y) := by
+  let e := EuclideanSpace.basisFun (Fin n) ℝ
+  rw [show Laplacian.laplacian (fun z => f (z - y)) x =
+        ∑ i, iteratedFDeriv ℝ 2 (fun z => f (z - y)) x ![e i, e i] from
+      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis _ e) x,
+      show Laplacian.laplacian f (x - y) =
+        ∑ i, iteratedFDeriv ℝ 2 f (x - y) ![e i, e i] from
+      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis _ e) (x - y)]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [iteratedFDeriv_comp_sub (𝕜 := ℝ) 2 y x]
+
+/-- **Integrand cancellation**: for each fixed `y`, the translated kernel `(x,t) ↦ Φ(x−y,t)`
+    solves the heat equation — its time derivative equals its spatial Laplacian. This is the
+    pointwise heart of why the convolution `∫ Φ(x−y,t) g(y) dy` solves the heat equation:
+    under the integral the `t`- and `x`-derivatives both land on `Φ` and cancel.
+
+    Proved completely from `heatKernel_timeDerivative`, `heatKernel_spatialLaplacian`
+    (both equal `Φ(x−y,t)·(|x−y|²/(4t²) − n/(2t))`) and `laplacian_comp_sub`. -/
+lemma heatKernel_translate_solves_heat (x y : ℝⁿ) {t : ℝ} (ht : 0 < t) :
+    deriv (fun s => heatKernel (x - y, s)) t
+      = Laplacian.laplacian (fun z : ℝⁿ => heatKernel (z - y, t)) x := by
+  have hL : deriv (fun s => heatKernel (x - y, s)) t
+      = timeDerivative heatKernel (x - y, t) := rfl
+  have hR : Laplacian.laplacian (fun z : ℝⁿ => heatKernel (z - y, t)) x
+      = spatialLaplacian heatKernel (x - y, t) := by
+    rw [spatialLaplacian]
+    exact laplacian_comp_sub (fun w : ℝⁿ => heatKernel (w, t)) y x
+  rw [hL, hR, heatKernel_timeDerivative (x - y) ht, heatKernel_spatialLaplacian (x - y) ht]
+
 /-- **Evans §2.3.1, Theorem 1**: the convolution `u(x,t) = ∫ Φ(x−y,t) g(y) dy` solves
     the homogeneous heat equation in `ℝⁿ × (0, ∞)`.
 
-    **Proof**: differentiate under the integral sign and apply `heatKernel_solves_heat`
-    to the kernel (the `x`- and `t`-derivatives fall on `Φ`, not on `g`). Requires
-    differentiation under the integral and dominated-convergence bounds for the Gaussian
-    and its derivatives. -/
+    **Proof structure**: differentiating under the integral sign moves the `t`-derivative
+    and the spatial Laplacian onto the kernel (`htime`, `hspace` — the analytic gap, needing
+    dominated-convergence bounds for the Gaussian and its derivatives, plus a growth bound on
+    `g`). The two resulting integrands then cancel *pointwise* by
+    `heatKernel_translate_solves_heat`, so the integrals are equal and their difference is
+    zero. The cancellation step is fully proved here; only the two
+    differentiation-under-the-integral identities remain as `sorry`. -/
 theorem heatSolution_solves_heat (g : ℝⁿ → ℝ) (hg : Continuous g)
     (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
     timeDerivative (heatSolution g) (x, t) -
       spatialLaplacian (heatSolution g) (x, t) = 0 := by
-  sorry
+  -- Differentiation under the integral: the `t`-derivative lands on the kernel.
+  have htime : timeDerivative (heatSolution g) (x, t)
+      = ∫ y : ℝⁿ, deriv (fun s => heatKernel (x - y, s)) t * g y := by
+    sorry
+  -- Differentiation under the integral: the spatial Laplacian lands on the kernel.
+  have hspace : spatialLaplacian (heatSolution g) (x, t)
+      = ∫ y : ℝⁿ, Laplacian.laplacian (fun z : ℝⁿ => heatKernel (z - y, t)) x * g y := by
+    sorry
+  -- The two integrands coincide pointwise, since the kernel solves the heat equation.
+  have hcancel : (fun y : ℝⁿ => deriv (fun s => heatKernel (x - y, s)) t * g y)
+      = fun y : ℝⁿ => Laplacian.laplacian (fun z : ℝⁿ => heatKernel (z - y, t)) x * g y := by
+    funext y
+    rw [heatKernel_translate_solves_heat x y ht]
+  rw [htime, hspace, hcancel, sub_self]

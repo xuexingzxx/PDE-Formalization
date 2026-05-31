@@ -1022,22 +1022,103 @@ $(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
   \texttt{heatKernel\_of\_nonpos} & $\Phi = 0$ for $t \le 0$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_pos} & $\Phi > 0$ for $t > 0$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_nonneg} & $\Phi \ge 0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_even} & $\Phi(-x,t) = \Phi(x,t)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_integral\_eq\_one} & $\int_{\mathbb{R}^n} \Phi(\cdot,t) = 1$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_integral\_translate\_eq\_one} & $\int_{\mathbb{R}^n} \Phi(x-\cdot,t) = 1$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_const} & $u[g \equiv c] = c$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_timeDerivative} & $\Phi_t = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{gaussian\_laplacian} & $\Delta_y \exp(-|y|^2/4t)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_spatialLaplacian} & $\Delta \Phi = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_solves\_heat} & $\Phi_t - \Delta\Phi = 0$ ($t>0$) & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn & \textcolor{sorryred}{sorry} \\
+  \texttt{laplacian\_comp\_sub} & $\Delta(f(\cdot-y))(x) = (\Delta f)(x-y)$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_translate\_solves\_heat} & translated kernel solves heat eqn & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn & \textcolor{orange}{partial} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-The only remaining sorry is \texttt{heatSolution\_solves\_heat}: that the convolution
-$u(x,t) = \int \Phi(x-y,t)\,g(y)\,dy$ solves the heat equation. This requires
-differentiation under the integral sign (in both $x$ and $t$), pushing the derivatives
-onto the kernel and applying \texttt{heatKernel\_solves\_heat}, with dominated-convergence
-bounds for the Gaussian and its derivatives. The kernel computations it depends on are
-all complete.
+The proof of \texttt{heatSolution\_solves\_heat} is structured so that the
+\emph{cancellation} is fully proved: the helper \texttt{heatKernel\_translate\_solves\_heat}
+shows that for each fixed $y$, the translated kernel $(x,t) \mapsto \Phi(x-y,t)$ solves the
+heat equation (its time derivative equals its spatial Laplacian), using
+\texttt{heatKernel\_timeDerivative}, \texttt{heatKernel\_spatialLaplacian}, and
+\texttt{laplacian\_comp\_sub} (translation invariance of the Laplacian via
+\texttt{iteratedFDeriv\_comp\_sub}). Under the integral, the two derivatives therefore
+cancel pointwise, and the result follows.
+
+Only the two \emph{differentiation-under-the-integral} identities remain as sorry
+(\texttt{htime}: the $t$-derivative lands on the kernel; \texttt{hspace}: the spatial
+Laplacian lands on the kernel). These need dominated-convergence bounds for the Gaussian
+and its derivatives over all of $\mathbb{R}^n$, plus a growth bound on $g$ (Evans assumes
+$g$ bounded continuous; the current statement assumes only continuity). All the kernel
+computations they depend on are complete.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Chapter 4: Wave Equation (Evans §2.4)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{The PDE}
+
+The one-dimensional wave equation initial value problem:
+\begin{align}
+  u_{tt} - u_{xx} &= 0 \quad \text{in } \mathbb{R} \times (0,\infty) \\
+  u = g, \quad u_t &= h \quad \text{on } \mathbb{R} \times \{t = 0\}.
+\end{align}
+We work on spacetime $\mathbb{R} \times \mathbb{R}$ with ordinary second derivatives
+$u_{tt}$, $u_{xx}$ (\texttt{timeDeriv2}, \texttt{spaceDeriv2}), since in one space dimension
+there is no need for the gradient/Laplacian machinery.
+
+\subsection{§2.4.1 Traveling Waves and d'Alembert's Formula}
+
+The structural fact: the general solution is a superposition of a right-moving wave
+$\varphi(x-t)$ and a left-moving wave $\psi(x+t)$. d'Alembert's formula
+\begin{equation}
+  u(x,t) = \tfrac{1}{2}\bigl(g(x+t) + g(x-t)\bigr)
+    + \tfrac{1}{2}\int_{x-t}^{x+t} h(s)\,ds
+\end{equation}
+is exactly such a superposition.
+
+\begin{lstlisting}[caption={Wave equation definitions}]
+noncomputable def timeDeriv2 (u : R x R -> R) (p : R x R) : R :=
+  deriv (fun s => deriv (fun r => u (p.1, r)) s) p.2
+
+noncomputable def spaceDeriv2 (u : R x R -> R) (p : R x R) : R :=
+  deriv (fun s => deriv (fun r => u (r, p.2)) s) p.1
+
+def IsWaveSolution (u : R x R -> R) : Prop :=
+  forall p, timeDeriv2 u p = spaceDeriv2 u p
+
+noncomputable def dalembert (g h : R -> R) : R x R -> R :=
+  fun p => (g (p.1 + p.2) + g (p.1 - p.2)) / 2
+            + (Int s in (p.1 - p.2)..(p.1 + p.2), h s) / 2
+\end{lstlisting}
+
+\textbf{Traveling waves} (both proved): if $\varphi \in C^2$, then $\varphi(x+t)$ and
+$\varphi(x-t)$ each solve $u_{tt} = u_{xx}$. The proof computes both second derivatives
+via the chain rule for the affine shifts $a \pm \cdot$, $\cdot \pm a$ (helper lemmas
+\texttt{deriv\_addL/addR/subL/subR}); both $u_{tt}$ and $u_{xx}$ equal $\varphi''(x \pm t)$.
+
+\textbf{Initial position} (proved): $u(x,0) = g(x)$, since the integral term vanishes
+when the limits coincide.
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{forwardWave\_isWaveSolution} & $\varphi(x+t)$ solves $u_{tt}=u_{xx}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{backwardWave\_isWaveSolution} & $\varphi(x-t)$ solves $u_{tt}=u_{xx}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{dalembert\_initial\_pos} & $u(x,0) = g(x)$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{dalembert\_initial\_vel} & $u_t(x,0) = h(x)$ & \textcolor{sorryred}{todo} \\
+  \texttt{dalembert\_solves\_wave} & d'Alembert solves wave eqn & \textcolor{sorryred}{todo} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The remaining targets ($u_t(x,0) = h(x)$ via the fundamental theorem of calculus on the
+integral term, and that d'Alembert's formula solves the wave equation by decomposing both
+the $g$-part and the integral-part into traveling waves) do not depend on any of the
+Mathlib blockers, and are natural next steps.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Calculus Utilities: \texttt{Calculus.lean}}
