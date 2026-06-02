@@ -32,6 +32,10 @@ antiderivative of `h` evaluated at `x ± t`).
 noncomputable def timeDeriv (u : ℝ × ℝ → ℝ) (p : ℝ × ℝ) : ℝ :=
   deriv (fun s => u (p.1, s)) p.2
 
+/-- The first space derivative `u_x(x, t)`. -/
+noncomputable def spaceDeriv (u : ℝ × ℝ → ℝ) (p : ℝ × ℝ) : ℝ :=
+  deriv (fun r => u (r, p.2)) p.1
+
 /-- The second time derivative `u_tt(x, t)`. -/
 noncomputable def timeDeriv2 (u : ℝ × ℝ → ℝ) (p : ℝ × ℝ) : ℝ :=
   deriv (fun s => deriv (fun r => u (p.1, r)) s) p.2
@@ -265,3 +269,108 @@ theorem dalembert_initial_vel (g h : ℝ → ℝ) (hg : Differentiable ℝ g) (h
   rw [hAB.deriv, hHderiv]
   simp only [add_zero, sub_zero]
   ring
+
+/-! ### Energy Methods (Evans §2.4.3)
+
+The energy density `e = ½(u_t² + u_x²)` and flux `p = u_t · u_x` satisfy the local
+conservation law `∂_t e = ∂_x p` for any wave solution (this is `u_t(u_tt − u_xx) = 0`
+together with the symmetry of mixed partials). Integrating over space gives conservation of
+the total energy `∫ e`, the basis for uniqueness and finite propagation speed.
+
+We prove the local law for the traveling-wave solution `Φ(x+t) + Ψ(x−t)`, where the mixed
+partials are manifestly symmetric, so the law holds with no analytic side conditions. -/
+
+/-- Energy density `e(x,t) = ½(u_t² + u_x²)`. -/
+noncomputable def energyDensity (u : ℝ × ℝ → ℝ) (p : ℝ × ℝ) : ℝ :=
+  ((timeDeriv u p) ^ 2 + (spaceDeriv u p) ^ 2) / 2
+
+/-- Energy flux `p(x,t) = u_t · u_x`. -/
+noncomputable def energyFlux (u : ℝ × ℝ → ℝ) (p : ℝ × ℝ) : ℝ :=
+  timeDeriv u p * spaceDeriv u p
+
+/-- First time derivative of a traveling-wave superposition: `∂_t[A(x+t)+B(x−t)] = A'(x+t) − B'(x−t)`. -/
+private lemma timeDeriv_super (A B : ℝ → ℝ) (hA : Differentiable ℝ A) (hB : Differentiable ℝ B)
+    (p : ℝ × ℝ) :
+    timeDeriv (fun q => A (q.1 + q.2) + B (q.1 - q.2)) p
+      = deriv A (p.1 + p.2) - deriv B (p.1 - p.2) := by
+  simp only [timeDeriv]
+  simpa using ((hasDerivAt_addL A hA p.1 p.2).add (hasDerivAt_subL B hB p.1 p.2)).deriv
+
+/-- First space derivative of a traveling-wave superposition: `∂_x[A(x+t)+B(x−t)] = A'(x+t) + B'(x−t)`. -/
+private lemma spaceDeriv_super (A B : ℝ → ℝ) (hA : Differentiable ℝ A) (hB : Differentiable ℝ B)
+    (p : ℝ × ℝ) :
+    spaceDeriv (fun q => A (q.1 + q.2) + B (q.1 - q.2)) p
+      = deriv A (p.1 + p.2) + deriv B (p.1 - p.2) := by
+  simp only [spaceDeriv]
+  simpa using ((hasDerivAt_addR A hA p.2 p.1).add (hasDerivAt_subR B hB p.2 p.1)).deriv
+
+/-- **Evans §2.4.3, local energy conservation**: for `Φ, Ψ ∈ C²`, the wave solution
+    `u = Φ(x+t) + Ψ(x−t)` satisfies `∂_t e = ∂_x p`, where `e = ½(u_t² + u_x²)` is the energy
+    density and `p = u_t·u_x` the flux. Integrating over `x` yields conservation of total
+    energy `d/dt ∫ e = ∫ ∂_x p = 0`, the basis of the uniqueness theorem. -/
+theorem travelingWaves_energy_conservation (Φ Ψ : ℝ → ℝ)
+    (hΦ : ContDiff ℝ 2 Φ) (hΨ : ContDiff ℝ 2 Ψ) (p : ℝ × ℝ) :
+    timeDeriv (energyDensity (fun q => Φ (q.1 + q.2) + Ψ (q.1 - q.2))) p
+      = spaceDeriv (energyFlux (fun q => Φ (q.1 + q.2) + Ψ (q.1 - q.2))) p := by
+  have hΦd : Differentiable ℝ Φ := hΦ.differentiable (by norm_num)
+  have hΨd : Differentiable ℝ Ψ := hΨ.differentiable (by norm_num)
+  have hΦd' : Differentiable ℝ (deriv Φ) := hΦ.differentiable_deriv_two
+  have hΨd' : Differentiable ℝ (deriv Ψ) := hΨ.differentiable_deriv_two
+  -- Energy density and flux as traveling-wave superpositions in the profiles `Φ'²`, `Ψ'²`.
+  have hE : energyDensity (fun q => Φ (q.1 + q.2) + Ψ (q.1 - q.2))
+      = fun q => (deriv Φ (q.1 + q.2)) ^ 2 + (deriv Ψ (q.1 - q.2)) ^ 2 := by
+    funext q
+    simp only [energyDensity, timeDeriv_super Φ Ψ hΦd hΨd q, spaceDeriv_super Φ Ψ hΦd hΨd q]
+    ring
+  have hF : energyFlux (fun q => Φ (q.1 + q.2) + Ψ (q.1 - q.2))
+      = fun q => (deriv Φ (q.1 + q.2)) ^ 2 + -(deriv Ψ (q.1 - q.2)) ^ 2 := by
+    funext q
+    simp only [energyFlux, timeDeriv_super Φ Ψ hΦd hΨd q, spaceDeriv_super Φ Ψ hΦd hΨd q]
+    ring
+  rw [hE, hF,
+    timeDeriv_super (fun a => (deriv Φ a) ^ 2) (fun a => (deriv Ψ a) ^ 2)
+      (hΦd'.pow 2) (hΨd'.pow 2) p,
+    spaceDeriv_super (fun a => (deriv Φ a) ^ 2) (fun a => -(deriv Ψ a) ^ 2)
+      (hΦd'.pow 2) (hΨd'.pow 2).neg p]
+  -- the backward profile's derivative: ∂(−Ψ'²) = −∂(Ψ'²)
+  have hneg : deriv (fun a => -(deriv Ψ a) ^ 2) (p.1 - p.2)
+      = -deriv (fun a => (deriv Ψ a) ^ 2) (p.1 - p.2) :=
+    (((hΨd'.pow 2) (p.1 - p.2)).hasDerivAt.neg).deriv
+  rw [hneg]; ring
+
+/-- The energy density is nonnegative (it is `½` times a sum of squares). Together with
+    energy conservation, `E ≥ 0` is what drives the uniqueness argument. -/
+lemma energyDensity_nonneg (u : ℝ × ℝ → ℝ) (p : ℝ × ℝ) : 0 ≤ energyDensity u p := by
+  unfold energyDensity; positivity
+
+/-- **Energy conservation for d'Alembert's solution**: for `g ∈ C²`, `h ∈ C¹`, the local
+    conservation law `∂_t e = ∂_x p` holds for `u = dalembert g h`. A corollary of
+    `travelingWaves_energy_conservation` via the superposition decomposition. -/
+theorem dalembert_energy_conservation (g h : ℝ → ℝ) (hg : ContDiff ℝ 2 g) (hh : ContDiff ℝ 1 h)
+    (p : ℝ × ℝ) :
+    timeDeriv (energyDensity (dalembert g h)) p = spaceDeriv (energyFlux (dalembert g h)) p := by
+  have hhc : Continuous h := hh.continuous
+  set H : ℝ → ℝ := fun u => ∫ s in (0 : ℝ)..u, h s with hHdef
+  have hHderiv : deriv H = h := by
+    rw [hHdef]; funext u; exact Continuous.deriv_integral h hhc 0 u
+  have hHdiff : Differentiable ℝ H := by
+    rw [hHdef]; exact fun u => (hhc.integral_hasStrictDerivAt 0 u).hasDerivAt.differentiableAt
+  have hHC2 : ContDiff ℝ 2 H := by
+    rw [show (2 : WithTop ℕ∞) = 1 + 1 from rfl, contDiff_succ_iff_deriv]
+    exact ⟨hHdiff, fun hω => absurd hω (by simp), by rw [hHderiv]; exact hh⟩
+  have hΦ : ContDiff ℝ 2 (fun a => (g a + H a) / 2) := (hg.add hHC2).div_const 2
+  have hΨ : ContDiff ℝ 2 (fun a => (g a - H a) / 2) := (hg.sub hHC2).div_const 2
+  have hrw : dalembert g h
+      = fun q => (fun a => (g a + H a) / 2) (q.1 + q.2)
+          + (fun a => (g a - H a) / 2) (q.1 - q.2) := by
+    funext q
+    obtain ⟨x, t⟩ := q
+    simp only [dalembert]
+    have hsplit : (∫ s in (x - t)..(x + t), h s) = H (x + t) - H (x - t) := by
+      simp only [hHdef]
+      rw [eq_sub_iff_add_eq, add_comm,
+        intervalIntegral.integral_add_adjacent_intervals
+          (hhc.intervalIntegrable 0 (x - t)) (hhc.intervalIntegrable (x - t) (x + t))]
+    rw [hsplit]; ring
+  rw [hrw]
+  exact travelingWaves_energy_conservation _ _ hΦ hΨ p

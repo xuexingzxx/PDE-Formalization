@@ -1093,10 +1093,13 @@ noncomputable def dalembert (g h : R -> R) : R x R -> R :=
             + (Int s in (p.1 - p.2)..(p.1 + p.2), h s) / 2
 \end{lstlisting}
 
-\textbf{Traveling waves} (both proved): if $\varphi \in C^2$, then $\varphi(x+t)$ and
+\textbf{Traveling waves} (all proved): if $\varphi \in C^2$, then $\varphi(x+t)$ and
 $\varphi(x-t)$ each solve $u_{tt} = u_{xx}$. The proof computes both second derivatives
 via the chain rule for the affine shifts $a \pm \cdot$, $\cdot \pm a$ (helper lemmas
-\texttt{deriv\_addL/addR/subL/subR}); both $u_{tt}$ and $u_{xx}$ equal $\varphi''(x \pm t)$.
+\texttt{deriv\_addL/addR/subL/subR} and their \texttt{HasDerivAt} variants); both $u_{tt}$
+and $u_{xx}$ equal $\varphi''(x \pm t)$. The superposition lemma
+\texttt{travelingWaves\_isWaveSolution} combines a forward and a backward wave: both
+second derivatives equal $\Phi''(x+t) + \Psi''(x-t)$.
 
 \textbf{Initial position} (proved): $u(x,0) = g(x)$, since the integral term vanishes
 when the limits coincide.
@@ -1130,6 +1133,53 @@ $C^2$ (since $H' = h \in C^1$, established via \texttt{contDiff\_succ\_iff\_deri
 This makes \textbf{Wave §2.4.1 the first fully closed chapter} --- every result is proved
 with no \texttt{sorry}, not even technical ones, since the one-dimensional setting needs
 only ordinary derivatives and the fundamental theorem of calculus, all available in Mathlib.
+
+\subsection{§2.4.3 Energy Methods}
+
+For a wave solution $u$, the energy density $e = \tfrac{1}{2}(u_t^2 + u_x^2)$ and flux
+$p = u_t \cdot u_x$ satisfy the local conservation law $\partial_t e = \partial_x p$.
+Integrating over space gives conservation of total energy $\frac{d}{dt}\int e = 0$, the
+basis for uniqueness and finite propagation speed.
+
+\begin{lstlisting}[caption={Energy density and flux}]
+noncomputable def energyDensity (u : R x R -> R) (p : R x R) : R :=
+  ((timeDeriv u p)^2 + (spaceDeriv u p)^2) / 2
+
+noncomputable def energyFlux (u : R x R -> R) (p : R x R) : R :=
+  timeDeriv u p * spaceDeriv u p
+\end{lstlisting}
+
+\textbf{Local energy conservation} (proved): for $\Phi, \Psi \in C^2$, the wave solution
+$u = \Phi(x+t) + \Psi(x-t)$ satisfies $\partial_t e = \partial_x p$. The proof computes
+both energy density and flux as traveling-wave superpositions in the profiles
+$(\Phi')^2$ and $(\Psi')^2$:
+\begin{align}
+  e &= (\Phi'(x+t))^2 + (\Psi'(x-t))^2, \\
+  p &= (\Phi'(x+t))^2 - (\Psi'(x-t))^2,
+\end{align}
+using the first-derivative formulas
+$\partial_t[A(x+t)+B(x-t)] = A'(x+t) - B'(x-t)$ and
+$\partial_x[\cdots] = A'(x+t) + B'(x-t)$ (helpers \texttt{timeDeriv\_super},
+\texttt{spaceDeriv\_super}). Differentiating both and comparing gives the conservation law
+with no analytic side conditions --- the mixed partials are manifestly symmetric for a
+traveling wave.
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{travelingWaves\_energy\_conservation} & $\partial_t e = \partial_x p$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{energyDensity\_nonneg} & $e \ge 0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{dalembert\_energy\_conservation} & $\partial_t e = \partial_x p$ for d'Alembert & \textcolor{mathgreen}{\checkmark} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+Like §2.4.1, this section is fully closed (no \texttt{sorry}). It provides the local
+conservation law underlying the energy method; the global uniqueness theorem
+(\emph{equal initial data $\Rightarrow$ equal solutions}) follows by integrating over a
+backward characteristic cone, a natural next target.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Calculus Utilities: \texttt{Calculus.lean}}
