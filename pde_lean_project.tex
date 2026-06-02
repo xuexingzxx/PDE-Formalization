@@ -1108,17 +1108,28 @@ when the limits coincide.
   \midrule
   \texttt{forwardWave\_isWaveSolution} & $\varphi(x+t)$ solves $u_{tt}=u_{xx}$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{backwardWave\_isWaveSolution} & $\varphi(x-t)$ solves $u_{tt}=u_{xx}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{travelingWaves\_isWaveSolution} & $\Phi(x+t)+\Psi(x-t)$ solves wave eqn & \textcolor{mathgreen}{\checkmark} \\
   \texttt{dalembert\_initial\_pos} & $u(x,0) = g(x)$ & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{dalembert\_initial\_vel} & $u_t(x,0) = h(x)$ & \textcolor{sorryred}{todo} \\
-  \texttt{dalembert\_solves\_wave} & d'Alembert solves wave eqn & \textcolor{sorryred}{todo} \\
+  \texttt{dalembert\_initial\_vel} & $u_t(x,0) = h(x)$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{dalembert\_solves\_wave} & d'Alembert solves wave eqn & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-The remaining targets ($u_t(x,0) = h(x)$ via the fundamental theorem of calculus on the
-integral term, and that d'Alembert's formula solves the wave equation by decomposing both
-the $g$-part and the integral-part into traveling waves) do not depend on any of the
-Mathlib blockers, and are natural next steps.
+\textbf{Initial velocity} (proved): $u_t(x,0) = h(x)$. The $g$-terms' time derivatives
+cancel at $t=0$, while the integral term contributes $\tfrac{1}{2}(h(x)+h(x)) = h(x)$ via
+the fundamental theorem of calculus (writing the interval integral as $H(x+t)-H(x-t)$ for
+an antiderivative $H$, then differentiating).
+
+\textbf{d'Alembert solves the wave equation} (proved): with $H(a) = \int_0^a h$, the
+splitting $\int_{x-t}^{x+t} h = H(x+t) - H(x-t)$ rewrites d'Alembert as the traveling-wave
+superposition $\Phi(x+t) + \Psi(x-t)$ with $\Phi = (g+H)/2$, $\Psi = (g-H)/2$. Both are
+$C^2$ (since $H' = h \in C^1$, established via \texttt{contDiff\_succ\_iff\_deriv}), so
+\texttt{travelingWaves\_isWaveSolution} applies directly.
+
+This makes \textbf{Wave §2.4.1 the first fully closed chapter} --- every result is proved
+with no \texttt{sorry}, not even technical ones, since the one-dimensional setting needs
+only ordinary derivatives and the fundamental theorem of calculus, all available in Mathlib.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Calculus Utilities: \texttt{Calculus.lean}}
