@@ -1115,6 +1115,7 @@ when the limits coincide.
   \texttt{dalembert\_initial\_pos} & $u(x,0) = g(x)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{dalembert\_initial\_vel} & $u_t(x,0) = h(x)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{dalembert\_solves\_wave} & d'Alembert solves wave eqn & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{dalembert\_contDiff} & d'Alembert solution is $C^2$ & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1176,10 +1177,70 @@ traveling wave.
 \end{tabular}
 \end{center}
 
+Two corollaries complete the section: \texttt{energyDensity\_nonneg} ($e \ge 0$, as
+$e$ is $\tfrac{1}{2}$ a sum of squares) and \texttt{dalembert\_energy\_conservation},
+which specializes the local conservation law to $u = \texttt{dalembert}\,g\,h$ via the
+superposition decomposition $\Phi = (g+H)/2$, $\Psi = (g-H)/2$.
+
 Like §2.4.1, this section is fully closed (no \texttt{sorry}). It provides the local
-conservation law underlying the energy method; the global uniqueness theorem
-(\emph{equal initial data $\Rightarrow$ equal solutions}) follows by integrating over a
-backward characteristic cone, a natural next target.
+conservation law and nonnegativity underlying the energy method.
+
+\subsection{§2.4.3 Uniqueness via Riemann Invariants}
+
+For the 1D Cauchy problem the solution is unique. The textbook energy argument integrates
+$e$ over a backward characteristic cone; that route needs $\int$-energy conservation, the
+same differentiation-under-the-integral that blocks the Heat chapter. In one dimension,
+however, uniqueness follows from a clean \emph{pointwise} argument via the Riemann
+invariants $u_t \pm u_x$, with no integration of the energy required.
+
+\textbf{Zero data $\Rightarrow$ zero solution} (proved): for a traveling-wave solution
+$A(x+t) + B(x-t)$, zero initial position ($A + B \equiv 0$) and zero initial velocity
+($A' - B' \equiv 0$) force both Riemann invariants $A' + B'$ and $A' - B'$ to vanish.
+Differentiating the position condition gives $A' + B' \equiv 0$; combined with the velocity
+condition, $A' \equiv B' \equiv 0$, so $A$ and $B$ are constant
+(\texttt{is\_const\_of\_deriv\_eq\_zero}) and cancel by the value at $0$.
+
+\textbf{Uniqueness} (proved): two traveling-wave solutions with the same initial position
+and velocity coincide everywhere. Applying the previous result to the difference of the
+profiles. Since every $C^2$ solution of the 1D wave equation is a traveling-wave
+superposition, this is uniqueness for the Cauchy problem --- in particular,
+\texttt{dalembert} is the unique such solution of its data.
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{travelingWave\_eq\_zero\_of\_zero\_data} & zero data $\Rightarrow$ zero solution & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{travelingWaves\_unique} & uniqueness for the Cauchy problem & \textcolor{mathgreen}{\checkmark} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{§2.4.3 Finite Propagation Speed}
+
+\textbf{Domain of dependence} (proved): $\texttt{dalembert}\,g\,h\,(x_0, t_0)$ depends only
+on the initial data $(g, h)$ restricted to the interval $[x_0 - t_0,\, x_0 + t_0]$. If two
+pairs of data agree on that interval, the solutions agree at $(x_0, t_0)$. The proof reads
+off the three places the formula samples the data --- the endpoints $x_0 \pm t_0$ for the
+$g$-terms and the interval $[x_0-t_0, x_0+t_0]$ for the integral of $h$
+(\texttt{intervalIntegral.integral\_congr}) --- all within the dependence interval.
+Disturbances therefore propagate at speed at most $1$.
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{dalembert\_domain\_of\_dependence} & finite propagation speed $\le 1$ & \textcolor{mathgreen}{\checkmark} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The entire Wave chapter is fully closed --- zero \texttt{sorry}.} It covers
+existence, regularity, both initial conditions, the energy conservation law, uniqueness for
+the Cauchy problem, and finite propagation speed: a complete formalization of Evans §2.4.1
+and §2.4.3 in one space dimension.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Calculus Utilities: \texttt{Calculus.lean}}

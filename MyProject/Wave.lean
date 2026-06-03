@@ -197,17 +197,15 @@ theorem dalembert_initial_pos (g h : ℝ → ℝ) (x : ℝ) : dalembert g h (x, 
 
 /-! ### d'Alembert Solves the Wave Equation -/
 
-/-- **Evans §2.4.1, Theorem (existence)**: for `g ∈ C²` and `h ∈ C¹`, d'Alembert's formula
-    solves the wave equation `u_tt = u_xx`.
-
-    **Proof**: let `H(a) = ∫_0^a h` be an antiderivative of `h`. Splitting the integral,
-    `∫_{x−t}^{x+t} h = H(x+t) − H(x−t)`, rewrites d'Alembert as the traveling-wave
-    superposition `Φ(x+t) + Ψ(x−t)` with `Φ = (g+H)/2`, `Ψ = (g−H)/2`. Both are `C²`
-    (`H ∈ C²` since `H' = h ∈ C¹`), so `travelingWaves_isWaveSolution` applies. -/
-theorem dalembert_solves_wave (g h : ℝ → ℝ) (hg : ContDiff ℝ 2 g) (hh : ContDiff ℝ 1 h) :
-    IsWaveSolution (dalembert g h) := by
+/-- **Decomposition into traveling waves**: for `g ∈ C²`, `h ∈ C¹`, d'Alembert's solution is
+    a superposition `Φ(x+t) + Ψ(x−t)` of two `C²` profiles, `Φ = (g+H)/2`, `Ψ = (g−H)/2`,
+    where `H(a) = ∫_0^a h`. The integral term splits as `∫_{x−t}^{x+t} h = H(x+t) − H(x−t)`,
+    and `H ∈ C²` because `H' = h ∈ C¹`. This is the structural core of all the d'Alembert
+    theorems below. -/
+private lemma dalembert_decomp (g h : ℝ → ℝ) (hg : ContDiff ℝ 2 g) (hh : ContDiff ℝ 1 h) :
+    ∃ Φ Ψ : ℝ → ℝ, ContDiff ℝ 2 Φ ∧ ContDiff ℝ 2 Ψ ∧
+      dalembert g h = fun p => Φ (p.1 + p.2) + Ψ (p.1 - p.2) := by
   have hhc : Continuous h := hh.continuous
-  -- Antiderivative of `h`.
   set H : ℝ → ℝ := fun u => ∫ s in (0 : ℝ)..u, h s with hHdef
   have hHderiv : deriv H = h := by
     rw [hHdef]; funext u; exact Continuous.deriv_integral h hhc 0 u
@@ -215,26 +213,35 @@ theorem dalembert_solves_wave (g h : ℝ → ℝ) (hg : ContDiff ℝ 2 g) (hh : 
     rw [hHdef]; exact fun u => (hhc.integral_hasStrictDerivAt 0 u).hasDerivAt.differentiableAt
   have hHC2 : ContDiff ℝ 2 H := by
     rw [show (2 : WithTop ℕ∞) = 1 + 1 from rfl, contDiff_succ_iff_deriv]
-    refine ⟨hHdiff, fun hω => absurd hω (by simp), ?_⟩
-    rw [hHderiv]; exact hh
-  -- The two traveling-wave profiles.
-  have hΦ : ContDiff ℝ 2 (fun a => (g a + H a) / 2) := (hg.add hHC2).div_const 2
-  have hΨ : ContDiff ℝ 2 (fun a => (g a - H a) / 2) := (hg.sub hHC2).div_const 2
-  -- d'Alembert as a superposition of a forward and a backward wave.
-  have hrewrite : dalembert g h
-      = fun p => (fun a => (g a + H a) / 2) (p.1 + p.2)
-          + (fun a => (g a - H a) / 2) (p.1 - p.2) := by
-    funext p
-    obtain ⟨x, t⟩ := p
-    simp only [dalembert]
-    have hsplit : (∫ s in (x - t)..(x + t), h s) = H (x + t) - H (x - t) := by
-      simp only [hHdef]
-      rw [eq_sub_iff_add_eq, add_comm,
-        intervalIntegral.integral_add_adjacent_intervals
-          (hhc.intervalIntegrable 0 (x - t)) (hhc.intervalIntegrable (x - t) (x + t))]
-    rw [hsplit]; ring
-  rw [hrewrite]
-  exact travelingWaves_isWaveSolution _ _ hΦ hΨ
+    exact ⟨hHdiff, fun hω => absurd hω (by simp), by rw [hHderiv]; exact hh⟩
+  refine ⟨fun a => (g a + H a) / 2, fun a => (g a - H a) / 2,
+    (hg.add hHC2).div_const 2, (hg.sub hHC2).div_const 2, ?_⟩
+  funext p
+  obtain ⟨x, t⟩ := p
+  simp only [dalembert]
+  have hsplit : (∫ s in (x - t)..(x + t), h s) = H (x + t) - H (x - t) := by
+    simp only [hHdef]
+    rw [eq_sub_iff_add_eq, add_comm,
+      intervalIntegral.integral_add_adjacent_intervals
+        (hhc.intervalIntegrable 0 (x - t)) (hhc.intervalIntegrable (x - t) (x + t))]
+  rw [hsplit]; ring
+
+/-- **Evans §2.4.1, Theorem (existence)**: for `g ∈ C²` and `h ∈ C¹`, d'Alembert's formula
+    solves the wave equation `u_tt = u_xx`. Immediate from the traveling-wave decomposition
+    and `travelingWaves_isWaveSolution`. -/
+theorem dalembert_solves_wave (g h : ℝ → ℝ) (hg : ContDiff ℝ 2 g) (hh : ContDiff ℝ 1 h) :
+    IsWaveSolution (dalembert g h) := by
+  obtain ⟨Φ, Ψ, hΦ, hΨ, hrw⟩ := dalembert_decomp g h hg hh
+  rw [hrw]; exact travelingWaves_isWaveSolution Φ Ψ hΦ hΨ
+
+/-- **Evans §2.4.1, Theorem 1(i), regularity**: for `g ∈ C²` and `h ∈ C¹`, d'Alembert's
+    solution is `C²` on `ℝ × ℝ`. Each traveling-wave profile is `C²` and the maps
+    `(x,t) ↦ x ± t` are smooth, so the composition and their sum are `C²`. -/
+theorem dalembert_contDiff (g h : ℝ → ℝ) (hg : ContDiff ℝ 2 g) (hh : ContDiff ℝ 1 h) :
+    ContDiff ℝ 2 (dalembert g h) := by
+  obtain ⟨Φ, Ψ, hΦ, hΨ, hrw⟩ := dalembert_decomp g h hg hh
+  rw [hrw]
+  exact (hΦ.comp (contDiff_fst.add contDiff_snd)).add (hΨ.comp (contDiff_fst.sub contDiff_snd))
 
 /-- **Initial velocity**: `u_t(x, 0) = h(x)`. The `g`-terms' time derivatives cancel at
     `t = 0`, while the integral term contributes `½(h(x) + h(x)) = h(x)` by the FTC. -/
@@ -349,28 +356,74 @@ lemma energyDensity_nonneg (u : ℝ × ℝ → ℝ) (p : ℝ × ℝ) : 0 ≤ ene
 theorem dalembert_energy_conservation (g h : ℝ → ℝ) (hg : ContDiff ℝ 2 g) (hh : ContDiff ℝ 1 h)
     (p : ℝ × ℝ) :
     timeDeriv (energyDensity (dalembert g h)) p = spaceDeriv (energyFlux (dalembert g h)) p := by
-  have hhc : Continuous h := hh.continuous
-  set H : ℝ → ℝ := fun u => ∫ s in (0 : ℝ)..u, h s with hHdef
-  have hHderiv : deriv H = h := by
-    rw [hHdef]; funext u; exact Continuous.deriv_integral h hhc 0 u
-  have hHdiff : Differentiable ℝ H := by
-    rw [hHdef]; exact fun u => (hhc.integral_hasStrictDerivAt 0 u).hasDerivAt.differentiableAt
-  have hHC2 : ContDiff ℝ 2 H := by
-    rw [show (2 : WithTop ℕ∞) = 1 + 1 from rfl, contDiff_succ_iff_deriv]
-    exact ⟨hHdiff, fun hω => absurd hω (by simp), by rw [hHderiv]; exact hh⟩
-  have hΦ : ContDiff ℝ 2 (fun a => (g a + H a) / 2) := (hg.add hHC2).div_const 2
-  have hΨ : ContDiff ℝ 2 (fun a => (g a - H a) / 2) := (hg.sub hHC2).div_const 2
-  have hrw : dalembert g h
-      = fun q => (fun a => (g a + H a) / 2) (q.1 + q.2)
-          + (fun a => (g a - H a) / 2) (q.1 - q.2) := by
-    funext q
-    obtain ⟨x, t⟩ := q
-    simp only [dalembert]
-    have hsplit : (∫ s in (x - t)..(x + t), h s) = H (x + t) - H (x - t) := by
-      simp only [hHdef]
-      rw [eq_sub_iff_add_eq, add_comm,
-        intervalIntegral.integral_add_adjacent_intervals
-          (hhc.intervalIntegrable 0 (x - t)) (hhc.intervalIntegrable (x - t) (x + t))]
-    rw [hsplit]; ring
-  rw [hrw]
-  exact travelingWaves_energy_conservation _ _ hΦ hΨ p
+  obtain ⟨Φ, Ψ, hΦ, hΨ, hrw⟩ := dalembert_decomp g h hg hh
+  rw [hrw]; exact travelingWaves_energy_conservation Φ Ψ hΦ hΨ p
+
+/-! ### Uniqueness (Evans §2.4.3)
+
+For the 1D Cauchy problem the solution is unique. Energy uniqueness on a bounded domain
+needs `∫`-energy conservation (the same diff-under-integral that blocks the Heat chapter);
+in 1D, however, uniqueness follows from a clean pointwise argument via the Riemann invariants
+`u_t ± u_x`. For a traveling-wave solution `A(x+t) + B(x−t)`, zero Cauchy data forces both
+`A' + B'` and `A' − B'` to vanish, hence `A`, `B` are constant and cancel. -/
+
+/-- **Zero Cauchy data ⟹ zero solution** (traveling-wave form): if `A, B` are differentiable
+    with `A + B ≡ 0` (zero initial position) and `A' − B' ≡ 0` (zero initial velocity), then
+    `A(x+t) + B(x−t) ≡ 0`. -/
+theorem travelingWave_eq_zero_of_zero_data (A B : ℝ → ℝ)
+    (hA : Differentiable ℝ A) (hB : Differentiable ℝ B)
+    (hpos : ∀ x, A x + B x = 0) (hvel : ∀ x, deriv A x - deriv B x = 0) (p : ℝ × ℝ) :
+    A (p.1 + p.2) + B (p.1 - p.2) = 0 := by
+  -- Differentiating `A + B ≡ 0` gives `A' + B' ≡ 0`.
+  have hsum : ∀ x, deriv A x + deriv B x = 0 := by
+    intro x
+    have h0 : HasDerivAt (fun y => A y + B y) (deriv A x + deriv B x) x :=
+      (hA x).hasDerivAt.add (hB x).hasDerivAt
+    have hz : HasDerivAt (fun y => A y + B y) 0 x := by
+      rw [show (fun y => A y + B y) = fun _ => (0 : ℝ) from funext hpos]
+      exact hasDerivAt_const x 0
+    exact h0.unique hz
+  -- Both Riemann invariants vanish, so `A'` and `B'` vanish.
+  have hA0 : ∀ x, deriv A x = 0 := fun x => by have := hsum x; have := hvel x; linarith
+  have hB0 : ∀ x, deriv B x = 0 := fun x => by have := hsum x; have := hvel x; linarith
+  -- Hence `A`, `B` are constant and cancel by the initial condition at `0`.
+  rw [is_const_of_deriv_eq_zero hA hA0 (p.1 + p.2) 0,
+      is_const_of_deriv_eq_zero hB hB0 (p.1 - p.2) 0]
+  exact hpos 0
+
+/-- **Uniqueness among traveling-wave solutions**: two solutions `Φᵢ(x+t)+Ψᵢ(x−t)` with the
+    same initial position and velocity coincide. Since (by the general-solution theorem) every
+    `C²` solution of the 1D wave equation has this form, this is uniqueness for the Cauchy
+    problem; in particular `dalembert` is the unique such solution of its data. -/
+theorem travelingWaves_unique (Φ₁ Ψ₁ Φ₂ Ψ₂ : ℝ → ℝ)
+    (hΦ₁ : Differentiable ℝ Φ₁) (hΨ₁ : Differentiable ℝ Ψ₁)
+    (hΦ₂ : Differentiable ℝ Φ₂) (hΨ₂ : Differentiable ℝ Ψ₂)
+    (hpos : ∀ x, Φ₁ x + Ψ₁ x = Φ₂ x + Ψ₂ x)
+    (hvel : ∀ x, deriv Φ₁ x - deriv Ψ₁ x = deriv Φ₂ x - deriv Ψ₂ x) (p : ℝ × ℝ) :
+    Φ₁ (p.1 + p.2) + Ψ₁ (p.1 - p.2) = Φ₂ (p.1 + p.2) + Ψ₂ (p.1 - p.2) := by
+  -- derivatives of the difference profiles
+  have hdΦ : ∀ x, deriv (fun x => Φ₁ x - Φ₂ x) x = deriv Φ₁ x - deriv Φ₂ x :=
+    fun x => ((hΦ₁ x).hasDerivAt.sub (hΦ₂ x).hasDerivAt).deriv
+  have hdΨ : ∀ x, deriv (fun x => Ψ₁ x - Ψ₂ x) x = deriv Ψ₁ x - deriv Ψ₂ x :=
+    fun x => ((hΨ₁ x).hasDerivAt.sub (hΨ₂ x).hasDerivAt).deriv
+  have key := travelingWave_eq_zero_of_zero_data
+    (fun x => Φ₁ x - Φ₂ x) (fun x => Ψ₁ x - Ψ₂ x) (hΦ₁.sub hΦ₂) (hΨ₁.sub hΨ₂)
+    (fun x => by simp only; linarith [hpos x])
+    (fun x => by rw [hdΦ x, hdΨ x]; linarith [hvel x]) p
+  simp only at key
+  linarith [key]
+
+/-! ### Finite Propagation Speed (Evans §2.4.3) -/
+
+/-- **Domain of dependence / finite propagation speed**: `dalembert g h (x₀, t₀)` depends only
+    on the initial data in the interval `[x₀ − t₀, x₀ + t₀]`. If two pairs of initial data agree
+    there, the solutions agree at `(x₀, t₀)`. Disturbances propagate at speed at most `1`. -/
+theorem dalembert_domain_of_dependence (g₁ h₁ g₂ h₂ : ℝ → ℝ) (x₀ t₀ : ℝ) (ht₀ : 0 ≤ t₀)
+    (hg : ∀ y ∈ Set.Icc (x₀ - t₀) (x₀ + t₀), g₁ y = g₂ y)
+    (hh : ∀ y ∈ Set.Icc (x₀ - t₀) (x₀ + t₀), h₁ y = h₂ y) :
+    dalembert g₁ h₁ (x₀, t₀) = dalembert g₂ h₂ (x₀, t₀) := by
+  have hle : x₀ - t₀ ≤ x₀ + t₀ := by linarith
+  simp only [dalembert]
+  rw [hg _ ⟨by linarith, le_refl _⟩, hg _ ⟨le_refl _, by linarith⟩,
+    intervalIntegral.integral_congr (g := h₂)
+      (fun y hy => hh y (by rwa [Set.uIcc_of_le hle] at hy))]
