@@ -427,3 +427,61 @@ theorem dalembert_domain_of_dependence (g₁ h₁ g₂ h₂ : ℝ → ℝ) (x₀
   rw [hg _ ⟨by linarith, le_refl _⟩, hg _ ⟨le_refl _, by linarith⟩,
     intervalIntegral.integral_congr (g := h₂)
       (fun y hy => hh y (by rwa [Set.uIcc_of_le hle] at hy))]
+
+/-! ### Mixed Partial Symmetry and General Energy Conservation (Evans §2.4.3)
+
+For a general `C²` solution (not just a traveling wave) the energy density `e = ½(u_t²+u_x²)`
+and flux `p = u_t·u_x` still satisfy `∂_t e = ∂_x p`. The extra ingredient beyond the wave
+equation `u_tt = u_xx` is the symmetry of mixed partials `∂_t∂_x u = ∂_x∂_t u`, which we obtain
+from Mathlib's `second_derivative_symmetric` by bridging the slice derivatives to `fderiv`. -/
+
+/-- The slice curve `r ↦ (r, s)` has derivative `(1, 0)`. -/
+private lemma hasDerivAt_curveFst (x s : ℝ) :
+    HasDerivAt (fun r => (r, s)) ((1 : ℝ), (0 : ℝ)) x :=
+  (hasDerivAt_id x).prodMk (hasDerivAt_const x s)
+
+/-- The slice curve `s ↦ (x, s)` has derivative `(0, 1)`. -/
+private lemma hasDerivAt_curveSnd (x s : ℝ) :
+    HasDerivAt (fun s' => (x, s')) ((0 : ℝ), (1 : ℝ)) s :=
+  (hasDerivAt_const s x).prodMk (hasDerivAt_id s)
+
+/-- A space-slice first derivative is `fderiv` applied to `(1, 0)`. -/
+private lemma deriv_sliceFst (u : ℝ × ℝ → ℝ) (hu : Differentiable ℝ u) (x s : ℝ) :
+    deriv (fun r => u (r, s)) x = fderiv ℝ u (x, s) (1, 0) :=
+  ((hu (x, s)).hasFDerivAt.comp_hasDerivAt x (hasDerivAt_curveFst x s)).deriv
+
+/-- A time-slice first derivative is `fderiv` applied to `(0, 1)`. -/
+private lemma deriv_sliceSnd (u : ℝ × ℝ → ℝ) (hu : Differentiable ℝ u) (x s : ℝ) :
+    deriv (fun s' => u (x, s')) s = fderiv ℝ u (x, s) (0, 1) :=
+  ((hu (x, s)).hasFDerivAt.comp_hasDerivAt s (hasDerivAt_curveSnd x s)).deriv
+
+/-- Differentiating `s ↦ fderiv u (x,s) v` in time picks out the second `fderiv` along `(0,1)`. -/
+private lemma deriv_fderivSliceSnd (u : ℝ × ℝ → ℝ) (x t : ℝ)
+    (hu' : DifferentiableAt ℝ (fderiv ℝ u) (x, t)) (v : ℝ × ℝ) :
+    deriv (fun s => fderiv ℝ u (x, s) v) t = fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) v := by
+  have h1 : HasDerivAt (fun s => fderiv ℝ u (x, s)) (fderiv ℝ (fderiv ℝ u) (x, t) (0, 1)) t :=
+    hu'.hasFDerivAt.comp_hasDerivAt t (hasDerivAt_curveSnd x t)
+  simpa using (h1.clm_apply (hasDerivAt_const t v)).deriv
+
+/-- Differentiating `r ↦ fderiv u (r,t) v` in space picks out the second `fderiv` along `(1,0)`. -/
+private lemma deriv_fderivSliceFst (u : ℝ × ℝ → ℝ) (x t : ℝ)
+    (hu' : DifferentiableAt ℝ (fderiv ℝ u) (x, t)) (v : ℝ × ℝ) :
+    deriv (fun r => fderiv ℝ u (r, t) v) x = fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) v := by
+  have h1 : HasDerivAt (fun r => fderiv ℝ u (r, t)) (fderiv ℝ (fderiv ℝ u) (x, t) (1, 0)) x :=
+    hu'.hasFDerivAt.comp_hasDerivAt x (hasDerivAt_curveFst x t)
+  simpa using (h1.clm_apply (hasDerivAt_const x v)).deriv
+
+/-- **Symmetry of mixed partials** for a `C²` function on `ℝ × ℝ`:
+    `∂_t(∂_x u) = ∂_x(∂_t u)`. Bridged to `fderiv` and closed by `second_derivative_symmetric`. -/
+theorem mixed_partials_symm (u : ℝ × ℝ → ℝ) (hu : ContDiff ℝ 2 u) (x t : ℝ) :
+    deriv (fun s => deriv (fun r => u (r, s)) x) t
+      = deriv (fun r => deriv (fun s => u (r, s)) t) x := by
+  have hd : Differentiable ℝ u := hu.differentiable (by norm_num)
+  have hfd : DifferentiableAt ℝ (fderiv ℝ u) (x, t) :=
+    ((hu.fderiv_right (m := 1) (by norm_num)).differentiable (by norm_num)) (x, t)
+  rw [show (fun s => deriv (fun r => u (r, s)) x) = (fun s => fderiv ℝ u (x, s) (1, 0)) from
+        funext fun s => deriv_sliceFst u hd x s,
+      show (fun r => deriv (fun s => u (r, s)) t) = (fun r => fderiv ℝ u (r, t) (0, 1)) from
+        funext fun r => deriv_sliceSnd u hd r t,
+      deriv_fderivSliceSnd u x t hfd (1, 0), deriv_fderivSliceFst u x t hfd (0, 1)]
+  exact second_derivative_symmetric (fun y => (hd y).hasFDerivAt) hfd.hasFDerivAt (0, 1) (1, 0)

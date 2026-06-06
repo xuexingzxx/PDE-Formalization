@@ -208,7 +208,8 @@ noncomputable def heatInnerL (x : ℝⁿ) : ℝⁿ →L[ℝ] ℝ := heatInnerBiL
 lemma heatInnerL_apply (x y : ℝⁿ) : heatInnerL x y = ⟪x, y⟫_ℝ :=
   congr_fun (coe_innerSL_apply ℝ x) y
 
-/-- **Laplacian of the spatial Gaussian**: `Δ_y exp(−|y|²/4t) = exp(−|x|²/4t)·(|x|²/(4t²) − n/(2t))`.
+/-- **Laplacian of the spatial Gaussian**:
+    `Δ_y exp(−|y|²/4t) = exp(−|x|²/4t)·(|x|²/(4t²) − n/(2t))`.
 
     **Proof**: the first derivative is `∇(e^φ) = m·⟪·,−⟫` with `φ(y) = −|y|²/4t`,
     `m(y) = e^φ·(−1/2t)`; since `m = (−1/2t)·e^φ` is itself a multiple of the function, the

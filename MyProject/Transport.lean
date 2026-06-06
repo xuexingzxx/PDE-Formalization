@@ -170,12 +170,47 @@ theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × �
     have hcomp := hfs.differentiableAt.hasFDerivAt.comp_hasDerivAt t hpath
     convert hcomp using 1
     rw [map_neg, inner_gradient_left hfs.differentiableAt]
-  -- Step 2: Leibniz rule (sorry: no combined Leibniz in Mathlib)
+  -- Step 2: Leibniz rule, via the combined Leibniz lemma `leibniz_integral`.
   have hleibniz : HasDerivAt
       (fun t => ∫ s in (0:ℝ)..t, f (x - (t - s) • b, s))
       (f (x, t) + ∫ s in (0:ℝ)..t,
         (-⟪gradient (fun y => f (y, s)) (x - (t - s) • b), b⟫_ℝ)) t := by
-    sorry
+    -- integrand `H` and its `t`-partial `Ht`.
+    set H : ℝ → ℝ → ℝ := fun t' s => f (x - (t' - s) • b, s) with hHdef
+    set Ht : ℝ → ℝ → ℝ :=
+      fun t' s => -⟪gradient (fun y => f (y, s)) (x - (t' - s) • b), b⟫_ℝ with hHtdef
+    have hHcont : Continuous (fun p : ℝ × ℝ => H p.1 p.2) :=
+      hf1.continuous.comp (by fun_prop)
+    -- joint continuity of the partial `Ht` along the characteristic.
+    have hHtcont : Continuous (fun p : ℝ × ℝ => Ht p.1 p.2) := by
+      have hfd : Continuous (fun p : ℝ × ℝ =>
+          fderiv ℝ (fun y => f (y, p.2)) (x - (p.1 - p.2) • b)) := by
+        simp only [hkey]
+        have hcont_comp : Continuous (fun L : ℝⁿ × ℝ →L[ℝ] ℝ =>
+            L ∘L ContinuousLinearMap.inl ℝ ℝⁿ ℝ) :=
+          ((ContinuousLinearMap.compL ℝ ℝⁿ (ℝⁿ × ℝ) ℝ).flip
+            (ContinuousLinearMap.inl ℝ ℝⁿ ℝ)).continuous
+        exact hcont_comp.comp ((hf.continuous_fderiv (by norm_num)).comp (by fun_prop))
+      simp only [hHtdef, gradient]
+      exact (Continuous.inner ((toDual ℝ ℝⁿ).symm.continuous.comp hfd) continuous_const).neg
+    -- `∂_{t'} H t' s = Ht t' s` for every `t'`.
+    have hderivH : ∀ t' s : ℝ, HasDerivAt (fun t'' => H t'' s) (Ht t' s) t' := by
+      intro t' s
+      simp only [hHdef, hHtdef]
+      have hpath : HasDerivAt (fun t'' => x - (t'' - s) • b) (-b) t' := by
+        have h1 : HasDerivAt (fun t'' => (t'' - s) • b) b t' := by
+          simpa using ((hasDerivAt_id t').sub_const s).smul_const b
+        convert h1.neg.const_add x using 2
+      have hfs : Differentiable ℝ (fun y : ℝⁿ => f (y, s)) :=
+        fun y => hf1.differentiableAt.comp y (by fun_prop)
+      have hcomp := hfs.differentiableAt.hasFDerivAt.comp_hasDerivAt t' hpath
+      convert hcomp using 1
+      rw [map_neg, inner_gradient_left hfs.differentiableAt]
+    have hL := leibniz_integral (H := H) (Ht := Ht) (t := t) hHcont hHtcont hderivH
+    -- `H t t = f (x, t)` since `(t - t) • b = 0`.
+    have hHtt : H t t = f (x, t) := by simp [hHdef]
+    rw [hHtt] at hL
+    exact hL
   -- Step 3: time derivative of g(x-tb)
   have hg_deriv : HasDerivAt (fun t => g (x - t • b))
       (-⟪gradient g (x - t • b), b⟫_ℝ) t := by

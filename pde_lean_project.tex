@@ -580,15 +580,15 @@ theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
     (hf : ContDiff R 1 f) :
     IsInhomTransportSolution b f (duhamelFormula b g f) := by
   -- Step 1 (proved): partial_t[f(x-(t-s)b,s)] = -<grad f, b> via chain rule
-  -- Step 2 (sorry): Leibniz rule -- Mathlib gap
+  -- Step 2 (proved): Leibniz rule via Calculus.leibniz_integral
   -- Step 3 (proved): time derivative of g(x-tb) via chain rule
   -- Step 4 (proved): hg_deriv + hleibniz via HasDerivAt.add
   -- Step 5 (proved): spatial gradient via
   --   hasFDerivAt_integral_of_dominated_loc_of_lip
-  --   + intervalIntegral_comp_comm (sorry: measurability/Lipschitz conditions)
+  --   + intervalIntegral_comp_comm (sorry: spatial LipschitzOnWith condition)
   -- Step 6 (proved): <Int grad f, b> = Int <grad f, b>
   --   via ContinuousLinearMap.intervalIntegral_comp_comm
-  sorry -- remaining: hleibniz (Mathlib gap) + LipschitzOnWith bound condition
+  sorry -- remaining: only the spatial-gradient LipschitzOnWith bound condition
 \end{lstlisting}
 
 \textbf{Proof sketch:} Split $u = v + w$ where $v(x,t) = g(x-tb)$ and
@@ -597,31 +597,40 @@ For $w$, the Leibniz rule gives a boundary term $f(x,t)$ from the fundamental
 theorem of calculus, while $\partial_t[f(x-(t-s)b,s)] = -b \cdot \nabla f$
 cancels with the spatial part $b \cdot Dw$. Hence $w_t + b \cdot Dw = f$.
 
-The proof structure is complete: all six steps are implemented, with sorry only
-for technical conditions. Remaining sorry:
 The proof structure is complete and most technical conditions are now discharged.
 The continuity of $s \mapsto \nabla_x f(x-(t-s)b, s)$ (needed for the
 \texttt{IntervalIntegrable} hypotheses and the \texttt{toDual}/\texttt{innerSL}
 commutations in Steps 5--6) is proved via the identity
 $\text{fderiv}\,(\lambda y.\,f(y,s))\,z = \text{fderiv}\,f\,(z,s) \circ \text{inl}$
-combined with \texttt{ContDiff.continuous\_fderiv}. Two sorry remain:
-\begin{itemize}
-  \item \textbf{Step 2} (\texttt{hleibniz}): Mathlib has
-    \texttt{integral\_hasDerivAt\_right} (FTC) and
-    \texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_lip}
-    (differentiation under integral sign) separately, but no combined
-    Leibniz formula for $\frac{d}{dt}\int_0^t H(t,s)\,ds = H(t,t) + \int_0^t \partial_t H(t,s)\,ds$.
-    A placeholder \texttt{leibniz\_integral} is defined in \texttt{Calculus.lean}.
-    This is a genuine library gap.
-  \item \textbf{Step 5} (\texttt{LipschitzOnWith} hypothesis): the dominated-convergence
-    bound in \texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip} requires a
-    Lipschitz constant valid on the whole ball $B(x,1)$, whereas the natural bound
-    $\|\text{fderiv}\,f\,(x-(t-s)b,s)\|\cdot\|b\|$ only uses the center point.
-    A correct proof needs a uniform bound $\sup_{x' \in \overline{B}(x,1)}
-    \|\text{fderiv}\,f\,(x'-(t-s)b,s)\|$ over the compact product
-    $\overline{B}(x,1) \times [0,t]$ (via \texttt{IsCompact.exists\_bound\_of\_continuousOn}),
-    which is feasible but requires substantial additional API work.
-\end{itemize}
+combined with \texttt{ContDiff.continuous\_fderiv}.
+
+\textbf{Step 2 (\texttt{hleibniz}) is now proved.} Mathlib provides
+\texttt{integral\_hasDerivAt\_right} (FTC) and the parametric
+\texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} separately but no
+combined Leibniz rule with a \emph{variable} upper limit. We supply this as
+\texttt{Calculus.leibniz\_integral} (now a fully proved lemma, no longer a placeholder):
+\[
+  \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
+    = H(t,t) + \int_0^t \partial_1 H(t,s)\,ds .
+\]
+Its proof avoids the (missing-in-Mathlib) theorem ``continuous partial derivatives
+$\Rightarrow$ differentiable'' by the decomposition $F = P + B + C$:
+$P(t') = \int_0^{t'} H(t,s)\,ds$ (FTC, gives $H(t,t)$);
+$B(t') = \int_0^{t} H(t',s)\,ds - \int_0^t H(t,s)\,ds$ (differentiation under the integral
+on the \emph{fixed} interval $[0,t]$, gives $\int_0^t \partial_1 H(t,s)\,ds$); and the
+cross-term $C(t') = \int_t^{t'}(H(t',s)-H(t,s))\,ds$, which is $O((t'-t)^2)=o(t'-t)$ and so
+has derivative $0$ (lemma \texttt{hasDerivAt\_crossTerm}). The uniform $\partial_1 H$ bound
+needed for $B$ and $C$ comes from compactness of a box
+(\texttt{IsCompact.exists\_bound\_of\_continuousOn}).
+
+\textbf{One sorry remains}, in Step 5: the \texttt{LipschitzOnWith} hypothesis of the
+\emph{spatial} \texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip}. The placeholder
+bound $\|\text{fderiv}\,f\,(x-(t-s)b,s)\|\cdot\|b\|$ only uses the center point; a correct
+proof needs a uniform bound $\sup_{x' \in \overline{B}(x,1)}
+\|\text{fderiv}\,(\lambda y.\,f(y,s))\,(x'-(t-s)b)\|$ over the compact product
+$\overline{B}(x,1) \times [0,t]$ together with
+\texttt{Convex.lipschitzOnWith\_of\_nnorm\_hasFDerivWithin\_le} --- the same compactness
+technique used in \texttt{leibniz\_integral}.
 All other conditions (\texttt{AEStronglyMeasurable} of $F$ and $F'$,
 \texttt{IntervalIntegrable} of the bound, the \texttt{toDual} and \texttt{innerSL}
 commutations) are fully proved.
@@ -1237,10 +1246,38 @@ Disturbances therefore propagate at speed at most $1$.
 \end{tabular}
 \end{center}
 
+\subsection{§2.4.3 Symmetry of Mixed Partials}
+
+The energy and uniqueness results above are proved for the traveling-wave form
+$\Phi(x+t)+\Psi(x-t)$, where the symmetry of mixed partials $\partial_t\partial_x u =
+\partial_x\partial_t u$ is manifest. For a \emph{general} $C^2$ solution this symmetry is the
+one extra ingredient (beyond $u_{tt}=u_{xx}$) needed to extend both the energy conservation
+law and uniqueness to all solutions. We prove it directly:
+
+\textbf{\texttt{mixed\_partials\_symm}} (proved): for $u \in C^2(\mathbb{R}^2)$,
+$\partial_t(\partial_x u) = \partial_x(\partial_t u)$. The slice derivatives are bridged to
+the Fréchet derivative ($\partial_x u = \text{fderiv}\,u\,(x,t)\,(1,0)$, etc., via
+\texttt{HasFDerivAt.comp\_hasDerivAt} along the curves $r\mapsto(r,s)$, $s\mapsto(x,s)$ and
+\texttt{clm\_apply} for evaluating the \texttt{fderiv}-valued map), reducing the claim to
+Mathlib's \texttt{second\_derivative\_symmetric}. This is the keystone that would upgrade
+\texttt{travelingWaves\_energy\_conservation} and \texttt{travelingWaves\_unique} from the
+traveling-wave class to arbitrary $C^2$ solutions; that upgrade is now ``plumbing on top of
+the bridge.''
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Result} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{mixed\_partials\_symm} & $\partial_t\partial_x u = \partial_x\partial_t u$ for $u \in C^2$ & \textcolor{mathgreen}{\checkmark} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
 \textbf{The entire Wave chapter is fully closed --- zero \texttt{sorry}.} It covers
 existence, regularity, both initial conditions, the energy conservation law, uniqueness for
-the Cauchy problem, and finite propagation speed: a complete formalization of Evans §2.4.1
-and §2.4.3 in one space dimension.
+the Cauchy problem, finite propagation speed, and the symmetry of mixed partials: a complete
+formalization of Evans §2.4.1 and §2.4.3 in one space dimension.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Calculus Utilities: \texttt{Calculus.lean}}
@@ -1300,16 +1337,37 @@ noncomputable def spatialLaplacian (u : Rn x R -> R) (p : Rn x R) : R :=
   Laplacian.laplacian (fun x => u (x, p.2)) p.1
 \end{lstlisting}
 
+\subsection{Differentiation Under the Integral (Leibniz Rule)}
+
+\texttt{Calculus.lean} also provides a fully proved \emph{combined} Leibniz rule for an
+integral with a parameter-dependent integrand \emph{and} a variable upper limit:
+\[
+  \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
+    = H(t,t) + \int_0^t \partial_1 H(t,s)\,ds,
+\]
+for jointly continuous $H$ and its first partial $\partial_1 H$. Mathlib has the two
+ingredients (the fundamental theorem of calculus and differentiation under the integral
+over a \emph{fixed} interval) but not their combination, and the naive route is blocked by
+the absence of ``continuous partial derivatives $\Rightarrow$ Fréchet differentiable'' on
+$\mathbb{R}^2$. We sidestep that with the decomposition $F = P + B + C$ (FTC piece $+$
+fixed-interval parametric piece $+$ a cross-term $\int_t^{t'}(H(t',s)-H(t,s))\,ds$ that is
+$O((t'-t)^2)$, hence has derivative $0$). The cross-term lemma
+\texttt{hasDerivAt\_crossTerm} is the genuinely new piece; the uniform bound on
+$\partial_1 H$ it needs comes from compactness. This lemma discharges Step~2
+(\texttt{hleibniz}) of \texttt{duhamelFormula\_solves} in the Transport chapter.
+
 \subsection{Status Summary}
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
   \toprule
-  \textbf{Definition} & \textbf{Description} & \textbf{Status} \\
+  \textbf{Definition / lemma} & \textbf{Description} & \textbf{Status} \\
   \midrule
   \texttt{spatialGradient}  & $Du(x,t)$ as a vector in $\mathbb{R}^n$          & \textcolor{mathgreen}{\checkmark} \\
   \texttt{timeDerivative}   & $u_t(x,t)$ as a scalar                            & \textcolor{mathgreen}{\checkmark} \\
   \texttt{spatialLaplacian} & $\Delta_x u(x,t)$ wrapping \texttt{Δ}             & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)$ has $0$ derivative & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
