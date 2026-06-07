@@ -485,3 +485,73 @@ theorem mixed_partials_symm (u : ℝ × ℝ → ℝ) (hu : ContDiff ℝ 2 u) (x 
         funext fun r => deriv_sliceSnd u hd r t,
       deriv_fderivSliceSnd u x t hfd (1, 0), deriv_fderivSliceFst u x t hfd (0, 1)]
   exact second_derivative_symmetric (fun y => (hd y).hasFDerivAt) hfd.hasFDerivAt (0, 1) (1, 0)
+
+/-- **General energy conservation** (Evans §2.4.3): for *any* `C²` solution of the wave
+    equation (not just a traveling wave), the local conservation law `∂_t e = ∂_x p` holds.
+    The `u_tt`/`u_xx` terms cancel by `IsWaveSolution` and the cross terms `u_x·∂_t∂_x u` and
+    `∂_x∂_t u·u_x` cancel by the symmetry of mixed partials (`mixed_partials_symm`, in `fderiv`
+    form `second_derivative_symmetric`). Extends `travelingWaves_energy_conservation`. -/
+theorem energy_conservation (u : ℝ × ℝ → ℝ) (hu : ContDiff ℝ 2 u)
+    (hwave : IsWaveSolution u) (x t : ℝ) :
+    timeDeriv (energyDensity u) (x, t) = spaceDeriv (energyFlux u) (x, t) := by
+  have hd : Differentiable ℝ u := hu.differentiable (by norm_num)
+  have hfd : DifferentiableAt ℝ (fderiv ℝ u) (x, t) :=
+    ((hu.fderiv_right (m := 1) (by norm_num)).differentiable (by norm_num)) (x, t)
+  -- The four first-derivative slices, with their second-`fderiv` derivatives.
+  have ha : HasDerivAt (fun s => timeDeriv u (x, s))
+      (fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) (0, 1)) t := by
+    rw [show (fun s => timeDeriv u (x, s)) = (fun s => fderiv ℝ u (x, s) (0, 1)) from
+      funext fun s => deriv_sliceSnd u hd x s]
+    have h1 : HasDerivAt (fun s => fderiv ℝ u (x, s))
+        (fderiv ℝ (fderiv ℝ u) (x, t) (0, 1)) t :=
+      hfd.hasFDerivAt.comp_hasDerivAt t (hasDerivAt_curveSnd x t)
+    simpa using h1.clm_apply (hasDerivAt_const t ((0, 1) : ℝ × ℝ))
+  have hb : HasDerivAt (fun s => spaceDeriv u (x, s))
+      (fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) (1, 0)) t := by
+    rw [show (fun s => spaceDeriv u (x, s)) = (fun s => fderiv ℝ u (x, s) (1, 0)) from
+      funext fun s => deriv_sliceFst u hd x s]
+    have h1 : HasDerivAt (fun s => fderiv ℝ u (x, s))
+        (fderiv ℝ (fderiv ℝ u) (x, t) (0, 1)) t :=
+      hfd.hasFDerivAt.comp_hasDerivAt t (hasDerivAt_curveSnd x t)
+    simpa using h1.clm_apply (hasDerivAt_const t ((1, 0) : ℝ × ℝ))
+  have hA : HasDerivAt (fun r => timeDeriv u (r, t))
+      (fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) (0, 1)) x := by
+    rw [show (fun r => timeDeriv u (r, t)) = (fun r => fderiv ℝ u (r, t) (0, 1)) from
+      funext fun r => deriv_sliceSnd u hd r t]
+    have h1 : HasDerivAt (fun r => fderiv ℝ u (r, t))
+        (fderiv ℝ (fderiv ℝ u) (x, t) (1, 0)) x :=
+      hfd.hasFDerivAt.comp_hasDerivAt x (hasDerivAt_curveFst x t)
+    simpa using h1.clm_apply (hasDerivAt_const x ((0, 1) : ℝ × ℝ))
+  have hB : HasDerivAt (fun r => spaceDeriv u (r, t))
+      (fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) (1, 0)) x := by
+    rw [show (fun r => spaceDeriv u (r, t)) = (fun r => fderiv ℝ u (r, t) (1, 0)) from
+      funext fun r => deriv_sliceFst u hd r t]
+    have h1 : HasDerivAt (fun r => fderiv ℝ u (r, t))
+        (fderiv ℝ (fderiv ℝ u) (x, t) (1, 0)) x :=
+      hfd.hasFDerivAt.comp_hasDerivAt x (hasDerivAt_curveFst x t)
+    simpa using h1.clm_apply (hasDerivAt_const x ((1, 0) : ℝ × ℝ))
+  -- Differentiate the energy density (time) and flux (space).
+  have lhs_eq : timeDeriv (energyDensity u) (x, t)
+      = (2 * timeDeriv u (x, t) * fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) (0, 1)
+         + 2 * spaceDeriv u (x, t) * fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) (1, 0)) / 2 := by
+    have h : HasDerivAt (fun s => energyDensity u (x, s)) _ t :=
+      ((ha.pow 2).add (hb.pow 2)).div_const 2
+    show deriv (fun s => energyDensity u (x, s)) t = _
+    rw [h.deriv]; ring
+  have rhs_eq : spaceDeriv (energyFlux u) (x, t)
+      = fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) (0, 1) * spaceDeriv u (x, t)
+        + timeDeriv u (x, t) * fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) (1, 0) := by
+    have h : HasDerivAt (fun r => energyFlux u (r, t)) _ x := hA.mul hB
+    show deriv (fun r => energyFlux u (r, t)) x = _
+    rw [h.deriv]
+  rw [lhs_eq, rhs_eq]
+  -- `u_tt = u_xx` and the mixed-partial symmetry.
+  have hwaveeq : fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) (0, 1)
+      = fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) (1, 0) := by
+    have e1 : timeDeriv2 u (x, t) = fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) (0, 1) := ha.deriv
+    have e2 : spaceDeriv2 u (x, t) = fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) (1, 0) := hB.deriv
+    rw [← e1, ← e2]; exact hwave (x, t)
+  have hsymm : fderiv ℝ (fderiv ℝ u) (x, t) (0, 1) (1, 0)
+      = fderiv ℝ (fderiv ℝ u) (x, t) (1, 0) (0, 1) :=
+    second_derivative_symmetric (fun y => (hd y).hasFDerivAt) hfd.hasFDerivAt (0, 1) (1, 0)
+  rw [hwaveeq, hsymm]; ring

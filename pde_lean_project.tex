@@ -310,6 +310,16 @@ already exists in Mathlib}.
   \texttt{newtonianPotential}       & $\int \Phi(x-y) f(y)\,dy$                           & \texttt{Laplace.lean} \\
   \texttt{sphereMean}               & average of $u$ over $\partial B(x,r)$               & \texttt{Laplace.lean} \\
   \texttt{ballMean}                 & average of $u$ over $B(x,r)$                        & \texttt{Laplace.lean} \\
+  \texttt{IsHeatSolution}           & predicate: $u_t - \Delta u = 0$                     & \texttt{Heat.lean} \\
+  \texttt{IsInhomHeatSolution}      & predicate: $u_t - \Delta u = f$                     & \texttt{Heat.lean} \\
+  \texttt{heatKernel}               & fundamental solution $\Phi(x,t)$ (Gaussian)         & \texttt{Heat.lean} \\
+  \texttt{heatSolution}             & convolution $\int \Phi(x-y,t)\,g(y)\,dy$            & \texttt{Heat.lean} \\
+  \texttt{timeDeriv}, \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension           & \texttt{Wave.lean} \\
+  \texttt{timeDeriv2}, \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension   & \texttt{Wave.lean} \\
+  \texttt{IsWaveSolution}           & predicate: $u_{tt} = u_{xx}$                        & \texttt{Wave.lean} \\
+  \texttt{dalembert}                & d'Alembert solution formula                         & \texttt{Wave.lean} \\
+  \texttt{energyDensity}            & $e = \tfrac12(u_t^2 + u_x^2)$                       & \texttt{Wave.lean} \\
+  \texttt{energyFlux}               & $p = u_t\,u_x$                                      & \texttt{Wave.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -326,9 +336,8 @@ The following were initially defined but later found to be redundant:
   \texttt{laplacian} & Duplicate of \texttt{Laplacian.laplacian} & \texttt{Δ} (Mathlib) \\
   \texttt{unitBallVol} & Never used; Mathlib has \texttt{EuclideanSpace.volume\_ball} & \texttt{EuclideanSpace.volume\_ball} \\
   \texttt{laplacian\_eq\_mathlib} & Only needed due to duplicate \texttt{laplacian} & deleted \\
-  \texttt{laplacian\_const\_mul} & Duplicate of \texttt{InnerProductSpace.laplacian\_smul} & Mathlib directly \\
   \texttt{fderiv\_spacetime} & Bridge lemma no longer needed & deleted \\
-  \texttt{fderiv\_transport\_dir} & Bridge lemma no longer needed & deleted \\
+  \texttt{fderiv\_transport\_dir} & Inlined into \texttt{evansFormula\_unique}; local notation didn't export & deleted \\
   \texttt{inner\_spatialGradient} & Bridge lemma no longer needed & deleted \\
   \bottomrule
 \end{tabular}
@@ -363,6 +372,11 @@ The following were initially defined but later found to be redundant:
   Translation of set integrals
     & \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
     & Proved manually via \texttt{integral\_sub\_left\_eq\_self} \\
+  Combined Leibniz rule (variable limit $+$ parameter)
+    & \texttt{duhamelFormula\_solves} (Step 2)
+    & \emph{Resolved}: supplied as \texttt{Calculus.leibniz\_integral}
+      (Mathlib has FTC and fixed-interval parametric differentiation
+      separately, but not the combination) \\
   Harmonic function predicate
     & (currently defined manually as \texttt{IsHarmonic})
     & Could be added to Mathlib \\
@@ -454,28 +468,35 @@ linear map, it is differentiable. By the chain rule, the composition of two
 differentiable maps is differentiable. Hence $u$ is differentiable whenever $g$ is.
 \end{proof}
 
-\begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (sorry)}]
+\begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (proved)}]
 lemma spatialGradient_evansFormula (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) (p : Rn x R) :
     spatialGradient (evansFormula b g) p = gradient g (charFlow b p) := by
+  obtain <x, t> := p
   simp only [spatialGradient, evansFormula, Function.comp, charFlow_apply]
-  sorry
+  -- translation y -> y - t.b has derivative id; chain rule gives fderiv g at the foot
+  have hchain : HasFDerivAt (fun y => g (y - t . b)) (fderiv R g (x - t . b)) x := ...
+  simp only [gradient, hchain.fderiv]
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Time derivative equals minus inner product with b (sorry)}]
+\begin{lstlisting}[caption={Time derivative equals minus inner product with b (proved)}]
 lemma timeDerivative_evansFormula (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) (p : Rn x R) :
     timeDerivative (evansFormula b g) p = -<gradient g (charFlow b p), b>_R := by
+  obtain <x, t> := p
   simp only [timeDerivative, evansFormula, Function.comp, charFlow_apply]
-  sorry
+  have hchain : HasDerivAt (fun s => g (x - s . b)) (fderiv R g (x - t . b) (-b)) t :=
+    hg.differentiableAt.hasFDerivAt.comp_hasDerivAt t hpsi
+  rw [hchain.deriv, map_neg]; congr 1
+  exact (inner_gradient_left hg.differentiableAt).symm
 \end{lstlisting}
 
 Both follow from the chain rule: $x \mapsto x - tb$ has derivative $\text{id}$,
 so the spatial gradient of $g(x-tb)$ is just $\nabla g(x-tb)$; and
 $\partial_t[g(x-tb)] = \nabla g(x-tb) \cdot (-b) = -\langle \nabla g(x-tb), b \rangle$.
-Once these are proved, the existence theorem closes by \texttt{simp}:
+With these in hand, the existence theorem closes by \texttt{simp}:
 
-\begin{lstlisting}[caption={Existence (proved modulo two chain rule lemmas)}]
+\begin{lstlisting}[caption={Existence (proved)}]
 theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) :
     IsTransportSolution b (evansFormula b g) := by
@@ -485,7 +506,7 @@ theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
   simp [real_inner_comm]
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Uniqueness via characteristics (sorry)}]
+\begin{lstlisting}[caption={Uniqueness via characteristics (proved)}]
 theorem evansFormula_unique (b : Rn) (g : Rn -> R)
     (u : Rn x R -> R)
     (hu_pde  : IsTransportSolution b u)
@@ -608,7 +629,7 @@ combined with \texttt{ContDiff.continuous\_fderiv}.
 \texttt{integral\_hasDerivAt\_right} (FTC) and the parametric
 \texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} separately but no
 combined Leibniz rule with a \emph{variable} upper limit. We supply this as
-\texttt{Calculus.leibniz\_integral} (now a fully proved lemma, no longer a placeholder):
+\texttt{Calculus.leibniz\_integral} (a fully proved lemma, no longer a placeholder):
 \[
   \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
     = H(t,t) + \int_0^t \partial_1 H(t,s)\,ds .
@@ -631,6 +652,7 @@ proof needs a uniform bound $\sup_{x' \in \overline{B}(x,1)}
 $\overline{B}(x,1) \times [0,t]$ together with
 \texttt{Convex.lipschitzOnWith\_of\_nnorm\_hasFDerivWithin\_le} --- the same compactness
 technique used in \texttt{leibniz\_integral}.
+
 All other conditions (\texttt{AEStronglyMeasurable} of $F$ and $F'$,
 \texttt{IntervalIntegrable} of the bound, the \texttt{toDual} and \texttt{innerSL}
 commutations) are fully proved.
@@ -825,7 +847,7 @@ $\log\|x\|$ is harmonic in $\mathbb{R}^2 \setminus \{0\}$.
 
 \subsubsection{Main result}
 
-\begin{lstlisting}[caption={Fundamental solution is harmonic off zero (proved modulo log lemma)}]
+\begin{lstlisting}[caption={Fundamental solution is harmonic off zero (proved)}]
 lemma fundamentalSolution_harmonic_off_zero (x : Rn) (hx : x != 0) :
     Delta fundamentalSolution x = 0
 \end{lstlisting}
@@ -1246,23 +1268,27 @@ Disturbances therefore propagate at speed at most $1$.
 \end{tabular}
 \end{center}
 
-\subsection{§2.4.3 Symmetry of Mixed Partials}
+\subsection{§2.4.3 Symmetry of Mixed Partials and General Energy Conservation}
 
 The energy and uniqueness results above are proved for the traveling-wave form
 $\Phi(x+t)+\Psi(x-t)$, where the symmetry of mixed partials $\partial_t\partial_x u =
-\partial_x\partial_t u$ is manifest. For a \emph{general} $C^2$ solution this symmetry is the
-one extra ingredient (beyond $u_{tt}=u_{xx}$) needed to extend both the energy conservation
-law and uniqueness to all solutions. We prove it directly:
+\partial_x\partial_t u$ is manifest. For a \emph{general} $C^2$ solution this symmetry is
+the one extra ingredient (beyond $u_{tt}=u_{xx}$) needed to extend the energy conservation
+law to all solutions. We prove it directly.
 
 \textbf{\texttt{mixed\_partials\_symm}} (proved): for $u \in C^2(\mathbb{R}^2)$,
 $\partial_t(\partial_x u) = \partial_x(\partial_t u)$. The slice derivatives are bridged to
 the Fréchet derivative ($\partial_x u = \text{fderiv}\,u\,(x,t)\,(1,0)$, etc., via
 \texttt{HasFDerivAt.comp\_hasDerivAt} along the curves $r\mapsto(r,s)$, $s\mapsto(x,s)$ and
-\texttt{clm\_apply} for evaluating the \texttt{fderiv}-valued map), reducing the claim to
-Mathlib's \texttt{second\_derivative\_symmetric}. This is the keystone that would upgrade
-\texttt{travelingWaves\_energy\_conservation} and \texttt{travelingWaves\_unique} from the
-traveling-wave class to arbitrary $C^2$ solutions; that upgrade is now ``plumbing on top of
-the bridge.''
+\texttt{clm\_apply} for the \texttt{fderiv}-valued map), reducing the claim to Mathlib's
+\texttt{second\_derivative\_symmetric}.
+
+\textbf{\texttt{energy\_conservation}} (proved): with this bridge, the local conservation law
+$\partial_t e = \partial_x p$ now holds for \emph{every} $C^2$ solution, not just a
+traveling wave. The proof differentiates the energy density and flux directly; the difference
+reduces to $u_t(u_{tt}-u_{xx}) + u_x(\partial_t\partial_x u - \partial_x\partial_t u)$, whose
+first term vanishes by \texttt{IsWaveSolution} and second by the symmetry above. This is the
+general energy method of Evans §2.4.3, matching the textbook in full generality.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -1270,14 +1296,20 @@ the bridge.''
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
   \texttt{mixed\_partials\_symm} & $\partial_t\partial_x u = \partial_x\partial_t u$ for $u \in C^2$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{energy\_conservation} & $\partial_t e = \partial_x p$ for \emph{all} $C^2$ solutions & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
+(Uniqueness is still stated for the traveling-wave class via \texttt{travelingWaves\_unique};
+extending it to all $C^2$ solutions needs the general-solution-structure theorem, left as
+future work.)
+
 \textbf{The entire Wave chapter is fully closed --- zero \texttt{sorry}.} It covers
-existence, regularity, both initial conditions, the energy conservation law, uniqueness for
-the Cauchy problem, finite propagation speed, and the symmetry of mixed partials: a complete
-formalization of Evans §2.4.1 and §2.4.3 in one space dimension.
+existence, regularity, both initial conditions, the energy conservation law (for both the
+traveling-wave form and \emph{all} $C^2$ solutions), uniqueness for the Cauchy problem,
+finite propagation speed, and the symmetry of mixed partials: a complete formalization of
+Evans §2.4.1 and §2.4.3 in one space dimension.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Calculus Utilities: \texttt{Calculus.lean}}
