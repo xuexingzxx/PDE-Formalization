@@ -595,7 +595,7 @@ At $t = 0$, the integral term $\int_0^0 f(x-(0-s)b, s)\,ds = 0$ since the
 integration domain is empty. The remaining term is $g(x - 0 \cdot b) = g(x)$.
 \end{proof}
 
-\begin{lstlisting}[caption={Existence (partial proof)}]
+\begin{lstlisting}[caption={Existence (proved)}]
 theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
     (f : Rn x R -> R) (hg : Differentiable R g)
     (hf : ContDiff R 1 f) :
@@ -606,10 +606,11 @@ theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
   -- Step 4 (proved): hg_deriv + hleibniz via HasDerivAt.add
   -- Step 5 (proved): spatial gradient via
   --   hasFDerivAt_integral_of_dominated_loc_of_lip
-  --   + intervalIntegral_comp_comm (sorry: spatial LipschitzOnWith condition)
+  --   + intervalIntegral_comp_comm; spatial LipschitzOnWith via the
+  --   mean value inequality with a uniform fderiv bound over a compact tube
   -- Step 6 (proved): <Int grad f, b> = Int <grad f, b>
   --   via ContinuousLinearMap.intervalIntegral_comp_comm
-  sorry -- remaining: only the spatial-gradient LipschitzOnWith bound condition
+  ... -- fully proved, no sorry
 \end{lstlisting}
 
 \textbf{Proof sketch:} Split $u = v + w$ where $v(x,t) = g(x-tb)$ and
@@ -644,18 +645,24 @@ has derivative $0$ (lemma \texttt{hasDerivAt\_crossTerm}). The uniform $\partial
 needed for $B$ and $C$ comes from compactness of a box
 (\texttt{IsCompact.exists\_bound\_of\_continuousOn}).
 
-\textbf{One sorry remains}, in Step 5: the \texttt{LipschitzOnWith} hypothesis of the
-\emph{spatial} \texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip}. The placeholder
-bound $\|\text{fderiv}\,f\,(x-(t-s)b,s)\|\cdot\|b\|$ only uses the center point; a correct
-proof needs a uniform bound $\sup_{x' \in \overline{B}(x,1)}
-\|\text{fderiv}\,(\lambda y.\,f(y,s))\,(x'-(t-s)b)\|$ over the compact product
-$\overline{B}(x,1) \times [0,t]$ together with
-\texttt{Convex.lipschitzOnWith\_of\_nnorm\_hasFDerivWithin\_le} --- the same compactness
-technique used in \texttt{leibniz\_integral}.
+\textbf{Step 5 (\texttt{LipschitzOnWith}) is now proved.} The dominated-convergence lemma
+\texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip} needs, for a.e. $s$ in the
+integration interval, a Lipschitz bound for $x' \mapsto f(x'-(t-s)b, s)$ valid on the
+\emph{whole} ball $B(x,1)$ ---
+a single constant, not the center-point value. We obtain it from a uniform bound
+$M = \sup \|\text{fderiv}\,f\|$ over the compact ``tube''
+$\overline{B}(x,1) \times [0,t]$ (\texttt{IsCompact.exists\_bound\_of\_continuousOn}); then for
+each $s$ the mean value inequality
+\texttt{Convex.lipschitzOnWith\_of\_nnnorm\_fderiv\_le} on the convex ball gives the
+$M$-Lipschitz bound, using
+$\|\text{fderiv}\,(\lambda y.\,f(y,s))\,z\| =
+\|\text{fderiv}\,f\,(z,s) \circ \text{inl}\| \le \|\text{fderiv}\,f\,(z,s)\|$
+(\texttt{norm\_inl\_le\_one}). With the bound now the \emph{constant} $M$, its
+\texttt{IntervalIntegrable} hypothesis is just \texttt{intervalIntegrable\_const}.
 
-All other conditions (\texttt{AEStronglyMeasurable} of $F$ and $F'$,
-\texttt{IntervalIntegrable} of the bound, the \texttt{toDual} and \texttt{innerSL}
-commutations) are fully proved.
+All other conditions (\texttt{AEStronglyMeasurable} of $F$ and $F'$, the \texttt{toDual} and
+\texttt{innerSL} commutations) are fully proved, so \texttt{duhamelFormula\_solves} is now
+closed with no \texttt{sorry}.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -663,7 +670,7 @@ commutations) are fully proved.
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
   \texttt{duhamelFormula\_initial} & $u(x,0) = g(x)$        & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{duhamelFormula\_solves}  & existence via Duhamel  & \textcolor{orange}{partial} \\
+  \texttt{duhamelFormula\_solves}  & existence via Duhamel  & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}

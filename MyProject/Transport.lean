@@ -248,12 +248,22 @@ theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × �
         (∫ s in (0:ℝ)..t,
           fderiv ℝ (fun y => f (y, s)) (x - (t - s) • b) ∘L
           ContinuousLinearMap.id ℝ ℝⁿ) x := by
+      -- Uniform bound `M` on `‖fderiv f‖` over the compact tube of points the integrand and
+      -- the ball `B(x,1)` reach: `{(x' - (t-s)•b, s) : x' ∈ closedBall x 1, s ∈ [0,t]}`.
+      have hGbcont : Continuous
+          (fun p : ℝⁿ × ℝ => ‖fderiv ℝ f (p.1 - (t - p.2) • b, p.2)‖) :=
+        (hf.continuous_fderiv (by norm_num)).norm.comp (by fun_prop)
+      have hKcompact : IsCompact (Metric.closedBall x 1 ×ˢ Set.uIcc (0:ℝ) t) :=
+        (isCompact_closedBall x 1).prod isCompact_uIcc
+      obtain ⟨M, hMbound⟩ := hKcompact.exists_bound_of_continuousOn hGbcont.continuousOn
+      have hM0 : 0 ≤ M := le_trans (norm_nonneg _)
+        (hMbound (x, 0) ⟨Metric.mem_closedBall_self one_pos.le, Set.left_mem_uIcc⟩)
       refine (intervalIntegral.hasFDerivAt_integral_of_dominated_loc_of_lip
         (μ := MeasureTheory.volume)
         (F := fun x s => f (x - (t - s) • b, s))
         (F' := fun s => fderiv ℝ (fun y => f (y, s)) (x - (t - s) • b) ∘L
           ContinuousLinearMap.id ℝ ℝⁿ)
-        (bound := fun s => ‖fderiv ℝ f (x - (t - s) • b, s)‖ * ‖b‖)
+        (bound := fun _ => M)
         (x₀ := x) (a := 0) (b := t)
         (Metric.ball_mem_nhds x one_pos)
         ?_ ?_ ?_ ?_ ?_ ?_).2
@@ -265,12 +275,33 @@ theorem duhamelFormula_solves (b : ℝⁿ) (g : ℝⁿ → ℝ) (f : ℝⁿ × �
             L ∘L ContinuousLinearMap.id ℝ ℝⁿ) := by
           simp only [ContinuousLinearMap.comp_id]; exact continuous_id
         exact hcont_comp.comp hfderiv_path_cont
-      · sorry
-      · apply ContinuousOn.intervalIntegrable
-        apply Continuous.continuousOn
-        apply Continuous.mul _ continuous_const
-        apply Continuous.norm
-        exact (hf.continuous_fderiv (by norm_num)).comp (by fun_prop)
+      · -- `h_lip`: for a.e. `s ∈ Ι 0 t`, `x' ↦ f(x'-(t-s)•b, s)` is `M`-Lipschitz on `B(x,1)`,
+        -- by the mean value inequality with the uniform derivative bound `M`.
+        refine MeasureTheory.ae_of_all _ (fun s (hs : s ∈ Set.uIoc (0:ℝ) t) => ?_)
+        refine (convex_ball x 1).lipschitzOnWith_of_nnnorm_fderiv_le
+          (fun x' _ => hf1.differentiableAt.comp x' (by fun_prop)) (fun x' hx' => ?_)
+        -- bound `‖fderiv (x' ↦ f(x'-(t-s)•b,s)) x'‖₊ ≤ Real.nnabs M`.
+        rw [← NNReal.coe_le_coe, coe_nnnorm, Real.coe_nnabs, abs_of_nonneg hM0]
+        have hHF : HasFDerivAt (fun x' => f (x' - (t - s) • b, s))
+            (fderiv ℝ (fun y => f (y, s)) (x' - (t - s) • b)) x' := by
+          have hφ : HasFDerivAt (fun y : ℝⁿ => y - (t - s) • b)
+              (ContinuousLinearMap.id ℝ ℝⁿ) x' := hasFDerivAt_sub_const _
+          have hgs : DifferentiableAt ℝ (fun y : ℝⁿ => f (y, s)) (x' - (t - s) • b) :=
+            hf1.differentiableAt.comp _ (by fun_prop)
+          simpa [ContinuousLinearMap.comp_id] using hgs.hasFDerivAt.comp x' hφ
+        rw [hHF.fderiv, hkey s (x' - (t - s) • b)]
+        have hmem : (x', s) ∈ Metric.closedBall x 1 ×ˢ Set.uIcc (0:ℝ) t :=
+          ⟨Metric.ball_subset_closedBall hx', Set.uIoc_subset_uIcc hs⟩
+        have hb := hMbound (x', s) hmem
+        rw [Real.norm_eq_abs, abs_of_nonneg (norm_nonneg _)] at hb
+        calc ‖fderiv ℝ f (x' - (t - s) • b, s) ∘L ContinuousLinearMap.inl ℝ ℝⁿ ℝ‖
+            ≤ ‖fderiv ℝ f (x' - (t - s) • b, s)‖ * ‖ContinuousLinearMap.inl ℝ ℝⁿ ℝ‖ :=
+              ContinuousLinearMap.opNorm_comp_le _ _
+          _ ≤ ‖fderiv ℝ f (x' - (t - s) • b, s)‖ * 1 := by
+              gcongr; exact ContinuousLinearMap.norm_inl_le_one ℝ ℝⁿ ℝ
+          _ = ‖fderiv ℝ f (x' - (t - s) • b, s)‖ := mul_one _
+          _ ≤ M := hb
+      · exact intervalIntegrable_const
       · filter_upwards with s _
         have hφ : HasFDerivAt (fun y : ℝⁿ => y - (t - s) • b)
             (ContinuousLinearMap.id ℝ ℝⁿ) x := hasFDerivAt_sub_const _

@@ -14,7 +14,7 @@ Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 
 | Chapter | File | Status | Notes |
 |---|---|---|---|
-| §2.1 Transport | `Transport.lean` | mostly complete | homogeneous IVP solved **and proved unique**; inhomogeneous Duhamel: framework + integrand cancellation proved, two Leibniz/diff-under-integral steps remain |
+| §2.1 Transport | `Transport.lean` | ✅ **complete, zero `sorry`** | homogeneous IVP solved **and proved unique**; inhomogeneous Duhamel formula **provably solves the IVP** (Leibniz rule + spatial differentiation under the integral both proved) |
 | §2.2 Laplace/Poisson | `Laplace.lean` | partial | fundamental solution, radial-power & `log` Laplacians, Green's identity (algebraic step) proved; mean-value, maximum principle and the Poisson representation are blocked by Mathlib gaps |
 | §2.3 Heat | `Heat.lean` | mostly complete | heat kernel is positive, has unit mass, and **provably solves the heat equation**; convolution-solves-IVP reduced to two differentiation-under-the-integral steps |
 | §2.4 Wave | `Wave.lean` | ✅ **complete, zero `sorry`** | traveling waves, d'Alembert (existence + `C²` regularity + initial conditions), energy conservation, uniqueness, finite propagation speed |
@@ -29,9 +29,11 @@ and documented at their use sites.
 
 The outstanding `sorry`s are **not** gaps in the mathematics but in available Mathlib lemmas:
 
-- **Differentiation under the integral sign** (Heat `heatSolution_solves_heat`, Transport
-  `duhamelFormula_solves`, `Calculus.leibniz_integral`) — needs dominated-convergence bounds
-  for the kernels together with a combined FTC + Leibniz rule.
+- **Differentiation under the integral sign** (Heat `heatSolution_solves_heat`) — needs
+  dominated-convergence bounds for the Gaussian kernel and its derivatives over all of `ℝⁿ`,
+  plus a growth bound on the initial data. (The Transport analogue is now fully proved: the
+  combined FTC + Leibniz rule `Calculus.leibniz_integral` and the spatial Lipschitz bound in
+  `duhamelFormula_solves` are both closed.)
 - **Stokes' theorem on spherical domains** (Laplace `green_identity_annulus` Step 2,
   `green_boundary_tendsto_f`) — Mathlib's divergence theorem covers boxes only.
 - **Sphere surface measure** `σ(∂B(0,ε)) = n ωₙ εⁿ⁻¹` (Laplace `fundamentalSolution_totalFlux`).
