@@ -367,6 +367,70 @@ lemma heatKernel_translate_solves_heat (x y : ℝⁿ) {t : ℝ} (ht : 0 < t) :
     exact laplacian_comp_sub (fun w : ℝⁿ => heatKernel (w, t)) y x
   rw [hL, hR, heatKernel_timeDerivative (x - y) ht, heatKernel_spatialLaplacian (x - y) ht]
 
+/-! ### Gaussian moment integrability (auxiliary)
+
+The dominated-convergence bounds for differentiating the convolution under the integral
+need integrability over `ℝⁿ` of `exp(−c‖z‖²)` and `‖z‖²·exp(−c‖z‖²)`. Mathlib has the base
+`n`-dimensional Gaussian (`integrable_cexp_neg_mul_sq_norm_add`) and the 1-D moments, but not
+the `n`-dim moments; we supply the two we need. -/
+
+/-- Elementary bound `v·e^{−v} ≤ e^{−1}` for all real `v` (the maximum of `v·e^{−v}`,
+    attained at `v = 1`), via `x + 1 ≤ eˣ`. -/
+private lemma mul_exp_neg_le (v : ℝ) : v * Real.exp (-v) ≤ Real.exp (-1) := by
+  have h1 : v ≤ Real.exp (v - 1) := by have := Real.add_one_le_exp (v - 1); linarith
+  calc v * Real.exp (-v)
+      ≤ Real.exp (v - 1) * Real.exp (-v) :=
+        mul_le_mul_of_nonneg_right h1 (Real.exp_pos _).le
+    _ = Real.exp (-1) := by rw [← Real.exp_add]; congr 1; ring
+
+/-- Scalar domination `r·e^{−cr} ≤ (2/(c·e))·e^{−(c/2)r}` for `c > 0`, `r ≥ 0`:
+    split `e^{−cr} = e^{−(c/2)r}·e^{−(c/2)r}` and bound `r·e^{−(c/2)r}` by `mul_exp_neg_le`. -/
+private lemma sq_mul_exp_le {c : ℝ} (hc : 0 < c) (r : ℝ) :
+    r * Real.exp (-c * r) ≤ 2 / (c * Real.exp 1) * Real.exp (-(c / 2) * r) := by
+  have hcne : c ≠ 0 := hc.ne'
+  have hene : Real.exp 1 ≠ 0 := (Real.exp_pos _).ne'
+  have hv := mul_exp_neg_le (c / 2 * r)
+  rw [show -(c / 2 * r) = -(c / 2) * r from by ring] at hv
+  have hsplit : Real.exp (-c * r) = Real.exp (-(c / 2) * r) * Real.exp (-(c / 2) * r) := by
+    rw [← Real.exp_add]; congr 1; ring
+  have lhs_eq : r * Real.exp (-c * r)
+      = 2 / c * (c / 2 * r * Real.exp (-(c / 2) * r)) * Real.exp (-(c / 2) * r) := by
+    rw [hsplit]; field_simp
+  have rhs_eq : 2 / c * Real.exp (-1) * Real.exp (-(c / 2) * r)
+      = 2 / (c * Real.exp 1) * Real.exp (-(c / 2) * r) := by
+    rw [Real.exp_neg]; field_simp
+  calc r * Real.exp (-c * r)
+      = 2 / c * (c / 2 * r * Real.exp (-(c / 2) * r)) * Real.exp (-(c / 2) * r) := lhs_eq
+    _ ≤ 2 / c * Real.exp (-1) * Real.exp (-(c / 2) * r) := by gcongr
+    _ = 2 / (c * Real.exp 1) * Real.exp (-(c / 2) * r) := rhs_eq
+
+/-- The pure `n`-dimensional Gaussian `exp(−c‖z‖²)` is integrable for `c > 0`. -/
+lemma integrable_exp_neg_mul_norm_sq {c : ℝ} (hc : 0 < c) :
+    Integrable (fun z : ℝⁿ => Real.exp (-c * ‖z‖ ^ 2)) := by
+  have hb : (0 : ℝ) < (Complex.ofReal c).re := by simpa using hc
+  have hI := (GaussianFourier.integrable_cexp_neg_mul_sq_norm_add
+    (V := ℝⁿ) (b := (c : ℂ)) hb 0 0).norm
+  refine hI.congr ?_
+  filter_upwards with z
+  have harg : (-(c : ℂ) * (↑‖z‖) ^ 2 + 0 * ↑(⟪(0 : ℝⁿ), z⟫_ℝ))
+      = ((-c * ‖z‖ ^ 2 : ℝ) : ℂ) := by
+    rw [inner_zero_left]; push_cast; ring
+  rw [harg, ← Complex.ofReal_exp, Complex.norm_real, Real.norm_eq_abs,
+    abs_of_pos (Real.exp_pos _)]
+
+/-- The second Gaussian moment `‖z‖²·exp(−c‖z‖²)` is integrable over `ℝⁿ` for `c > 0`.
+    Dominated by `(2/(c·e))·exp(−(c/2)‖z‖²)` via `sq_mul_exp_le`. -/
+lemma integrable_norm_sq_mul_exp_neg_mul_norm_sq {c : ℝ} (hc : 0 < c) :
+    Integrable (fun z : ℝⁿ => ‖z‖ ^ 2 * Real.exp (-c * ‖z‖ ^ 2)) := by
+  have hc2 : (0 : ℝ) < c / 2 := by positivity
+  have hbase := (integrable_exp_neg_mul_norm_sq (n := n) hc2).const_mul (2 / (c * Real.exp 1))
+  refine Integrable.mono' hbase ?_ ?_
+  · exact ((continuous_norm.pow 2).mul
+      ((continuous_const.mul (continuous_norm.pow 2)).rexp)).aestronglyMeasurable
+  · filter_upwards with z
+    rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
+    exact sq_mul_exp_le hc (‖z‖ ^ 2)
+
 /-- **Evans §2.3.1, Theorem 1**: the convolution `u(x,t) = ∫ Φ(x−y,t) g(y) dy` solves
     the homogeneous heat equation in `ℝⁿ × (0, ∞)`.
 
