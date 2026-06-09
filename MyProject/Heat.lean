@@ -802,19 +802,15 @@ private lemma heatKernel_ball_le (x z' y : ℝⁿ) {t : ℝ} (ht : 0 < t) (hz : 
   have h84 : (1 : ℝ) / (8 * t) = 1 / (4 * t) * (1 / 2) := by field_simp; ring
   rw [h84]; nlinarith [key]
 
-/-- **Second spatial derivative under the integral**: `D(DF) x = ∫ g(y)·D²Φ(x−y,t) dy`,
-    the CLM-valued second differentiation under the integral sign. -/
-lemma heatSolution_fderiv_fderiv_eq (g : ℝⁿ → ℝ) (hg : Continuous g)
+/-- **Second spatial derivative under the integral** (`HasFDerivAt` form): the
+    convolution's gradient `z ↦ ∫ g(y)·DΦ(z−y,t)` is Fréchet-differentiable at `x`, with
+    derivative `∫ g(y)·D²Φ(x−y,t)`. -/
+lemma heatSolution_hasFDerivAt_grad (g : ℝⁿ → ℝ) (hg : Continuous g)
     {Cg : ℝ} (hgb : ∀ y, |g y| ≤ Cg) (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
-    fderiv ℝ (fderiv ℝ (fun z => ∫ y, heatKernel (z - y, t) * g y)) x
-      = ∫ y, g y • fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') x := by
+    HasFDerivAt (fun z => ∫ y, g y • fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z)
+      (∫ y, g y • fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') x) x := by
   set C : ℝ := (4 * Real.pi * t) ^ (-(n : ℝ) / 2) with hCdef
   have hCpos : 0 < C := by rw [hCdef]; positivity
-  -- `fderiv F z = ∫ g y • DΦ(z−y,t)` at every point, so reduce to differentiating that.
-  have hfe : fderiv ℝ (fun z => ∫ y, heatKernel (z - y, t) * g y)
-      = fun z => ∫ y, g y • fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z := by
-    funext z; exact (heatSolution_hasFDerivAt_space g hg hgb z ht).fderiv
-  rw [hfe]
   have hc8 : (0 : ℝ) < 1 / (8 * t) := by positivity
   have hc4 : (0 : ℝ) < 1 / (4 * t) := by positivity
   have hm0 := integrable_exp_neg_mul_norm_sq (n := n) hc8
@@ -852,7 +848,7 @@ lemma heatSolution_fderiv_fderiv_eq (g : ℝⁿ → ℝ) (hg : Continuous g)
     (Filter.Eventually.of_forall fun z =>
       (hg.smul (heatKernel_fderiv_cont_y z ht)).aestronglyMeasurable)
     ?hF_int (hg.smul (heatKernel_fderiv2_cont_y x ht)).aestronglyMeasurable
-    ?h_bound ?bound_int ?h_diff).fderiv
+    ?h_bound ?bound_int ?h_diff)
   case hF_int =>
     apply Integrable.mono' (hki.const_mul (Cg * (1 / (2 * t))))
       (hg.smul (heatKernel_fderiv_cont_y x ht)).aestronglyMeasurable
