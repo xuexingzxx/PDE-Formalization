@@ -882,7 +882,8 @@ lemma heatSolution_fderiv_fderiv_eq (g : ℝⁿ → ℝ) (hg : Continuous g)
     have hrw : (fun y : ℝⁿ => Cg * (1 / (2 * t) * (C * Real.exp (1 / (4 * t))
           * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)) * (1 + 1 / (2 * t) * (1 + ‖x - y‖) ^ 2)))
         = fun y => Cg * (1 / (2 * t)) * (C * Real.exp (1 / (4 * t)))
-            * (Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2) * (1 + 1 / (2 * t) * (1 + ‖x - y‖) ^ 2)) := by
+            * (Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)
+              * (1 + 1 / (2 * t) * (1 + ‖x - y‖) ^ 2)) := by
       funext y; ring
     rw [hrw]; exact hht.const_mul _
   case h_diff =>
@@ -1005,6 +1006,9 @@ theorem heatSolution_solves_heat (g : ℝⁿ → ℝ) (hg : Continuous g)
   -- Differentiation under the integral: the spatial Laplacian lands on the kernel.
   have hspace : spatialLaplacian (heatSolution g) (x, t)
       = ∫ y : ℝⁿ, Laplacian.laplacian (fun z : ℝⁿ => heatKernel (z - y, t)) x * g y := by
+    -- The basis-trace assembly is blocked: `ContinuousENorm` (hence `Integrable` and
+    -- `ContinuousLinearMap.integral_apply`) is missing for the iterated CLM space
+    -- `ℝⁿ →L (ℝⁿ →L ℝ)`, so scalars cannot be extracted from `∫ y, g y • D²Φ(x−y,t)`.
     sorry
   -- The two integrands coincide pointwise, since the kernel solves the heat equation.
   have hcancel : (fun y : ℝⁿ => deriv (fun s => heatKernel (x - y, s)) t * g y)
