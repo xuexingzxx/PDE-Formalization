@@ -439,6 +439,22 @@ lemma integrable_norm_sq_mul_exp_neg_mul_norm_sq {c : ℝ} (hc : 0 < c) :
     rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
     exact sq_mul_exp_le hc (‖z‖ ^ 2)
 
+/-- The first Gaussian moment `‖z‖·exp(−c‖z‖²)` is integrable over `ℝⁿ` for `c > 0`.
+    Dominated by `(1 + ‖z‖²)·exp(−c‖z‖²)` (since `‖z‖ ≤ 1 + ‖z‖²`), i.e. the 0th + 2nd moments. -/
+lemma integrable_norm_mul_exp_neg_mul_norm_sq {c : ℝ} (hc : 0 < c) :
+    Integrable (fun z : ℝⁿ => ‖z‖ * Real.exp (-c * ‖z‖ ^ 2)) := by
+  refine Integrable.mono' ((integrable_exp_neg_mul_norm_sq (n := n) hc).add
+    (integrable_norm_sq_mul_exp_neg_mul_norm_sq (n := n) hc)) ?_ ?_
+  · exact (continuous_norm.mul
+      ((continuous_const.mul (continuous_norm.pow 2)).rexp)).aestronglyMeasurable
+  · filter_upwards with z
+    rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
+    have hr : ‖z‖ ≤ 1 + ‖z‖ ^ 2 := by nlinarith [sq_nonneg (‖z‖ - 1)]
+    calc ‖z‖ * Real.exp (-c * ‖z‖ ^ 2)
+        ≤ (1 + ‖z‖ ^ 2) * Real.exp (-c * ‖z‖ ^ 2) :=
+          mul_le_mul_of_nonneg_right hr (Real.exp_nonneg _)
+      _ = Real.exp (-c * ‖z‖ ^ 2) + ‖z‖ ^ 2 * Real.exp (-c * ‖z‖ ^ 2) := by ring
+
 /-- Uniform domination of the kernel's time-derivative magnitude over `s ∈ [a,b]`
     (with `0 < a ≤ s ≤ b`) by a fixed Gaussian moment. The three `s`-dependent factors
     `(4πs)^{−n/2}`, `exp(−‖z‖²/4s)` and `|‖z‖²/(4s²) − n/(2s)|` are each bounded by their
@@ -484,6 +500,36 @@ private lemma heatKernel_time_deriv_bound (z : ℝⁿ) {a b s : ℝ}
         * (‖z‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) := by
         apply mul_le_mul _ hpoly (abs_nonneg _) (by positivity)
         exact mul_le_mul hrpow hexp (Real.exp_nonneg _) (by positivity)
+
+/-- **Spatial gradient of the heat kernel** (as a Fréchet derivative): for `t > 0`,
+    `D_z Φ(z−y,t) = −(1/2t)·Φ(z−y,t)·⟪z−y, ·⟫`. -/
+lemma heatKernel_hasFDerivAt_space (y z' : ℝⁿ) (ht : 0 < t) :
+    HasFDerivAt (fun z => heatKernel (z - y, t))
+      ((-(1 / (2 * t)) * heatKernel (z' - y, t)) • innerSL ℝ (z' - y)) z' := by
+  have hfun : (fun z : ℝⁿ => heatKernel (z - y, t))
+      = fun z => (4 * Real.pi * t) ^ (-(n : ℝ) / 2)
+          * Real.exp (-(1 / (4 * t)) * ‖z - y‖ ^ 2) := by
+    funext z; simp only [heatKernel_apply, if_pos ht]
+    rw [show -‖z - y‖ ^ 2 / (4 * t) = -(1 / (4 * t)) * ‖z - y‖ ^ 2 from by ring]
+  have hk : heatKernel (z' - y, t)
+      = (4 * Real.pi * t) ^ (-(n : ℝ) / 2) * Real.exp (-(1 / (4 * t)) * ‖z' - y‖ ^ 2) := by
+    simp only [heatKernel_apply, if_pos ht]
+    rw [show -‖z' - y‖ ^ 2 / (4 * t) = -(1 / (4 * t)) * ‖z' - y‖ ^ 2 from by ring]
+  rw [hfun]
+  refine ((((((hasFDerivAt_sub_const y).norm_sq).const_mul (-(1 / (4 * t)))).exp).const_mul
+    ((4 * Real.pi * t) ^ (-(n : ℝ) / 2))) : HasFDerivAt _ _ z').congr_fderiv ?_
+  ext v
+  simp only [ContinuousLinearMap.smul_apply, ContinuousLinearMap.comp_apply,
+    ContinuousLinearMap.coe_id', id_eq, innerSL_apply_apply, smul_eq_mul, hk]
+  ring
+
+/-- The norm of the kernel's spatial gradient: `‖D_z Φ(z−y,t)‖ = (1/2t)·Φ(z−y,t)·‖z−y‖`. -/
+lemma heatKernel_fderiv_space_norm (y z' : ℝⁿ) (ht : 0 < t) :
+    ‖fderiv ℝ (fun z => heatKernel (z - y, t)) z'‖
+      = 1 / (2 * t) * heatKernel (z' - y, t) * ‖z' - y‖ := by
+  rw [(heatKernel_hasFDerivAt_space y z' ht).fderiv, norm_smul, innerSL_apply_norm,
+    Real.norm_eq_abs, abs_mul, abs_neg, abs_of_nonneg (by positivity : (0:ℝ) ≤ 1 / (2 * t)),
+    abs_of_nonneg (heatKernel_nonneg _ _)]
 
 /-- **Evans §2.3.1, Theorem 1**: for bounded continuous initial data `g`, the convolution
     `u(x,t) = ∫ Φ(x−y,t) g(y) dy` solves the homogeneous heat equation in `ℝⁿ × (0, ∞)`.
