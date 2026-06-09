@@ -531,6 +531,135 @@ lemma heatKernel_fderiv_space_norm (y z' : ℝⁿ) (ht : 0 < t) :
     Real.norm_eq_abs, abs_mul, abs_neg, abs_of_nonneg (by positivity : (0:ℝ) ≤ 1 / (2 * t)),
     abs_of_nonneg (heatKernel_nonneg _ _)]
 
+/-- A quadratic comparison used to dominate the spatially-differentiated kernel over a ball:
+    `‖a + b‖² ≤ 2‖a‖² + 2‖b‖²` (from `0 ≤ ‖a − b‖²`). -/
+private lemma norm_add_sq_le_two (a b : ℝⁿ) : ‖a + b‖ ^ 2 ≤ 2 * ‖a‖ ^ 2 + 2 * ‖b‖ ^ 2 := by
+  have h1 := norm_add_sq_real a b
+  have h2 := norm_sub_sq_real a b
+  have h3 : (0 : ℝ) ≤ ‖a - b‖ ^ 2 := sq_nonneg _
+  nlinarith [h1, h2, h3]
+
+/-- **First spatial derivative under the integral**: at every point `x`, the heat-solution
+    convolution `z ↦ ∫ Φ(z−y,t) g(y) dy` is Fréchet-differentiable, with derivative the
+    integral of the kernel's spatial derivative. The dominating bound uses the kernel norm
+    `heatKernel_fderiv_space_norm` together with `‖z−y‖² ≥ ½‖x−y‖² − 1` on the unit ball,
+    reducing integrability to the 0th and 1st Gaussian moments. -/
+lemma heatSolution_hasFDerivAt_space (g : ℝⁿ → ℝ) (hg : Continuous g)
+    {Cg : ℝ} (hgb : ∀ y, |g y| ≤ Cg) (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
+    HasFDerivAt (fun z => ∫ y, heatKernel (z - y, t) * g y)
+      (∫ y, g y • fderiv ℝ (fun z => heatKernel (z - y, t)) x) x := by
+  have hCt : (0 : ℝ) < 1 / (8 * t) := by positivity
+  -- continuity & integrability of the kernel in `y` for each fixed `z`
+  have hker_cont : ∀ z : ℝⁿ, Continuous (fun y : ℝⁿ => heatKernel (z - y, t)) := by
+    intro z
+    by_cases hz : 0 < t
+    · simp only [heatKernel_apply, if_pos hz]; fun_prop
+    · simp only [heatKernel_apply, if_neg hz]; exact continuous_const
+  have hker_int : ∀ z : ℝⁿ, Integrable (fun y : ℝⁿ => heatKernel (z - y, t)) := by
+    intro z
+    have hform : (fun y : ℝⁿ => heatKernel (z - y, t))
+        = fun y => (4 * Real.pi * t) ^ (-(n : ℝ) / 2)
+            * Real.exp (-(1 / (4 * t)) * ‖z - y‖ ^ 2) := by
+      funext y; simp only [heatKernel_apply, if_pos ht]
+      rw [show -‖z - y‖ ^ 2 / (4 * t) = -(1 / (4 * t)) * ‖z - y‖ ^ 2 from by ring]
+    rw [hform]
+    refine Integrable.const_mul ?_ _
+    have hc : (0 : ℝ) < 1 / (4 * t) := by positivity
+    simpa [sub_eq_add_neg] using
+      ((integrable_exp_neg_mul_norm_sq (n := n) hc).comp_add_left z).comp_neg
+  -- the dominating function and its integrability (0th + 1st Gaussian moments)
+  set C : ℝ := (4 * Real.pi * t) ^ (-(n : ℝ) / 2) with hCdef
+  have hbound_int : Integrable (fun y : ℝⁿ =>
+      Cg * (1 / (2 * t)) * (C * Real.exp (1 / (4 * t))) *
+        ((1 + ‖x - y‖) * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2))) := by
+    have h0 := integrable_exp_neg_mul_norm_sq (n := n) hCt
+    have h1 := integrable_norm_mul_exp_neg_mul_norm_sq (n := n) hCt
+    have hh : Integrable (fun z : ℝⁿ =>
+        (1 + ‖z‖) * Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2)) := by
+      have hrw : (fun z : ℝⁿ => (1 + ‖z‖) * Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2))
+          = fun z => Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2)
+            + ‖z‖ * Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2) := by funext z; ring
+      rw [hrw]; exact h0.add h1
+    have hht : Integrable (fun y : ℝⁿ =>
+        (1 + ‖x - y‖) * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)) := by
+      simpa [sub_eq_add_neg] using (hh.comp_add_left x).comp_neg
+    exact hht.const_mul _
+  refine (hasFDerivAt_integral_of_dominated_of_fderiv_le (μ := volume)
+    (F := fun z y => heatKernel (z - y, t) * g y)
+    (F' := fun z y => g y • fderiv ℝ (fun z' => heatKernel (z' - y, t)) z)
+    (bound := fun y => Cg * (1 / (2 * t)) * (C * Real.exp (1 / (4 * t))) *
+      ((1 + ‖x - y‖) * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)))
+    (Metric.ball_mem_nhds x one_pos)
+    (Filter.Eventually.of_forall fun z => ((hker_cont z).mul hg).aestronglyMeasurable)
+    ?_ ?_ ?_ hbound_int ?_)
+  · -- F x integrable
+    apply Integrable.mono' ((hker_int x).const_mul Cg)
+      ((hker_cont x).mul hg).aestronglyMeasurable
+    filter_upwards with y
+    simp only [Pi.mul_apply]
+    rw [norm_mul, Real.norm_eq_abs (heatKernel _), abs_of_nonneg (heatKernel_nonneg _ _),
+      Real.norm_eq_abs (g y)]
+    calc heatKernel (x - y, t) * |g y|
+        ≤ heatKernel (x - y, t) * Cg :=
+          mul_le_mul_of_nonneg_left (hgb y) (heatKernel_nonneg _ _)
+      _ = Cg * heatKernel (x - y, t) := mul_comm _ _
+  · -- F' x measurable
+    dsimp only
+    have heq : (fun y : ℝⁿ => g y • fderiv ℝ (fun z' => heatKernel (z' - y, t)) x)
+        = fun y => g y • ((-(1 / (2 * t)) * heatKernel (x - y, t)) • innerSL ℝ (x - y)) := by
+      funext y; rw [(heatKernel_hasFDerivAt_space y x ht).fderiv]
+    rw [heq]
+    exact (hg.smul ((continuous_const.mul (hker_cont x)).smul
+      ((innerSL ℝ).continuous.comp (continuous_const.sub continuous_id)))).aestronglyMeasurable
+  · -- bound
+    refine Filter.Eventually.of_forall fun y z hz => ?_
+    rw [Metric.mem_ball, dist_eq_norm] at hz
+    rw [norm_smul, Real.norm_eq_abs, heatKernel_fderiv_space_norm y z ht]
+    have hCpos : 0 < C := by rw [hCdef]; positivity
+    have hzy : ‖z - y‖ ≤ 1 + ‖x - y‖ := by
+      calc ‖z - y‖ = ‖(z - x) + (x - y)‖ := by rw [sub_add_sub_cancel]
+        _ ≤ ‖z - x‖ + ‖x - y‖ := norm_add_le _ _
+        _ ≤ 1 + ‖x - y‖ := by linarith [hz.le]
+    have hgeo : (1 / 2) * ‖x - y‖ ^ 2 - 1 ≤ ‖z - y‖ ^ 2 := by
+      have h := norm_add_sq_le_two (x - z) (z - y)
+      rw [sub_add_sub_cancel] at h
+      have hxz : ‖x - z‖ ^ 2 ≤ 1 := by
+        rw [← norm_neg (x - z), neg_sub]; nlinarith [hz, norm_nonneg (z - x)]
+      nlinarith [h, hxz]
+    have htne : t ≠ 0 := ht.ne'
+    have hexp_ineq : -(1 / (4 * t)) * ‖z - y‖ ^ 2
+        ≤ 1 / (4 * t) + -(1 / (8 * t)) * ‖x - y‖ ^ 2 := by
+      have key := mul_le_mul_of_nonneg_left hgeo (show (0 : ℝ) ≤ 1 / (4 * t) by positivity)
+      have h84 : (1 : ℝ) / (8 * t) = 1 / (4 * t) * (1 / 2) := by field_simp; ring
+      rw [h84]; nlinarith [key]
+    have hker_le : heatKernel (z - y, t)
+        ≤ C * Real.exp (1 / (4 * t)) * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2) := by
+      rw [heatKernel_apply, if_pos ht, ← hCdef, mul_assoc]
+      refine mul_le_mul_of_nonneg_left ?_ hCpos.le
+      rw [← Real.exp_add]
+      refine Real.exp_le_exp.mpr ?_
+      rw [show -‖z - y‖ ^ 2 / (4 * t) = -(1 / (4 * t)) * ‖z - y‖ ^ 2 from by ring]
+      linarith [hexp_ineq]
+    have hkpos : 0 ≤ heatKernel (z - y, t) := heatKernel_nonneg _ _
+    have ht2 : 0 ≤ 1 / (2 * t) := by positivity
+    have hCgnn : 0 ≤ Cg := le_trans (abs_nonneg _) (hgb y)
+    have hexpnn : 0 ≤ C * Real.exp (1 / (4 * t)) * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2) := by
+      positivity
+    calc |g y| * (1 / (2 * t) * heatKernel (z - y, t) * ‖z - y‖)
+        ≤ Cg * (1 / (2 * t) * (C * Real.exp (1 / (4 * t))
+            * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)) * (1 + ‖x - y‖)) :=
+          mul_le_mul (hgb y)
+            (mul_le_mul (mul_le_mul_of_nonneg_left hker_le ht2) hzy (norm_nonneg _)
+              (mul_nonneg ht2 hexpnn))
+            (mul_nonneg (mul_nonneg ht2 hkpos) (norm_nonneg _)) hCgnn
+      _ = Cg * (1 / (2 * t)) * (C * Real.exp (1 / (4 * t)))
+            * ((1 + ‖x - y‖) * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)) := by ring
+  · -- h_diff
+    refine Filter.Eventually.of_forall fun y z _ => ?_
+    dsimp only
+    rw [(heatKernel_hasFDerivAt_space y z ht).fderiv]
+    exact (heatKernel_hasFDerivAt_space y z ht).mul_const (g y)
+
 /-- **Evans §2.3.1, Theorem 1**: for bounded continuous initial data `g`, the convolution
     `u(x,t) = ∫ Φ(x−y,t) g(y) dy` solves the homogeneous heat equation in `ℝⁿ × (0, ∞)`.
 
