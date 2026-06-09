@@ -531,6 +531,76 @@ lemma heatKernel_fderiv_space_norm (y z' : ℝⁿ) (ht : 0 < t) :
     Real.norm_eq_abs, abs_mul, abs_neg, abs_of_nonneg (by positivity : (0:ℝ) ≤ 1 / (2 * t)),
     abs_of_nonneg (heatKernel_nonneg _ _)]
 
+/-- `innerSL ℝ w` and the genuinely `ℝ`-linear `heatInnerBiL w` agree (both are `⟪w, ·⟫`).
+    Lets us differentiate `z ↦ ⟪z−y, ·⟫` as a `→L[ℝ]`-valued map. -/
+private lemma innerSL_eq_heatInnerBiL (w : ℝⁿ) : innerSL ℝ w = heatInnerBiL w := by
+  ext v; rw [innerSL_apply_apply, ← heatInnerL_apply]; rfl
+
+/-- Operator norm of `heatInnerBiL w` equals `‖w‖` (it is `⟪w, ·⟫`). -/
+private lemma norm_heatInnerBiL_apply (w : ℝⁿ) : ‖heatInnerBiL w‖ = ‖w‖ := by
+  rw [← innerSL_eq_heatInnerBiL, innerSL_apply_norm]
+
+/-- **Second spatial derivative of the heat kernel** (existence + bound): the kernel's
+    spatial gradient `z ↦ D_zΦ(z−y,t)` is itself differentiable, with second derivative
+    bounded by `(1/2t)·Φ(z−y,t)·(1 + (1/2t)‖z−y‖²)` — a Gaussian times a quadratic. -/
+lemma heatKernel_hasFDerivAt_space2 (y z' : ℝⁿ) (ht : 0 < t) :
+    HasFDerivAt (fun z => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z)
+      ((-(1 / (2 * t)) * heatKernel (z' - y, t)) • heatInnerBiL
+        + ((-(1 / (2 * t))) • ((-(1 / (2 * t)) * heatKernel (z' - y, t)) • innerSL ℝ (z' - y))
+            : ℝⁿ →L[ℝ] ℝ).smulRight (heatInnerBiL (z' - y))) z' := by
+  have hDfun : (fun z => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z)
+      = fun z => (-(1 / (2 * t)) * heatKernel (z - y, t)) • heatInnerBiL (z - y) := by
+    funext z
+    rw [(heatKernel_hasFDerivAt_space y z ht).fderiv, innerSL_eq_heatInnerBiL]
+  rw [hDfun]
+  have ha : HasFDerivAt (fun z : ℝⁿ => -(1 / (2 * t)) * heatKernel (z - y, t))
+      ((-(1 / (2 * t))) • ((-(1 / (2 * t)) * heatKernel (z' - y, t)) • innerSL ℝ (z' - y))) z' :=
+    (heatKernel_hasFDerivAt_space y z' ht).const_mul (-(1 / (2 * t)))
+  have hB : HasFDerivAt (fun z : ℝⁿ => heatInnerBiL (z - y)) heatInnerBiL z' := by
+    have h := heatInnerBiL.hasFDerivAt.comp z' (hasFDerivAt_sub_const y)
+    rw [ContinuousLinearMap.comp_id] at h
+    exact h
+  exact ha.smul hB
+
+/-- Norm bound on the kernel's second spatial derivative: a Gaussian times a quadratic,
+    `‖D²Φ(z−y,t)‖ ≤ (1/2t)·Φ(z−y,t)·(1 + (1/2t)‖z−y‖²)`. -/
+lemma heatKernel_fderiv2_norm_le (y z' : ℝⁿ) (ht : 0 < t) :
+    ‖fderiv ℝ (fun z => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z) z'‖
+      ≤ 1 / (2 * t) * heatKernel (z' - y, t) * (1 + 1 / (2 * t) * ‖z' - y‖ ^ 2) := by
+  rw [(heatKernel_hasFDerivAt_space2 y z' ht).fderiv]
+  have ht2 : (0 : ℝ) ≤ 1 / (2 * t) := by positivity
+  have hk : (0 : ℝ) ≤ heatKernel (z' - y, t) := heatKernel_nonneg _ _
+  have hnB : ‖(heatInnerBiL : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ)‖ ≤ 1 :=
+    ContinuousLinearMap.opNorm_le_bound _ (by norm_num)
+      (fun w => by simp [norm_heatInnerBiL_apply])
+  have hM : ‖(-(1 / (2 * t)) * heatKernel (z' - y, t)) • innerSL ℝ (z' - y)‖
+      = 1 / (2 * t) * heatKernel (z' - y, t) * ‖z' - y‖ := by
+    rw [norm_smul, innerSL_apply_norm, Real.norm_eq_abs, abs_mul, abs_neg,
+      abs_of_nonneg ht2, abs_of_nonneg hk]
+  refine le_trans (norm_add_le ((-(1 / (2 * t)) * heatKernel (z' - y, t)) • heatInnerBiL)
+    (((-(1 / (2 * t))) • ((-(1 / (2 * t)) * heatKernel (z' - y, t)) • innerSL ℝ (z' - y))
+        : ℝⁿ →L[ℝ] ℝ).smulRight (heatInnerBiL (z' - y)))) ?_
+  have hterm1 : ‖(-(1 / (2 * t)) * heatKernel (z' - y, t)) • (heatInnerBiL : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ)‖
+      ≤ 1 / (2 * t) * heatKernel (z' - y, t) := by
+    refine ContinuousLinearMap.opNorm_le_bound _ (mul_nonneg ht2 hk) (fun v => le_of_eq ?_)
+    rw [ContinuousLinearMap.smul_apply, norm_smul, norm_heatInnerBiL_apply,
+      Real.norm_eq_abs, abs_mul, abs_neg, abs_of_nonneg ht2, abs_of_nonneg hk]
+  have hterm2 : ‖((-(1 / (2 * t))) • ((-(1 / (2 * t)) * heatKernel (z' - y, t))
+        • innerSL ℝ (z' - y)) : ℝⁿ →L[ℝ] ℝ).smulRight (heatInnerBiL (z' - y))‖
+      ≤ 1 / (2 * t) * heatKernel (z' - y, t) * (1 / (2 * t) * ‖z' - y‖ ^ 2) := by
+    rw [ContinuousLinearMap.norm_smulRight_apply, norm_heatInnerBiL_apply, norm_smul,
+      Real.norm_eq_abs, abs_neg, abs_of_nonneg ht2, hM]
+    have : 1 / (2 * t) * (1 / (2 * t) * heatKernel (z' - y, t) * ‖z' - y‖) * ‖z' - y‖
+        = 1 / (2 * t) * heatKernel (z' - y, t) * (1 / (2 * t) * ‖z' - y‖ ^ 2) := by ring
+    rw [this]
+  calc ‖(-(1 / (2 * t)) * heatKernel (z' - y, t)) • (heatInnerBiL : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ)‖
+        + ‖((-(1 / (2 * t))) • ((-(1 / (2 * t)) * heatKernel (z' - y, t))
+            • innerSL ℝ (z' - y)) : ℝⁿ →L[ℝ] ℝ).smulRight (heatInnerBiL (z' - y))‖
+      ≤ 1 / (2 * t) * heatKernel (z' - y, t)
+          + 1 / (2 * t) * heatKernel (z' - y, t) * (1 / (2 * t) * ‖z' - y‖ ^ 2) :=
+        add_le_add hterm1 hterm2
+    _ = 1 / (2 * t) * heatKernel (z' - y, t) * (1 + 1 / (2 * t) * ‖z' - y‖ ^ 2) := by ring
+
 /-- A quadratic comparison used to dominate the spatially-differentiated kernel over a ball:
     `‖a + b‖² ≤ 2‖a‖² + 2‖b‖²` (from `0 ≤ ‖a − b‖²`). -/
 private lemma norm_add_sq_le_two (a b : ℝⁿ) : ‖a + b‖ ^ 2 ≤ 2 * ‖a‖ ^ 2 + 2 * ‖b‖ ^ 2 := by
