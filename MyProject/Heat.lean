@@ -730,6 +730,167 @@ lemma heatSolution_hasFDerivAt_space (g : ℝⁿ → ℝ) (hg : Continuous g)
     rw [(heatKernel_hasFDerivAt_space y z ht).fderiv]
     exact (heatKernel_hasFDerivAt_space y z ht).mul_const (g y)
 
+/-- `‖c • L‖ ≤ |c|·‖L‖` for an iterated CLM `L`, routed through `opNorm_le_bound` to dodge
+    the missing `IsBoundedSMul` instance on `ℝⁿ →L (ℝⁿ→Lℝ)`. -/
+private lemma norm_smul_iterated_le (c : ℝ) (L : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ) : ‖c • L‖ ≤ |c| * ‖L‖ := by
+  refine ContinuousLinearMap.opNorm_le_bound _ (by positivity) (fun v => ?_)
+  rw [ContinuousLinearMap.smul_apply, norm_smul, Real.norm_eq_abs, mul_assoc]
+  gcongr
+  exact L.le_opNorm v
+
+/-- Spatial continuity of the kernel in the convolution variable. -/
+private lemma heatKernel_cont_y (z : ℝⁿ) (t : ℝ) :
+    Continuous (fun y : ℝⁿ => heatKernel (z - y, t)) := by
+  by_cases hz : 0 < t
+  · simp only [heatKernel_apply, if_pos hz]; fun_prop
+  · simp only [heatKernel_apply, if_neg hz]; exact continuous_const
+
+/-- The kernel's spatial gradient is continuous in the convolution variable `y`. -/
+private lemma heatKernel_fderiv_cont_y (z : ℝⁿ) (ht : 0 < t) :
+    Continuous (fun y : ℝⁿ => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z) := by
+  have heq : (fun y : ℝⁿ => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z)
+      = fun y => (-(1 / (2 * t)) * heatKernel (z - y, t)) • innerSL ℝ (z - y) := by
+    funext y; exact (heatKernel_hasFDerivAt_space y z ht).fderiv
+  rw [heq]
+  exact (continuous_const.mul (heatKernel_cont_y z t)).smul
+    ((innerSL ℝ).continuous.comp (continuous_const.sub continuous_id))
+
+/-- The kernel's second spatial derivative is continuous in the convolution variable `y`. -/
+private lemma heatKernel_fderiv2_cont_y (z : ℝⁿ) (ht : 0 < t) :
+    Continuous (fun y : ℝⁿ =>
+      fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') z) := by
+  have heq : (fun y : ℝⁿ =>
+        fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') z)
+      = fun y => (-(1 / (2 * t)) * heatKernel (z - y, t)) • heatInnerBiL
+          + ((-(1 / (2 * t))) • ((-(1 / (2 * t)) * heatKernel (z - y, t)) • innerSL ℝ (z - y))
+              : ℝⁿ →L[ℝ] ℝ).smulRight (heatInnerBiL (z - y)) := by
+    funext y; exact (heatKernel_hasFDerivAt_space2 y z ht).fderiv
+  rw [heq]
+  refine Continuous.add ((continuous_const.mul (heatKernel_cont_y z t)).smul continuous_const) ?_
+  have hL : Continuous (fun y : ℝⁿ =>
+      ((-(1 / (2 * t))) • ((-(1 / (2 * t)) * heatKernel (z - y, t)) • innerSL ℝ (z - y))
+        : ℝⁿ →L[ℝ] ℝ)) :=
+    ((continuous_const.mul (heatKernel_cont_y z t)).smul
+      ((innerSL ℝ).continuous.comp (continuous_const.sub continuous_id))).const_smul _
+  have hw : Continuous (fun y : ℝⁿ => heatInnerBiL (z - y)) :=
+    heatInnerBiL.continuous.comp (continuous_const.sub continuous_id)
+  exact ((ContinuousLinearMap.smulRightL ℝ ℝⁿ (ℝⁿ →L[ℝ] ℝ)).continuous.comp hL).clm_apply hw
+
+/-- On the unit ball `‖z'−x‖<1`: `‖z'−y‖ ≤ 1 + ‖x−y‖`. -/
+private lemma norm_sub_ball_le (x z' y : ℝⁿ) (hz : ‖z' - x‖ < 1) : ‖z' - y‖ ≤ 1 + ‖x - y‖ := by
+  calc ‖z' - y‖ = ‖(z' - x) + (x - y)‖ := by rw [sub_add_sub_cancel]
+    _ ≤ ‖z' - x‖ + ‖x - y‖ := norm_add_le _ _
+    _ ≤ 1 + ‖x - y‖ := by linarith [hz.le]
+
+/-- On the unit ball, the kernel is dominated by a fixed Gaussian in `‖x−y‖`:
+    `Φ(z'−y,t) ≤ (4πt)^{−n/2}·e^{1/4t}·e^{−‖x−y‖²/8t}`. -/
+private lemma heatKernel_ball_le (x z' y : ℝⁿ) {t : ℝ} (ht : 0 < t) (hz : ‖z' - x‖ < 1) :
+    heatKernel (z' - y, t) ≤ (4 * Real.pi * t) ^ (-(n : ℝ) / 2)
+      * Real.exp (1 / (4 * t)) * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2) := by
+  have hgeo : (1 / 2) * ‖x - y‖ ^ 2 - 1 ≤ ‖z' - y‖ ^ 2 := by
+    have h := norm_add_sq_le_two (x - z') (z' - y)
+    rw [sub_add_sub_cancel] at h
+    have hxz : ‖x - z'‖ ^ 2 ≤ 1 := by
+      rw [← norm_neg (x - z'), neg_sub]; nlinarith [hz, norm_nonneg (z' - x)]
+    nlinarith [h, hxz]
+  rw [heatKernel_apply, if_pos ht, mul_assoc ((4 * Real.pi * t) ^ (-(n : ℝ) / 2))]
+  refine mul_le_mul_of_nonneg_left ?_ (by positivity)
+  rw [← Real.exp_add]
+  refine Real.exp_le_exp.mpr ?_
+  rw [show -‖z' - y‖ ^ 2 / (4 * t) = -(1 / (4 * t)) * ‖z' - y‖ ^ 2 from by ring]
+  have key := mul_le_mul_of_nonneg_left hgeo (show (0 : ℝ) ≤ 1 / (4 * t) by positivity)
+  have h84 : (1 : ℝ) / (8 * t) = 1 / (4 * t) * (1 / 2) := by field_simp; ring
+  rw [h84]; nlinarith [key]
+
+/-- **Second spatial derivative under the integral**: `D(DF) x = ∫ g(y)·D²Φ(x−y,t) dy`,
+    the CLM-valued second differentiation under the integral sign. -/
+lemma heatSolution_fderiv_fderiv_eq (g : ℝⁿ → ℝ) (hg : Continuous g)
+    {Cg : ℝ} (hgb : ∀ y, |g y| ≤ Cg) (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
+    fderiv ℝ (fderiv ℝ (fun z => ∫ y, heatKernel (z - y, t) * g y)) x
+      = ∫ y, g y • fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') x := by
+  set C : ℝ := (4 * Real.pi * t) ^ (-(n : ℝ) / 2) with hCdef
+  have hCpos : 0 < C := by rw [hCdef]; positivity
+  -- `fderiv F z = ∫ g y • DΦ(z−y,t)` at every point, so reduce to differentiating that.
+  have hfe : fderiv ℝ (fun z => ∫ y, heatKernel (z - y, t) * g y)
+      = fun z => ∫ y, g y • fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z := by
+    funext z; exact (heatSolution_hasFDerivAt_space g hg hgb z ht).fderiv
+  rw [hfe]
+  have hc8 : (0 : ℝ) < 1 / (8 * t) := by positivity
+  have hc4 : (0 : ℝ) < 1 / (4 * t) := by positivity
+  have hm0 := integrable_exp_neg_mul_norm_sq (n := n) hc8
+  have hm1 := integrable_norm_mul_exp_neg_mul_norm_sq (n := n) hc8
+  have hm2 := integrable_norm_sq_mul_exp_neg_mul_norm_sq (n := n) hc8
+  have hht : Integrable (fun y : ℝⁿ => Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)
+      * (1 + 1 / (2 * t) * (1 + ‖x - y‖) ^ 2)) := by
+    have hh : Integrable (fun z : ℝⁿ => Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2)
+        * (1 + 1 / (2 * t) * (1 + ‖z‖) ^ 2)) := by
+      have hrw : (fun z : ℝⁿ => Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2)
+          * (1 + 1 / (2 * t) * (1 + ‖z‖) ^ 2))
+          = fun z => (1 + 1 / (2 * t)) * Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2)
+            + 1 / t * (‖z‖ * Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2))
+            + 1 / (2 * t) * (‖z‖ ^ 2 * Real.exp (-(1 / (8 * t)) * ‖z‖ ^ 2)) := by
+        funext z; ring
+      rw [hrw]; exact ((hm0.const_mul _).add (hm1.const_mul _)).add (hm2.const_mul _)
+    simpa [sub_eq_add_neg] using (hh.comp_add_left x).comp_neg
+  have hki : Integrable (fun y : ℝⁿ => heatKernel (x - y, t) * ‖x - y‖) := by
+    have hform : (fun y : ℝⁿ => heatKernel (x - y, t) * ‖x - y‖)
+        = fun y => C * (‖x - y‖ * Real.exp (-(1 / (4 * t)) * ‖x - y‖ ^ 2)) := by
+      funext y
+      rw [heatKernel_apply, if_pos ht, ← hCdef,
+        show -‖x - y‖ ^ 2 / (4 * t) = -(1 / (4 * t)) * ‖x - y‖ ^ 2 from by ring]
+      ring
+    rw [hform]
+    refine Integrable.const_mul ?_ _
+    simpa [sub_eq_add_neg] using
+      ((integrable_norm_mul_exp_neg_mul_norm_sq (n := n) hc4).comp_add_left x).comp_neg
+  refine (hasFDerivAt_integral_of_dominated_of_fderiv_le (μ := volume)
+    (F := fun z y => g y • fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z)
+    (F' := fun z y => g y • fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') z)
+    (bound := fun y => Cg * (1 / (2 * t) * (C * Real.exp (1 / (4 * t))
+      * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)) * (1 + 1 / (2 * t) * (1 + ‖x - y‖) ^ 2)))
+    (Metric.ball_mem_nhds x one_pos)
+    (Filter.Eventually.of_forall fun z =>
+      (hg.smul (heatKernel_fderiv_cont_y z ht)).aestronglyMeasurable)
+    ?hF_int (hg.smul (heatKernel_fderiv2_cont_y x ht)).aestronglyMeasurable
+    ?h_bound ?bound_int ?h_diff).fderiv
+  case hF_int =>
+    apply Integrable.mono' (hki.const_mul (Cg * (1 / (2 * t))))
+      (hg.smul (heatKernel_fderiv_cont_y x ht)).aestronglyMeasurable
+    filter_upwards with y
+    rw [norm_smul, Real.norm_eq_abs, heatKernel_fderiv_space_norm y x ht,
+      show Cg * (1 / (2 * t)) * (heatKernel (x - y, t) * ‖x - y‖)
+        = Cg * (1 / (2 * t) * heatKernel (x - y, t) * ‖x - y‖) from by ring]
+    exact mul_le_mul_of_nonneg_right (hgb y)
+      (mul_nonneg (mul_nonneg (by positivity) (heatKernel_nonneg _ _)) (norm_nonneg _))
+  case h_bound =>
+    refine Filter.Eventually.of_forall fun y z hz => ?_
+    rw [Metric.mem_ball, dist_eq_norm] at hz
+    dsimp only
+    have hCgnn : 0 ≤ Cg := le_trans (abs_nonneg _) (hgb y)
+    refine le_trans (norm_smul_iterated_le (g y)
+      (fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') z)) ?_
+    refine le_trans (mul_le_mul_of_nonneg_right (hgb y)
+      (norm_nonneg (fderiv ℝ (fun z' => fderiv ℝ (fun z'' => heatKernel (z'' - y, t)) z') z))) ?_
+    refine le_trans (mul_le_mul_of_nonneg_left (heatKernel_fderiv2_norm_le y z ht) hCgnn) ?_
+    refine mul_le_mul_of_nonneg_left ?_ hCgnn
+    have hkb := heatKernel_ball_le x z y ht hz
+    have hsq : ‖z - y‖ ^ 2 ≤ (1 + ‖x - y‖) ^ 2 := by
+      nlinarith [norm_sub_ball_le x z y hz, norm_nonneg (z - y), norm_nonneg (x - y)]
+    have hkn : 0 ≤ heatKernel (z - y, t) := heatKernel_nonneg _ _
+    gcongr
+  case bound_int =>
+    have hrw : (fun y : ℝⁿ => Cg * (1 / (2 * t) * (C * Real.exp (1 / (4 * t))
+          * Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2)) * (1 + 1 / (2 * t) * (1 + ‖x - y‖) ^ 2)))
+        = fun y => Cg * (1 / (2 * t)) * (C * Real.exp (1 / (4 * t)))
+            * (Real.exp (-(1 / (8 * t)) * ‖x - y‖ ^ 2) * (1 + 1 / (2 * t) * (1 + ‖x - y‖) ^ 2)) := by
+      funext y; ring
+    rw [hrw]; exact hht.const_mul _
+  case h_diff =>
+    refine Filter.Eventually.of_forall fun z y _ => ?_
+    dsimp only
+    rw [(heatKernel_hasFDerivAt_space2 z y ht).fderiv]
+    exact (heatKernel_hasFDerivAt_space2 z y ht).const_smul (g z)
+
 /-- **Evans §2.3.1, Theorem 1**: for bounded continuous initial data `g`, the convolution
     `u(x,t) = ∫ Φ(x−y,t) g(y) dy` solves the homogeneous heat equation in `ℝⁿ × (0, ∞)`.
 
