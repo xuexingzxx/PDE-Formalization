@@ -154,9 +154,9 @@ theorem heatSolution_const (c : ℝ) (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
     `F(s) = (4πs)^{−n/2}·exp(−|x|²/4s)`. Writing `Φ = u·v` with `u(s) = (4πs)^{−n/2}` and
     `v(s) = exp(−|x|²/4s)`, the product and chain rules give
     `u'(t) = u(t)·(−n/(2t))` and `v'(t) = v(t)·(|x|²/(4t²))`, whose sum is the claim. -/
-lemma heatKernel_timeDerivative (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
-    timeDerivative heatKernel (x, t)
-      = heatKernel (x, t) * (‖x‖ ^ 2 / (4 * t ^ 2) - (n : ℝ) / (2 * t)) := by
+lemma heatKernel_hasDerivAt_time (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
+    HasDerivAt (fun s => heatKernel (x, s))
+      (heatKernel (x, t) * (‖x‖ ^ 2 / (4 * t ^ 2) - (n : ℝ) / (2 * t))) t := by
   set c : ℝ := ‖x‖ ^ 2 with hc
   set a : ℝ := -(n : ℝ) / 2 with ha
   have hpos : (0 : ℝ) < 4 * Real.pi * t := by positivity
@@ -196,7 +196,15 @@ lemma heatKernel_timeDerivative (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
     simp only [heatKernel_apply, if_pos (Set.mem_Ioi.mp hs), hF, hc, ha]
   have hkF : heatKernel (x, t) = F t := by
     simp only [heatKernel_apply, if_pos ht, hF, hc, ha]
-  rw [timeDerivative, hev.deriv_eq, hFderiv.deriv, hkF]
+  rw [hkF]
+  exact hFderiv.congr_of_eventuallyEq hev
+
+/-- **Time derivative of the heat kernel**: `Φ_t = Φ · (|x|²/(4t²) − n/(2t))`
+    (the `deriv` form of `heatKernel_hasDerivAt_time`). -/
+lemma heatKernel_timeDerivative (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
+    timeDerivative heatKernel (x, t)
+      = heatKernel (x, t) * (‖x‖ ^ 2 / (4 * t ^ 2) - (n : ℝ) / (2 * t)) :=
+  (heatKernel_hasDerivAt_time x ht).deriv
 
 /-- The real inner product as a bilinear CLM (avoids conjugate-linear ambiguity). -/
 noncomputable def heatInnerBiL : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ :=
@@ -431,24 +439,163 @@ lemma integrable_norm_sq_mul_exp_neg_mul_norm_sq {c : ℝ} (hc : 0 < c) :
     rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
     exact sq_mul_exp_le hc (‖z‖ ^ 2)
 
-/-- **Evans §2.3.1, Theorem 1**: the convolution `u(x,t) = ∫ Φ(x−y,t) g(y) dy` solves
-    the homogeneous heat equation in `ℝⁿ × (0, ∞)`.
+/-- Uniform domination of the kernel's time-derivative magnitude over `s ∈ [a,b]`
+    (with `0 < a ≤ s ≤ b`) by a fixed Gaussian moment. The three `s`-dependent factors
+    `(4πs)^{−n/2}`, `exp(−‖z‖²/4s)` and `|‖z‖²/(4s²) − n/(2s)|` are each bounded by their
+    values/extremes at the endpoints, giving a single integrable dominator independent of `s`. -/
+private lemma heatKernel_time_deriv_bound (z : ℝⁿ) {a b s : ℝ}
+    (ha : 0 < a) (has : a ≤ s) (hsb : s ≤ b) :
+    heatKernel (z, s) * |‖z‖ ^ 2 / (4 * s ^ 2) - (n : ℝ) / (2 * s)|
+      ≤ (4 * Real.pi * a) ^ (-(n : ℝ) / 2)
+        * Real.exp (-(1 / (4 * b)) * ‖z‖ ^ 2)
+        * (‖z‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) := by
+  have hs : 0 < s := lt_of_lt_of_le ha has
+  have hb : 0 < b := lt_of_lt_of_le hs hsb
+  have hπ := Real.pi_pos
+  rw [heatKernel_apply, if_pos hs]
+  -- factor 1: the power, antitone in the base via inverses
+  have hrpow : (4 * Real.pi * s) ^ (-(n : ℝ) / 2) ≤ (4 * Real.pi * a) ^ (-(n : ℝ) / 2) := by
+    have hbase_le : (4 * Real.pi * a) ^ ((n : ℝ) / 2) ≤ (4 * Real.pi * s) ^ ((n : ℝ) / 2) :=
+      Real.rpow_le_rpow (by positivity) (by gcongr) (by positivity)
+    rw [show (-(n : ℝ) / 2) = -((n : ℝ) / 2) from by ring,
+      Real.rpow_neg (by positivity), Real.rpow_neg (by positivity)]
+    exact inv_anti₀ (by positivity) hbase_le
+  -- factor 2: the Gaussian, monotone since `1/(4s) ≥ 1/(4b)`
+  have hexp : Real.exp (-‖z‖ ^ 2 / (4 * s)) ≤ Real.exp (-(1 / (4 * b)) * ‖z‖ ^ 2) := by
+    apply Real.exp_le_exp.mpr
+    rw [show -‖z‖ ^ 2 / (4 * s) = -(1 / (4 * s)) * ‖z‖ ^ 2 from by ring]
+    have h1 : (1 : ℝ) / (4 * b) ≤ 1 / (4 * s) :=
+      one_div_le_one_div_of_le (by positivity) (by linarith)
+    nlinarith [mul_le_mul_of_nonneg_right h1 (sq_nonneg ‖z‖)]
+  -- factor 3: the polynomial, bounded by its extremes
+  have hpoly : |‖z‖ ^ 2 / (4 * s ^ 2) - (n : ℝ) / (2 * s)|
+      ≤ ‖z‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a) := by
+    have hs2a : ‖z‖ ^ 2 / (4 * s ^ 2) ≤ ‖z‖ ^ 2 / (4 * a ^ 2) := by gcongr
+    have hna : (n : ℝ) / (2 * s) ≤ (n : ℝ) / (2 * a) := by gcongr
+    have hz0 : (0 : ℝ) ≤ ‖z‖ ^ 2 / (4 * s ^ 2) := by positivity
+    have hn0 : (0 : ℝ) ≤ (n : ℝ) / (2 * s) := by positivity
+    have hza : (0 : ℝ) ≤ ‖z‖ ^ 2 / (4 * a ^ 2) := by positivity
+    have hnaa : (0 : ℝ) ≤ (n : ℝ) / (2 * a) := by positivity
+    rw [abs_le]
+    constructor <;> nlinarith
+  calc (4 * Real.pi * s) ^ (-(n : ℝ) / 2) * Real.exp (-‖z‖ ^ 2 / (4 * s))
+        * |‖z‖ ^ 2 / (4 * s ^ 2) - (n : ℝ) / (2 * s)|
+      ≤ (4 * Real.pi * a) ^ (-(n : ℝ) / 2) * Real.exp (-(1 / (4 * b)) * ‖z‖ ^ 2)
+        * (‖z‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) := by
+        apply mul_le_mul _ hpoly (abs_nonneg _) (by positivity)
+        exact mul_le_mul hrpow hexp (Real.exp_nonneg _) (by positivity)
+
+/-- **Evans §2.3.1, Theorem 1**: for bounded continuous initial data `g`, the convolution
+    `u(x,t) = ∫ Φ(x−y,t) g(y) dy` solves the homogeneous heat equation in `ℝⁿ × (0, ∞)`.
 
     **Proof structure**: differentiating under the integral sign moves the `t`-derivative
-    and the spatial Laplacian onto the kernel (`htime`, `hspace` — the analytic gap, needing
-    dominated-convergence bounds for the Gaussian and its derivatives, plus a growth bound on
-    `g`). The two resulting integrands then cancel *pointwise* by
-    `heatKernel_translate_solves_heat`, so the integrals are equal and their difference is
-    zero. The cancellation step is fully proved here; only the two
-    differentiation-under-the-integral identities remain as `sorry`. -/
+    (`htime`, proved via `hasDerivAt_integral_of_dominated_loc_of_deriv_le` with the Gaussian
+    moment bound `heatKernel_time_deriv_bound`) and the spatial Laplacian (`hspace` — still a
+    `sorry`) onto the kernel. The two resulting integrands cancel *pointwise* by
+    `heatKernel_translate_solves_heat`, so the difference of the integrals is zero. -/
 theorem heatSolution_solves_heat (g : ℝⁿ → ℝ) (hg : Continuous g)
+    {Cg : ℝ} (hgb : ∀ y, |g y| ≤ Cg)
     (x : ℝⁿ) {t : ℝ} (ht : 0 < t) :
     timeDerivative (heatSolution g) (x, t) -
       spatialLaplacian (heatSolution g) (x, t) = 0 := by
-  -- Differentiation under the integral: the `t`-derivative lands on the kernel.
+  -- A compact time-window `(a, b) ∋ t` inside `(0, ∞)`.
+  set a : ℝ := t / 2 with ha_def
+  set b : ℝ := 2 * t with hb_def
+  have hapos : 0 < a := by rw [ha_def]; linarith
+  have hta : a < t := by rw [ha_def]; linarith
+  have htb : t < b := by rw [hb_def]; linarith
+  have hcb : (0 : ℝ) < 1 / (4 * b) := by rw [hb_def]; positivity
+  -- Spatial continuity of the kernel at each fixed time.
+  have hker_cont : ∀ s : ℝ, Continuous (fun y : ℝⁿ => heatKernel (x - y, s)) := by
+    intro s
+    by_cases hs0 : 0 < s
+    · simp only [heatKernel_apply, if_pos hs0]; fun_prop
+    · simp only [heatKernel_apply, if_neg hs0]; exact continuous_const
+  -- The kernel is integrable in the convolution variable (Gaussian, after translation).
+  have hker_int : ∀ s : ℝ, 0 < s → Integrable (fun y : ℝⁿ => heatKernel (x - y, s)) := by
+    intro s hs
+    have hform : (fun y : ℝⁿ => heatKernel (x - y, s))
+        = fun y => (4 * Real.pi * s) ^ (-(n : ℝ) / 2)
+            * Real.exp (-(1 / (4 * s)) * ‖x - y‖ ^ 2) := by
+      funext y; simp only [heatKernel_apply, if_pos hs]
+      rw [show -‖x - y‖ ^ 2 / (4 * s) = -(1 / (4 * s)) * ‖x - y‖ ^ 2 from by ring]
+    rw [hform]
+    apply Integrable.const_mul
+    have hc : (0 : ℝ) < 1 / (4 * s) := by positivity
+    have hbase := integrable_exp_neg_mul_norm_sq (n := n) hc
+    simpa [sub_eq_add_neg] using (hbase.comp_add_left x).comp_neg
+  -- The Gaussian-moment dominator is integrable.
+  have hbound_int : Integrable (fun y : ℝⁿ =>
+      (4 * Real.pi * a) ^ (-(n : ℝ) / 2) * Real.exp (-(1 / (4 * b)) * ‖x - y‖ ^ 2)
+        * (‖x - y‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) * Cg) := by
+    have hmom2 := integrable_norm_sq_mul_exp_neg_mul_norm_sq (n := n) hcb
+    have hmom0 := integrable_exp_neg_mul_norm_sq (n := n) hcb
+    have hh : Integrable (fun z : ℝⁿ =>
+        (4 * Real.pi * a) ^ (-(n : ℝ) / 2) * Real.exp (-(1 / (4 * b)) * ‖z‖ ^ 2)
+          * (‖z‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) * Cg) := by
+      have hrw : (fun z : ℝⁿ =>
+          (4 * Real.pi * a) ^ (-(n : ℝ) / 2) * Real.exp (-(1 / (4 * b)) * ‖z‖ ^ 2)
+            * (‖z‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) * Cg)
+          = fun z => ((4 * Real.pi * a) ^ (-(n : ℝ) / 2) * Cg / (4 * a ^ 2))
+              * (‖z‖ ^ 2 * Real.exp (-(1 / (4 * b)) * ‖z‖ ^ 2))
+            + ((4 * Real.pi * a) ^ (-(n : ℝ) / 2) * Cg * ((n : ℝ) / (2 * a)))
+              * Real.exp (-(1 / (4 * b)) * ‖z‖ ^ 2) := by
+        funext z; ring
+      rw [hrw]
+      exact (hmom2.const_mul _).add (hmom0.const_mul _)
+    simpa [sub_eq_add_neg] using (hh.comp_add_left x).comp_neg
+  -- **htime**: the time derivative passes under the integral.
   have htime : timeDerivative (heatSolution g) (x, t)
       = ∫ y : ℝⁿ, deriv (fun s => heatKernel (x - y, s)) t * g y := by
-    sorry
+    have hF_meas : ∀ᶠ s in nhds t,
+        AEStronglyMeasurable (fun y : ℝⁿ => heatKernel (x - y, s) * g y) volume :=
+      Filter.Eventually.of_forall fun s => ((hker_cont s).mul hg).aestronglyMeasurable
+    have hF_int : Integrable (fun y : ℝⁿ => heatKernel (x - y, t) * g y) := by
+      apply Integrable.mono' ((hker_int t ht).const_mul Cg)
+        ((hker_cont t).mul hg).aestronglyMeasurable
+      filter_upwards with y
+      simp only [Pi.mul_apply]
+      rw [norm_mul, Real.norm_eq_abs (heatKernel _), abs_of_nonneg (heatKernel_nonneg _ _),
+        Real.norm_eq_abs (g y)]
+      calc heatKernel (x - y, t) * |g y|
+          ≤ heatKernel (x - y, t) * Cg :=
+            mul_le_mul_of_nonneg_left (hgb y) (heatKernel_nonneg _ _)
+        _ = Cg * heatKernel (x - y, t) := mul_comm _ _
+    have hF'_meas : AEStronglyMeasurable (fun y : ℝⁿ => heatKernel (x - y, t)
+        * (‖x - y‖ ^ 2 / (4 * t ^ 2) - (n : ℝ) / (2 * t)) * g y) volume :=
+      (((hker_cont t).mul (by fun_prop)).mul hg).aestronglyMeasurable
+    have h_bound : ∀ᵐ y : ℝⁿ ∂volume, ∀ s ∈ Set.Ioo a b,
+        ‖heatKernel (x - y, s) * (‖x - y‖ ^ 2 / (4 * s ^ 2) - (n : ℝ) / (2 * s)) * g y‖
+          ≤ (4 * Real.pi * a) ^ (-(n : ℝ) / 2)
+              * Real.exp (-(1 / (4 * b)) * ‖x - y‖ ^ 2)
+              * (‖x - y‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) * Cg := by
+      refine Filter.Eventually.of_forall fun y s hs => ?_
+      rw [Set.mem_Ioo] at hs
+      rw [norm_mul, norm_mul, Real.norm_eq_abs (heatKernel _),
+        abs_of_nonneg (heatKernel_nonneg _ _), Real.norm_eq_abs _, Real.norm_eq_abs (g y)]
+      exact mul_le_mul (heatKernel_time_deriv_bound (x - y) hapos hs.1.le hs.2.le)
+        (hgb y) (abs_nonneg _) (by positivity)
+    have h_diff : ∀ᵐ y : ℝⁿ ∂volume, ∀ s ∈ Set.Ioo a b,
+        HasDerivAt (fun s' => heatKernel (x - y, s') * g y)
+          (heatKernel (x - y, s) * (‖x - y‖ ^ 2 / (4 * s ^ 2) - (n : ℝ) / (2 * s)) * g y) s := by
+      refine Filter.Eventually.of_forall fun y s hs => ?_
+      rw [Set.mem_Ioo] at hs
+      exact (heatKernel_hasDerivAt_time (x - y) (lt_trans hapos hs.1)).mul_const (g y)
+    have key := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+      (μ := volume) (F := fun s y => heatKernel (x - y, s) * g y)
+      (F' := fun s y => heatKernel (x - y, s)
+        * (‖x - y‖ ^ 2 / (4 * s ^ 2) - (n : ℝ) / (2 * s)) * g y)
+      (x₀ := t) (bound := fun y => (4 * Real.pi * a) ^ (-(n : ℝ) / 2)
+        * Real.exp (-(1 / (4 * b)) * ‖x - y‖ ^ 2)
+        * (‖x - y‖ ^ 2 / (4 * a ^ 2) + (n : ℝ) / (2 * a)) * Cg)
+      (Ioo_mem_nhds hta htb) hF_meas hF_int hF'_meas h_bound hbound_int h_diff
+    have hval : timeDerivative (heatSolution g) (x, t)
+        = ∫ y, heatKernel (x - y, t)
+            * (‖x - y‖ ^ 2 / (4 * t ^ 2) - (n : ℝ) / (2 * t)) * g y := key.2.deriv
+    rw [hval]
+    refine integral_congr_ae (Filter.Eventually.of_forall fun y => ?_)
+    dsimp only
+    rw [(heatKernel_hasDerivAt_time (x - y) ht).deriv]
   -- Differentiation under the integral: the spatial Laplacian lands on the kernel.
   have hspace : spatialLaplacian (heatSolution g) (x, t)
       = ∫ y : ℝⁿ, Laplacian.laplacian (fun z : ℝⁿ => heatKernel (z - y, t)) x * g y := by

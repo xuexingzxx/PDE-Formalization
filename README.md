@@ -16,7 +16,7 @@ Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 |---|---|---|---|
 | §2.1 Transport | `Transport.lean` | ✅ **complete, zero `sorry`** | homogeneous IVP solved **and proved unique**; inhomogeneous Duhamel formula **provably solves the IVP** (Leibniz rule + spatial differentiation under the integral both proved) |
 | §2.2 Laplace/Poisson | `Laplace.lean` | partial | fundamental solution, radial-power & `log` Laplacians, Green's identity (algebraic step) proved; mean-value, maximum principle and the Poisson representation are blocked by Mathlib gaps |
-| §2.3 Heat | `Heat.lean` | mostly complete | heat kernel is positive, has unit mass, and **provably solves the heat equation**; convolution-solves-IVP reduced to two differentiation-under-the-integral steps |
+| §2.3 Heat | `Heat.lean` | mostly complete | heat kernel is positive, has unit mass, and **provably solves the heat equation**; for bounded continuous `g`, the convolution's **time-derivative step is proved** (n-dim Gaussian moments + dominated convergence), leaving only the spatial-Laplacian step under the integral |
 | §2.4 Wave | `Wave.lean` | ✅ **complete, zero `sorry`** | traveling waves, d'Alembert (existence + `C²` regularity + initial conditions), energy conservation, uniqueness, finite propagation speed |
 
 `Calculus.lean` provides shared spacetime calculus utilities (`spatialGradient`,
@@ -29,11 +29,13 @@ and documented at their use sites.
 
 The outstanding `sorry`s are **not** gaps in the mathematics but in available Mathlib lemmas:
 
-- **Differentiation under the integral sign** (Heat `heatSolution_solves_heat`) — needs
-  dominated-convergence bounds for the Gaussian kernel and its derivatives over all of `ℝⁿ`,
-  plus a growth bound on the initial data. (The Transport analogue is now fully proved: the
-  combined FTC + Leibniz rule `Calculus.leibniz_integral` and the spatial Lipschitz bound in
-  `duhamelFormula_solves` are both closed.)
+- **Second-order differentiation under the integral sign** (Heat `heatSolution_solves_heat`,
+  the `hspace` step) — moving the spatial *Laplacian* under the integral needs differentiation
+  under the integral at second order (the Laplacian is the trace of the second Fréchet
+  derivative). The first-order analogues are now all proved: the time-derivative step
+  `htime` (via n-dim Gaussian moments + `hasDerivAt_integral_of_dominated_loc_of_deriv_le`),
+  and in Transport the combined FTC + Leibniz rule `Calculus.leibniz_integral` and the spatial
+  Lipschitz bound in `duhamelFormula_solves`.
 - **Stokes' theorem on spherical domains** (Laplace `green_identity_annulus` Step 2,
   `green_boundary_tendsto_f`) — Mathlib's divergence theorem covers boxes only.
 - **Sphere surface measure** `σ(∂B(0,ε)) = n ωₙ εⁿ⁻¹` (Laplace `fundamentalSolution_totalFlux`).

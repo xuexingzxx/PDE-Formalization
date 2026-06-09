@@ -1064,13 +1064,17 @@ $(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
   \texttt{heatKernel\_integral\_eq\_one} & $\int_{\mathbb{R}^n} \Phi(\cdot,t) = 1$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_integral\_translate\_eq\_one} & $\int_{\mathbb{R}^n} \Phi(x-\cdot,t) = 1$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatSolution\_const} & $u[g \equiv c] = c$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_hasDerivAt\_time} & $\partial_t\Phi$ as a \texttt{HasDerivAt} & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_timeDerivative} & $\Phi_t = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $\int_{\mathbb{R}^n}\!e^{-c|z|^2}<\infty$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integrable\_norm\_sq\_mul\_exp\dots} & $\int_{\mathbb{R}^n}\!|z|^2 e^{-c|z|^2}<\infty$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_time\_deriv\_bound} & uniform $|\partial_t\Phi|$ bound on $[a,b]$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{gaussian\_laplacian} & $\Delta_y \exp(-|y|^2/4t)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_spatialLaplacian} & $\Delta \Phi = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_solves\_heat} & $\Phi_t - \Delta\Phi = 0$ ($t>0$) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{laplacian\_comp\_sub} & $\Delta(f(\cdot-y))(x) = (\Delta f)(x-y)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_translate\_solves\_heat} & translated kernel solves heat eqn & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn & \textcolor{orange}{partial} \\
+  \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn ($\partial_t$ proved) & \textcolor{orange}{partial} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1084,12 +1088,26 @@ heat equation (its time derivative equals its spatial Laplacian), using
 \texttt{iteratedFDeriv\_comp\_sub}). Under the integral, the two derivatives therefore
 cancel pointwise, and the result follows.
 
-Only the two \emph{differentiation-under-the-integral} identities remain as sorry
-(\texttt{htime}: the $t$-derivative lands on the kernel; \texttt{hspace}: the spatial
-Laplacian lands on the kernel). These need dominated-convergence bounds for the Gaussian
-and its derivatives over all of $\mathbb{R}^n$, plus a growth bound on $g$ (Evans assumes
-$g$ bounded continuous; the current statement assumes only continuity). All the kernel
-computations they depend on are complete.
+The statement now assumes $g$ \emph{bounded} continuous ($|g| \le C_g$, as in Evans), the
+growth condition that makes the convolution and its derivatives converge.
+
+\textbf{\texttt{htime} (the $t$-derivative under the integral) is now proved.} We apply
+Mathlib's \texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} on a compact time
+window $(a,b) = (t/2, 2t) \ni t$. The required dominating function comes from
+\texttt{heatKernel\_time\_deriv\_bound}, which bounds $|\partial_s\Phi(x-y,s)|$ uniformly over
+$s \in [a,b]$ by a fixed Gaussian moment (each $s$-dependent factor --- the power
+$(4\pi s)^{-n/2}$, the Gaussian $e^{-|x-y|^2/4s}$, and the polynomial
+$|\,|x-y|^2/4s^2 - n/2s|$ --- is bounded at the endpoints). Its integrability over
+$\mathbb{R}^n$ reduces, after the translation $y \mapsto x-y$, to the $0$th and $2$nd
+Gaussian moments \texttt{integrable\_exp\_neg\_mul\_norm\_sq} and
+\texttt{integrable\_norm\_sq\_mul\_exp\_neg\_mul\_norm\_sq} (supplied here, since Mathlib has
+only the base $n$-dim Gaussian and the $1$-D moments). The kernel's time derivative is fed in
+as the \texttt{HasDerivAt} form \texttt{heatKernel\_hasDerivAt\_time}.
+
+\textbf{One sorry remains}, \texttt{hspace}: moving the spatial \emph{Laplacian} under the
+integral. This is harder --- the Laplacian is the trace of the second Fréchet derivative, so
+it needs differentiation under the integral at second order (with second-moment Gaussian
+bounds), not covered by the first-order parametric lemma used for \texttt{htime}.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 4: Wave Equation (Evans §2.4)}
