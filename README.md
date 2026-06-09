@@ -16,7 +16,7 @@ Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 |---|---|---|---|
 | §2.1 Transport | `Transport.lean` | ✅ **complete, zero `sorry`** | homogeneous IVP solved **and proved unique**; inhomogeneous Duhamel formula **provably solves the IVP** (Leibniz rule + spatial differentiation under the integral both proved) |
 | §2.2 Laplace/Poisson | `Laplace.lean` | partial | fundamental solution, radial-power & `log` Laplacians, Green's identity (algebraic step) proved; mean-value, maximum principle and the Poisson representation are blocked by Mathlib gaps |
-| §2.3 Heat | `Heat.lean` | mostly complete | heat kernel is positive, has unit mass, and **provably solves the heat equation**; for bounded continuous `g`, the convolution's **time-derivative step is proved** (n-dim Gaussian moments + dominated convergence), leaving only the spatial-Laplacian step under the integral |
+| §2.3 Heat | `Heat.lean` | ✅ **complete, zero `sorry`** | heat kernel is positive, has unit mass, and solves the heat equation; for **bounded continuous** `g`, the convolution `∫ Φ(x−y,t) g(y) dy` **provably solves the IVP** — both the time-derivative and the spatial-Laplacian are moved under the integral (n-dim Gaussian moments + nested differentiation under the integral) |
 | §2.4 Wave | `Wave.lean` | ✅ **complete, zero `sorry`** | traveling waves, d'Alembert (existence + `C²` regularity + initial conditions), energy conservation, uniqueness, finite propagation speed |
 
 `Calculus.lean` provides shared spacetime calculus utilities (`spatialGradient`,
@@ -27,23 +27,22 @@ and documented at their use sites.
 
 ## Known blockers (missing Mathlib infrastructure)
 
-The outstanding `sorry`s are **not** gaps in the mathematics but in available Mathlib lemmas:
+The outstanding `sorry`s are all in **Laplace**, and are **not** gaps in the mathematics but
+in available Mathlib lemmas:
 
-- **Second-order differentiation under the integral sign** (Heat `heatSolution_solves_heat`,
-  the `hspace` step) — moving the spatial *Laplacian* under the integral needs differentiation
-  under the integral at second order (the Laplacian is the trace of the second Fréchet
-  derivative). The first-order analogues are now all proved: the time-derivative step
-  `htime` (via n-dim Gaussian moments + `hasDerivAt_integral_of_dominated_loc_of_deriv_le`),
-  and in Transport the combined FTC + Leibniz rule `Calculus.leibniz_integral` and the spatial
-  Lipschitz bound in `duhamelFormula_solves`.
 - **Stokes' theorem on spherical domains** (Laplace `green_identity_annulus` Step 2,
   `green_boundary_tendsto_f`) — Mathlib's divergence theorem covers boxes only.
 - **Sphere surface measure** `σ(∂B(0,ε)) = n ωₙ εⁿ⁻¹` (Laplace `fundamentalSolution_totalFlux`).
 - **`n`-dimensional polar coordinates** (Laplace integrability of `‖Φ‖` near `0`); Mathlib has
   only the `ℝ²` case.
 
-By contrast, the **Wave** chapter needs none of these — the 1D setting uses only ordinary
-derivatives and the FTC, so it is fully closed.
+The **Heat** chapter's spatial-Laplacian-under-the-integral step required navigating a
+genuine Mathlib instance gap — `ContinuousENorm` (hence `Integrable`/`integral_apply`) is
+missing for iterated CLM spaces `ℝⁿ →L (ℝⁿ→Lℝ)` (a topology diamond) — by routing the proof
+through single-CLM (`ℝⁿ→Lℝ`) integrals only, where the instances are available.
+
+By contrast, the **Wave** chapter needs none of this — the 1D setting uses only ordinary
+derivatives and the FTC.
 
 ## Layout
 

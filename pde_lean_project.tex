@@ -1074,7 +1074,11 @@ $(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
   \texttt{heatKernel\_solves\_heat} & $\Phi_t - \Delta\Phi = 0$ ($t>0$) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{laplacian\_comp\_sub} & $\Delta(f(\cdot-y))(x) = (\Delta f)(x-y)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_translate\_solves\_heat} & translated kernel solves heat eqn & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn ($\partial_t$ proved) & \textcolor{orange}{partial} \\
+  \texttt{heatKernel\_hasFDerivAt\_space} & spatial gradient $D_z\Phi$ (closed form) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatKernel\_hasFDerivAt\_space2} & second spatial derivative $D^2_z\Phi$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_hasFDerivAt\_grad} & $D_x(\!\int\!\Phi g) = \int g\,D\Phi$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_hasFDerivAt\_dirgrad} & directional 2nd deriv under $\int$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1104,10 +1108,29 @@ Gaussian moments \texttt{integrable\_exp\_neg\_mul\_norm\_sq} and
 only the base $n$-dim Gaussian and the $1$-D moments). The kernel's time derivative is fed in
 as the \texttt{HasDerivAt} form \texttt{heatKernel\_hasDerivAt\_time}.
 
-\textbf{One sorry remains}, \texttt{hspace}: moving the spatial \emph{Laplacian} under the
-integral. This is harder --- the Laplacian is the trace of the second Fréchet derivative, so
-it needs differentiation under the integral at second order (with second-moment Gaussian
-bounds), not covered by the first-order parametric lemma used for \texttt{htime}.
+\textbf{\texttt{hspace} (the spatial \emph{Laplacian} under the integral) is now also proved,
+so the Heat chapter is fully closed (zero \texttt{sorry}).} The Laplacian is the trace
+$\Delta F\,x = \sum_i \text{iteratedFDeriv}\,2\,F\,x\,[e_i,e_i]
+= \sum_i \text{fderiv}(\text{fderiv}\,F)\,x\,e_i\,e_i$ of the second Fréchet derivative. We move
+it under the integral by differentiating \emph{twice}, but always through \emph{single}-CLM
+($\mathbb{R}^n \to_L \mathbb{R}$) integrals: the first differentiation
+(\texttt{heatSolution\_hasFDerivAt\_grad}) gives the gradient $\int g\,D\Phi$ and, crucially,
+that $\text{fderiv}\,F$ is differentiable at $x$; the eval-bridge
+$\text{fderiv}(\text{fderiv}\,F)\,x\,e_i\,e_i
+= \text{fderiv}\,(z \mapsto \text{fderiv}\,F\,z\,e_i)\,x\,e_i$ (\texttt{fderiv\_fderiv\_apply})
+reduces each second partial to a \emph{scalar} directional derivative, which a third
+differentiation under the integral (\texttt{heatSolution\_hasFDerivAt\_dirgrad}) lands on the
+kernel. Summing over the basis and folding back with
+\texttt{laplacian\_eq\_iteratedFDeriv\_stdOrthonormalBasis} gives
+$\int g\,\Delta\Phi$, which cancels the time derivative.
+
+This route deliberately avoids the iterated CLM space $\mathbb{R}^n \to_L (\mathbb{R}^n \to_L
+\mathbb{R})$: Mathlib lacks the \texttt{ContinuousENorm} instance there (a topology diamond
+between the operator-norm topology and the metric topology), so \texttt{Integrable} and
+\texttt{ContinuousLinearMap.integral\_apply} are unavailable --- whereas for the single-CLM
+dual $\mathbb{R}^n \to_L \mathbb{R}$ they are. Working in single-CLM integrals throughout
+sidesteps the gap. The bounds use the $1$st Gaussian moment
+\texttt{integrable\_norm\_mul\_exp\_neg\_mul\_norm\_sq} in addition to the $0$th and $2$nd.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 4: Wave Equation (Evans §2.4)}
@@ -1244,9 +1267,8 @@ conservation law and nonnegativity underlying the energy method.
 \subsection{§2.4.3 Uniqueness via Riemann Invariants}
 
 For the 1D Cauchy problem the solution is unique. The textbook energy argument integrates
-$e$ over a backward characteristic cone; that route needs $\int$-energy conservation, the
-same differentiation-under-the-integral that blocks the Heat chapter. In one dimension,
-however, uniqueness follows from a clean \emph{pointwise} argument via the Riemann
+$e$ over a backward characteristic cone; that route needs $\int$-energy conservation. In one
+dimension, however, uniqueness follows from a clean \emph{pointwise} argument via the Riemann
 invariants $u_t \pm u_x$, with no integration of the energy required.
 
 \textbf{Zero data $\Rightarrow$ zero solution} (proved): for a traveling-wave solution
