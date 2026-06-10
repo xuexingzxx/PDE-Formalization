@@ -162,18 +162,11 @@ lemma fundamentalSolution_contDiff_off_zero :
     rw [heq]
     exact contDiffOn_const.mul (hn_smooth.rpow_const_of_ne hn_ne)
 
-/-! #### Helpers for harmonicity of the fundamental solution -/
+/-! #### Helpers for harmonicity of the fundamental solution
 
-/-- The real inner product as a bilinear CLM, avoiding conjugate-linear ambiguity. -/
-noncomputable def realInnerBiL : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ :=
-  (innerSL ℝ : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ)
-
-/-- The real inner product with fixed left argument. -/
-noncomputable def realInnerL (x : ℝⁿ) : ℝⁿ →L[ℝ] ℝ :=
-  realInnerBiL x
-
-lemma realInnerL_apply (x y : ℝⁿ) : realInnerL x y = ⟪x, y⟫_ℝ :=
-  congr_fun (coe_innerSL_apply ℝ x) y
+The real inner product as a bilinear CLM (`realInnerBiL`/`realInnerL`) and the radial-power
+derivative/Laplacian formulas (`hasFDerivAt_norm_rpow_of_ne`, `laplacian_norm_rpow_eq`) live in
+`Calculus.lean`, shared with the Heat chapter. -/
 
 /-- Linearity of `Laplacian.laplacian` under scalar multiplication. -/
 private lemma laplacian_const_mul (c : ℝ) (f : ℝⁿ → ℝ) (hf : ContDiffAt ℝ 2 f x) :
@@ -181,94 +174,6 @@ private lemma laplacian_const_mul (c : ℝ) (f : ℝⁿ → ℝ) (hf : ContDiffA
   have smul_eq : (fun y : ℝⁿ => c * f y) = c • f := funext fun y => (smul_eq_mul c (f y)).symm
   rw [smul_eq, InnerProductSpace.laplacian_smul c hf]
   simp [smul_eq_mul]
-
-/-- First Fréchet derivative of `‖·‖^p` at `x ≠ 0` for any real exponent `p`. -/
-private lemma hasFDerivAt_norm_rpow_of_ne (x : ℝⁿ) (hx : x ≠ 0) (p : ℝ) :
-    HasFDerivAt (fun x : ℝⁿ => ‖x‖ ^ p)
-      ((p * ‖x‖ ^ (p - 2)) • realInnerL x) x := by
-  have heq : (p * ‖x‖ ^ (p - 2)) • realInnerL x =
-      (p * ‖x‖ ^ (p - 2)) • (innerSL ℝ : ℝⁿ →L[ℝ] ℝⁿ →L[ℝ] ℝ) x := rfl
-  rw [heq]
-  apply HasStrictFDerivAt.hasFDerivAt
-  convert (hasStrictFDerivAt_norm_sq x).rpow_const (p := p / 2) (by simp [hx]) using 0
-  simp_rw [← Real.rpow_natCast_mul (norm_nonneg _), ← Nat.cast_smul_eq_nsmul ℝ, smul_smul]
-  ring_nf
-
-/-- **Laplacian of a radial power**: `Δ(‖·‖^p)(x) = p · (n + p − 2) · ‖x‖^(p−2)`. -/
-private lemma laplacian_norm_rpow_eq (p : ℝ) (x : ℝⁿ) (hx : x ≠ 0) :
-    Δ (fun x : ℝⁿ => ‖x‖ ^ p) x = p * ((n : ℝ) + p - 2) * ‖x‖ ^ (p - 2) := by
-  let e := EuclideanSpace.basisFun (Fin n) ℝ
-  rw [show Δ (fun y : ℝⁿ => ‖y‖ ^ p) x =
-        ∑ i, iteratedFDeriv ℝ 2 (fun y : ℝⁿ => ‖y‖ ^ p) x ![e i, e i] from
-      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis (fun y : ℝⁿ => ‖y‖ ^ p) e) x]
-  simp_rw [iteratedFDeriv_two_apply]
-  have hfderiv : ∀ᶠ y in 𝓝 x,
-      fderiv ℝ (fun y : ℝⁿ => ‖y‖ ^ p) y =
-      (p * ‖y‖ ^ (p - 2)) • realInnerL y := by
-    filter_upwards [isOpen_compl_singleton.mem_nhds (Set.mem_compl_singleton_iff.mpr hx)]
-    intro y hy
-    exact (hasFDerivAt_norm_rpow_of_ne y (Set.mem_compl_singleton_iff.mp hy) p).fderiv
-  have hc := (hasFDerivAt_norm_rpow_of_ne x hx (p - 2)).const_mul p
-  have hg : HasFDerivAt (fun y : ℝⁿ => realInnerL y) realInnerBiL x :=
-    realInnerBiL.hasFDerivAt
-  have hderiv2 : ∀ i : Fin n,
-      fderiv ℝ (fderiv ℝ (fun y : ℝⁿ => ‖y‖ ^ p)) x (e i) (e i) =
-      p * (p - 2) * ‖x‖ ^ (p - 4) * ⟪x, e i⟫_ℝ ^ 2 +
-      p * ‖x‖ ^ (p - 2) := by
-    intro i
-    have hfe : fderiv ℝ (fderiv ℝ (fun y : ℝⁿ => ‖y‖ ^ p)) x =
-        fderiv ℝ (fun y => (p * ‖y‖ ^ (p - 2)) • realInnerL y) x :=
-      Filter.EventuallyEq.fderiv_eq hfderiv
-    rw [hfe]
-    have hcd : DifferentiableAt ℝ (fun y : ℝⁿ => p * ‖y‖ ^ (p - 2)) x :=
-      hc.differentiableAt
-    have hgd : DifferentiableAt ℝ (fun y : ℝⁿ => realInnerL y) x :=
-      hg.differentiableAt
-    have hconv : (fun y : ℝⁿ => (p * ‖y‖ ^ (p - 2)) • realInnerL y) =
-        (fun y : ℝⁿ => p * ‖y‖ ^ (p - 2)) • (fun y : ℝⁿ => realInnerL y) := by
-      funext y; rfl
-    rw [show fderiv ℝ (fun y : ℝⁿ => (p * ‖y‖ ^ (p - 2)) • realInnerL y) x =
-        fderiv ℝ ((fun y : ℝⁿ => p * ‖y‖ ^ (p - 2)) •
-          fun y : ℝⁿ => realInnerL y) x from
-      congr_arg (fderiv ℝ · x) hconv]
-    rw [fderiv_smul hcd hgd]
-    have hgfderiv : fderiv ℝ (fun y : ℝⁿ => realInnerL y) x = realInnerBiL :=
-      hg.fderiv
-    simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply,
-              ContinuousLinearMap.smulRight_apply, hc.fderiv, hgfderiv]
-    have hei : realInnerBiL (e i) (e i) = 1 := by
-      have h := (orthonormal_iff_ite (𝕜 := ℝ)).mp
-        (EuclideanSpace.basisFun (Fin n) ℝ).orthonormal i i
-      simp at h
-      have heq : realInnerBiL (e i) (e i) = ⟪e i, e i⟫_ℝ :=
-        realInnerL_apply (e i) (e i)
-      rw [heq]
-      simp only [e, EuclideanSpace.basisFun_apply]
-      exact h
-    have hxi : realInnerL x (e i) = ⟪x, e i⟫_ℝ :=
-      realInnerL_apply x (e i)
-    rw [hei, hxi]
-    simp only [smul_eq_mul, mul_one]
-    ring
-  simp_rw [show ∀ i : Fin n, ![e i, e i] 0 = e i from fun i => rfl,
-           show ∀ i : Fin n, ![e i, e i] 1 = e i from fun i => rfl]
-  simp_rw [hderiv2]
-  have hxpos : 0 < ‖x‖ := norm_pos_iff.mpr hx
-  have hparseval := e.sum_sq_inner_left x
-  have hcombine : ‖x‖ ^ (p - 4) * ‖x‖ ^ 2 = ‖x‖ ^ (p - 2) := by
-    rw [← Real.rpow_natCast ‖x‖ 2, ← Real.rpow_add hxpos]; congr 1; ring
-  rw [Finset.sum_add_distrib]
-  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
-  simp_rw [← Finset.mul_sum]
-  conv_lhs =>
-    rw [show ∑ i : Fin n, ⟪x, e i⟫_ℝ ^ 2 = ‖x‖ ^ 2 from hparseval]
-  conv_lhs =>
-    rw [show p * (p - 2) * ‖x‖ ^ (p - 4) * ‖x‖ ^ 2 =
-        p * (p - 2) * ‖x‖ ^ (p - 2) from by
-      rw [show p * (p - 2) * ‖x‖ ^ (p - 4) * ‖x‖ ^ 2 =
-          p * (p - 2) * (‖x‖ ^ (p - 4) * ‖x‖ ^ 2) from by ring]
-      rw [hcombine]]
-  ring
 
 /-- **Laplacian of `log ‖·‖`**: `Δ(log ‖·‖)(x) = (n − 2) · ‖x‖^(−2)`. -/
 private lemma laplacian_log_norm_eq (x : ℝⁿ) (hx : x ≠ 0) :

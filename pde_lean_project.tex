@@ -750,6 +750,14 @@ away from the origin. The proof requires three helper lemmas.
 
 \subsubsection{Helper definitions}
 
+\emph{Location note.} The inner-product CLMs (\texttt{realInnerBiL},
+\texttt{realInnerL}, \texttt{realInnerL\_apply}) and the radial-power lemmas
+(\texttt{hasFDerivAt\_norm\_rpow\_of\_ne}, \texttt{laplacian\_norm\_rpow\_eq}) shown below
+now live in \texttt{Calculus.lean}, shared with the Heat chapter (which defined the same
+inner-product CLM independently); only \texttt{laplacian\_const\_mul} and
+\texttt{laplacian\_log\_norm\_eq} remain local to \texttt{Laplace.lean}. They are reproduced
+here because the harmonicity proof reads most naturally in one place.
+
 To avoid type ambiguity with Mathlib's conjugate-linear \texttt{innerSL}, we
 introduce wrapper definitions with unambiguous types:
 
@@ -1104,8 +1112,9 @@ $(4\pi s)^{-n/2}$, the Gaussian $e^{-|x-y|^2/4s}$, and the polynomial
 $|\,|x-y|^2/4s^2 - n/2s|$ --- is bounded at the endpoints). Its integrability over
 $\mathbb{R}^n$ reduces, after the translation $y \mapsto x-y$, to the $0$th and $2$nd
 Gaussian moments \texttt{integrable\_exp\_neg\_mul\_norm\_sq} and
-\texttt{integrable\_norm\_sq\_mul\_exp\_neg\_mul\_norm\_sq} (supplied here, since Mathlib has
-only the base $n$-dim Gaussian and the $1$-D moments). The kernel's time derivative is fed in
+\texttt{integrable\_norm\_sq\_mul\_exp\_neg\_mul\_norm\_sq} (now in \texttt{Calculus.lean} as
+shared tools, since Mathlib has only the base $n$-dim Gaussian and the $1$-D moments). The
+kernel's time derivative is fed in
 as the \texttt{HasDerivAt} form \texttt{heatKernel\_hasDerivAt\_time}.
 
 \textbf{\texttt{hspace} (the spatial \emph{Laplacian} under the integral) is now also proved,
@@ -1435,6 +1444,48 @@ $O((t'-t)^2)$, hence has derivative $0$). The cross-term lemma
 $\partial_1 H$ it needs comes from compactness. This lemma discharges Step~2
 (\texttt{hleibniz}) of \texttt{duhamelFormula\_solves} in the Transport chapter.
 
+\subsection{Shared Analysis Toolkit}
+
+Beyond the spacetime definitions, \texttt{Calculus.lean} collects the
+dimension- and chapter-agnostic analysis lemmas that arose while differentiating
+convolutions under the integral sign, so the Heat and Laplace chapters can share
+them rather than each carrying a private copy. They fall into four groups.
+
+\paragraph{$n$-dimensional Gaussian moments.}
+Integrability over $\mathbb{R}^n$ of $\|z\|^k e^{-c\|z\|^2}$ for $k=0,1,2$ and any
+$c>0$ (\texttt{integrable\_exp\_neg\_mul\_norm\_sq},
+\texttt{integrable\_norm\_mul\_exp\_neg\_mul\_norm\_sq},
+\texttt{integrable\_norm\_sq\_mul\_exp\_neg\_mul\_norm\_sq}). Mathlib provides the base
+$n$-dim Gaussian and the $1$-D moments only; these are the standard dominating
+functions for Gaussian/heat-kernel convolutions.
+
+\paragraph{Real inner product as a bilinear CLM.}
+\texttt{realInnerBiL}, \texttt{realInnerL}, \texttt{realInnerL\_apply}, with
+\texttt{innerSL\_eq\_realInnerBiL} and \texttt{norm\_realInnerBiL\_apply}
+($\|\langle w,\cdot\rangle\| = \|w\|$). Mathlib's \texttt{innerSL R} is
+\emph{conjugate}-linear, which obstructs \texttt{fderiv}; this is the same map retyped
+as an honest $\mathbb{R}$-bilinear CLM. Previously duplicated verbatim in both Heat and
+Laplace.
+
+\paragraph{Radial power calculus.}
+\texttt{hasFDerivAt\_norm\_rpow\_of\_ne} ($D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$)
+and \texttt{laplacian\_norm\_rpow\_eq}
+($\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ for $x\neq 0$, any real $p$). The latter is
+\emph{why} $\|x\|^{2-n}$ and $\log\|x\|$ are harmonic, and underlies the Laplace
+fundamental solutions.
+
+\paragraph{Continuous-linear-map / second-derivative helpers.}
+\texttt{norm\_add\_sq\_le\_two} ($\|a+b\|^2 \le 2\|a\|^2 + 2\|b\|^2$);
+\texttt{norm\_smul\_clm\_le} ($\|c \cdot L\| \le \|c\|\,\|L\|$, proved directly so it
+applies even to iterated CLM spaces where Mathlib's \texttt{NormSMulClass} instance is
+missing); \texttt{norm\_comp\_apply\_le}; the eval-bridge \texttt{fderiv\_fderiv\_apply}
+($\text{fderiv}(z\mapsto \text{fderiv}\,h\,z\,v)\,x\,w = \text{fderiv}(\text{fderiv}\,h)\,x\,w\,v$),
+which converts a second Fréchet derivative into nested scalar directional derivatives;
+and \texttt{laplacian\_integral\_eq}, which moves the whole Laplacian under an integral
+sign ($\Delta(\!\int K(\cdot,y))\,x = \int \Delta K(\cdot,y)\,x$) once each diagonal
+second directional derivative does, packaging the trace-and-swap plumbing for reuse by
+the Newtonian potential.
+
 \subsection{Status Summary}
 
 \begin{center}
@@ -1447,6 +1498,13 @@ $\partial_1 H$ it needs comes from compactness. This lemma discharges Step~2
   \texttt{spatialLaplacian} & $\Delta_x u(x,t)$ wrapping \texttt{Δ}             & \textcolor{mathgreen}{\checkmark} \\
   \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)$ has $0$ derivative & \textcolor{mathgreen}{\checkmark} \\
   \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integrable\_*\_exp\_neg\_mul\_norm\_sq} & $n$-dim Gaussian moments ($k=0,1,2$) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{realInnerBiL} / \texttt{realInnerL} & real inner product as $\mathbb{R}$-bilinear CLM & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p)$ formula & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{norm\_smul\_clm\_le} & $\|c\cdot L\| \le \|c\|\,\|L\|$ for CLMs & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fderiv\_fderiv\_apply} & second-derivative eval-bridge & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_integral\_eq} & Laplacian under the integral sign & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
