@@ -449,3 +449,121 @@ lemma laplacian_norm_rpow_eq (p : ℝ) (x : ℝⁿ) (hx : x ≠ 0) :
           p * (p - 2) * (‖x‖ ^ (p - 4) * ‖x‖ ^ 2) from by ring]
       rw [hcombine]]
   ring
+
+/-! ### Radial integrability on the unit ball
+
+`n`-dimensional polar coordinates (`MeasureTheory.integrable_fun_norm_addHaar`) reduce the
+integrability of a *radial* function `y ↦ f ‖y‖` over the unit ball to a one-dimensional
+integral of `r ↦ r^{n-1} f r`. The power case `f r = r^p` is the workhorse of potential theory:
+`‖·‖^p` is integrable near the origin in `ℝⁿ` exactly when `p > -n`. -/
+
+/-- **Radial reduction for integrability on the unit ball** (`n ≥ 1`): a radial integrand
+    `y ↦ f ‖y‖` is integrable on `B(0,1) ⊆ ℝⁿ` iff its one-dimensional radial profile
+    `r ↦ r^{n-1} · f r` is integrable on `(0,1)`. -/
+lemma integrableOn_unitBall_radial (hn : 1 ≤ n) (f : ℝ → ℝ) :
+    IntegrableOn (fun y : ℝⁿ => f ‖y‖) (Metric.ball 0 1) ↔
+      IntegrableOn (fun r => r ^ (n - 1) * f r) (Set.Ioo 0 1) := by
+  haveI : Nontrivial ℝⁿ :=
+    ⟨0, EuclideanSpace.single ⟨0, hn⟩ 1, by
+      intro h
+      have h0 : (EuclideanSpace.single ⟨0, hn⟩ (1 : ℝ) : Fin n → ℝ) ⟨0, hn⟩ = 0 := by
+        rw [← h]; simp
+      simp at h0⟩
+  rw [← integrable_indicator_iff measurableSet_ball]
+  have hGball : (Metric.ball (0 : ℝⁿ) 1).indicator (fun y => f ‖y‖)
+      = fun y => (Set.Iio (1 : ℝ)).indicator f ‖y‖ := by
+    funext y
+    by_cases hy : ‖y‖ < 1 <;>
+      simp [Metric.mem_ball, dist_zero_right, Set.mem_Iio, hy]
+  rw [hGball, integrable_fun_norm_addHaar (volume : Measure ℝⁿ), finrank_euclideanSpace_fin]
+  have hk : (fun r : ℝ => r ^ (n - 1) • (Set.Iio (1 : ℝ)).indicator f r)
+      = (Set.Iio (1 : ℝ)).indicator (fun r => r ^ (n - 1) * f r) := by
+    funext r; simp only [smul_eq_mul, Set.indicator_apply]; split_ifs <;> ring
+  rw [hk, integrableOn_indicator_iff measurableSet_Iio,
+    show Set.Iio (1 : ℝ) ∩ Set.Ioi 0 = Set.Ioo 0 1 from by
+      rw [Set.inter_comm]; exact Set.Ioi_inter_Iio]
+
+/-- **`‖·‖^p` is integrable near the origin iff `p > -n`** (the easy, integrable direction):
+    on `ℝⁿ` with `n ≥ 1`, `y ↦ ‖y‖^p` is integrable on `B(0,1)` whenever `p > -n`. This is the
+    standard local-integrability fact for Riesz/Newtonian-type kernels (e.g. `p = 2 - n`). -/
+lemma integrableOn_norm_rpow_unitBall (hn : 1 ≤ n) {p : ℝ} (hp : -(n : ℝ) < p) :
+    IntegrableOn (fun y : ℝⁿ => ‖y‖ ^ p) (Metric.ball 0 1) := by
+  refine (integrableOn_unitBall_radial hn (f := fun t => t ^ p)).mpr ?_
+  have hs : (-1 : ℝ) < (n : ℝ) - 1 + p := by linarith
+  refine MeasureTheory.IntegrableOn.congr_fun
+    ((intervalIntegral.integrableOn_Ioo_rpow_iff (s := (n : ℝ) - 1 + p) one_pos).mpr hs)
+    ?_ measurableSet_Ioo
+  intro r hr
+  have hr0 : (0 : ℝ) < r := hr.1
+  change r ^ ((n : ℝ) - 1 + p) = r ^ (n - 1) * r ^ p
+  rw [← Real.rpow_natCast r (n - 1), ← Real.rpow_add hr0, Nat.cast_sub hn, Nat.cast_one]
+
+/-! ### Second-derivative sign at a local maximum (maximum-principle foundations)
+
+The analytic heart of the maximum principle for harmonic (more generally, subharmonic)
+functions: at an interior local maximum of a `C²` function the second derivative is `≤ 0` in
+every direction, so the Laplacian (its trace over an orthonormal basis) is `≤ 0`. -/
+
+/-- **1-D second-derivative test at a local maximum**: if `g : ℝ → ℝ` has a local maximum at `t`
+    and is continuous there, then `g''(t) ≤ 0`. (Mathlib has the converse `isLocalMax_of_…`; this
+    is the forward sign, proved by contradiction with the minimum second-derivative test.) -/
+lemma deriv_deriv_nonpos_of_isLocalMax {g : ℝ → ℝ} {t : ℝ}
+    (hmax : IsLocalMax g t) (hc : ContinuousAt g t) : deriv (deriv g) t ≤ 0 := by
+  by_contra hlt
+  push_neg at hlt
+  have hmin : IsLocalMin g t := isLocalMin_of_deriv_deriv_pos hlt hmax.deriv_eq_zero hc
+  have hconst : g =ᶠ[nhds t] fun _ => g t := by
+    filter_upwards [hmax, hmin] with x hx1 hx2 using le_antisymm hx1 hx2
+  have hd1 : deriv g =ᶠ[nhds t] fun _ => (0 : ℝ) := by
+    filter_upwards [hconst.deriv] with x hx; rw [hx]; simp
+  have hzero : deriv (deriv g) t = 0 := by rw [hd1.deriv_eq]; simp
+  linarith
+
+/-- **The Laplacian is `≤ 0` at an interior local maximum** of a `C²` function (the analytic
+    core of the maximum principle for harmonic/subharmonic functions). For each basis vector
+    `eᵢ` the slice `s ↦ f(x + s·eᵢ)` has a local maximum at `0`, so its second derivative
+    `D²f(x)(eᵢ, eᵢ) ≤ 0`; summing over the standard orthonormal basis gives `Δf x ≤ 0`. -/
+lemma laplacian_nonpos_of_isLocalMax {f : ℝⁿ → ℝ} {x : ℝⁿ}
+    (hf : ContDiffAt ℝ 2 f x) (hmax : IsLocalMax f x) :
+    Laplacian.laplacian f x ≤ 0 := by
+  have hdf : DifferentiableAt ℝ (fderiv ℝ f) x :=
+    (hf.fderiv_right (m := 1) (by norm_num)).differentiableAt (by norm_num)
+  have hfev : ∀ᶠ y in nhds x, DifferentiableAt ℝ f y := by
+    filter_upwards [hf.eventually (by norm_num)] with y hy using hy.differentiableAt (by norm_num)
+  rw [congr_fun (laplacian_eq_iteratedFDeriv_stdOrthonormalBasis f) x]
+  refine Finset.sum_nonpos fun i _ => ?_
+  set v : ℝⁿ := stdOrthonormalBasis ℝ ℝⁿ i with hv_def
+  set L : ℝ → ℝⁿ := fun s => x + s • v with hL_def
+  set g : ℝ → ℝ := fun s => f (L s) with hg_def
+  have hL0 : L 0 = x := by simp [hL_def]
+  have hLcont : Continuous L := by fun_prop
+  have hLtend : Filter.Tendsto L (nhds 0) (nhds x) := hL0 ▸ hLcont.tendsto 0
+  have hLderiv : ∀ s, HasDerivAt L v s := by
+    intro s
+    have h1 : HasDerivAt (fun s : ℝ => s • v) v s := by
+      simpa using (hasDerivAt_id s).smul_const v
+    exact h1.const_add x
+  -- `deriv g` near `0` is `s ↦ Df(L s) v` (chain rule on the differentiable patch of `f`).
+  have hgderiv : ∀ᶠ s in nhds (0 : ℝ), HasDerivAt g (fderiv ℝ f (L s) v) s := by
+    filter_upwards [hLtend.eventually hfev] with s hs
+    exact hs.hasFDerivAt.comp_hasDerivAt s (hLderiv s)
+  have hderivg : deriv g =ᶠ[nhds 0] fun s => fderiv ℝ f (L s) v := by
+    filter_upwards [hgderiv] with s hs using hs.deriv
+  -- the second derivative of the slice is `D²f(x)(v, v)`.
+  have hM : HasDerivAt (fun s => fderiv ℝ f (L s) v) (fderiv ℝ (fderiv ℝ f) x v v) 0 := by
+    have hl : HasFDerivAt (fun z => fderiv ℝ f z v)
+        ((ContinuousLinearMap.apply ℝ ℝ v).comp (fderiv ℝ (fderiv ℝ f) x)) (L 0) := by
+      rw [hL0]; exact (ContinuousLinearMap.apply ℝ ℝ v).hasFDerivAt.comp x hdf.hasFDerivAt
+    have hcomp := (hl.comp 0 (hLderiv 0).hasFDerivAt).hasDerivAt
+    simpa [Function.comp, ContinuousLinearMap.comp_apply, ContinuousLinearMap.apply_apply,
+      ContinuousLinearMap.smulRight_apply] using hcomp
+  have hddg : deriv (deriv g) 0 = fderiv ℝ (fderiv ℝ f) x v v := by
+    rw [hderivg.deriv_eq]; exact hM.deriv
+  have hiter : iteratedFDeriv ℝ 2 f x ![v, v] = fderiv ℝ (fderiv ℝ f) x v v := by
+    rw [iteratedFDeriv_two_apply]; simp [Matrix.cons_val_zero, Matrix.cons_val_one]
+  rw [hiter, ← hddg]
+  refine deriv_deriv_nonpos_of_isLocalMax ?_ ?_
+  · filter_upwards [hLtend.eventually hmax] with s hs
+    show g s ≤ g 0
+    rw [show g 0 = f x by simp [hg_def, hL0]]; exact hs
+  · exact hf.continuousAt.comp_of_eq hLcont.continuousAt hL0

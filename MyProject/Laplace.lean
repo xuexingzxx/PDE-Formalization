@@ -310,13 +310,112 @@ private lemma integral_ball_translate (f : ℝⁿ → ℝ) (x : ℝⁿ) (ε : �
   exact MeasureTheory.integral_sub_left_eq_self
     ((Metric.ball (0 : ℝⁿ) ε).indicator f) MeasureTheory.volume x
 
+/-- `‖Φ‖` is integrable on the unit ball `B(0,1)`. The radial profile of `‖Φ‖` is
+    `r^(2−n)` (for `n ≥ 3`), `|log r|` (for `n = 2`), or linear/zero (small `n`); in every case
+    the polar-coordinate integrand `r^(n−1)·‖Φ‖(r)` is bounded on `(0,1)`. We reduce to that
+    one-dimensional integral with Mathlib's `n`-dim polar integration
+    `integrable_fun_norm_addHaar` (filling the gap that earlier blocked this step). -/
+lemma fundamentalSolution_norm_integrableOn_unitBall :
+    MeasureTheory.IntegrableOn (fun y : ℝⁿ => ‖fundamentalSolution y‖) (Metric.ball 0 1) := by
+  rcases Nat.eq_zero_or_pos n with hn0 | hnpos
+  · -- `n = 0`: `Φ ≡ 0`.
+    have hz : (fun y : ℝⁿ => ‖fundamentalSolution y‖) = fun _ => (0 : ℝ) := by
+      funext y; simp [fundamentalSolution, hn0]
+    rw [hz]; exact MeasureTheory.integrableOn_zero
+  -- The radial profile `F` of `‖Φ‖`.
+  set F : ℝ → ℝ := fun r =>
+    if n = 1 then (1 / 2 : ℝ) * r
+    else if n = 2 then |(-(1 / (2 * Real.pi)) * Real.log r)|
+    else |(1 / ((n : ℝ) * ((n : ℝ) - 2) *
+          (volume (Metric.ball (0 : ℝⁿ) 1)).toReal))| * r ^ (2 - (n : ℝ))
+    with hFdef
+  have hrad : (fun y : ℝⁿ => ‖fundamentalSolution y‖) = fun y => F ‖y‖ := by
+    funext y
+    simp only [fundamentalSolution, hFdef, if_neg (show n ≠ 0 by omega)]
+    split_ifs with h1 h2
+    · rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
+    · rw [Real.norm_eq_abs]
+    · rw [Real.norm_eq_abs, abs_mul, abs_of_nonneg (Real.rpow_nonneg (norm_nonneg _) _)]
+  -- Reduce the n-dim ball integral to the 1-D radial integral (shared `Calculus` lemma).
+  rw [hrad]
+  refine (integrableOn_unitBall_radial hnpos (f := F)).mpr ?_
+  -- Now: `IntegrableOn (fun r => r^(n-1) * F r) (Ioo 0 1)`; split on `n`.
+  rcases lt_or_ge n 3 with h3 | h3
+  · interval_cases n
+    · -- `n = 1`: the integrand is `(1/2)·r`, continuous.
+      have hF1 : F = fun r : ℝ => (1 / 2 : ℝ) * r := by
+        funext r; simp only [hFdef, if_true]
+      simp only [hF1]
+      exact ((by fun_prop : Continuous (fun r : ℝ => r ^ (1 - 1) * ((1 / 2 : ℝ) * r)))
+        |>.integrableOn_Icc).mono_set Set.Ioo_subset_Icc_self
+    · -- `n = 2`: the integrand is `(1/2π)·r·|log r| ≤ 1/2π`, bounded on a finite-measure set.
+      have hF2 : F = fun r : ℝ => |(-(1 / (2 * Real.pi)) * Real.log r)| := by
+        funext r; simp only [hFdef, if_true]; rw [if_neg (by decide : ¬(2 : ℕ) = 1)]
+      simp only [hF2]
+      have hgInt : MeasureTheory.IntegrableOn (fun _ : ℝ => 1 / (2 * Real.pi)) (Set.Ioo 0 1) :=
+        MeasureTheory.integrableOn_const
+          (hs := by rw [Real.volume_Ioo]; exact ENNReal.ofReal_ne_top)
+      refine MeasureTheory.Integrable.mono' (g := fun _ => 1 / (2 * Real.pi)) hgInt ?_ ?_
+      · refine ContinuousOn.aestronglyMeasurable ?_ measurableSet_Ioo
+        refine ContinuousOn.mul (by fun_prop) ?_
+        refine continuous_abs.comp_continuousOn (continuousOn_const.mul ?_)
+        exact Real.continuousOn_log.mono fun r hr => by
+          simp only [Set.mem_compl_iff, Set.mem_singleton_iff]; exact ne_of_gt hr.1
+      · rw [MeasureTheory.ae_restrict_iff' measurableSet_Ioo]
+        refine Filter.Eventually.of_forall fun r hr => ?_
+        obtain ⟨hr0, hr1⟩ := hr
+        simp only [Real.norm_eq_abs]
+        have hlognn : Real.log r ≤ 0 := Real.log_nonpos hr0.le hr1.le
+        have hlogle : r * -Real.log r ≤ 1 := by
+          rw [← Real.log_inv]
+          have hinv : Real.log r⁻¹ ≤ r⁻¹ - 1 := Real.log_le_sub_one_of_pos (by positivity)
+          have hrr : r * (r⁻¹ - 1) = 1 - r := by
+            rw [mul_sub, mul_inv_cancel₀ (ne_of_gt hr0), mul_one]
+          calc r * Real.log r⁻¹ ≤ r * (r⁻¹ - 1) := mul_le_mul_of_nonneg_left hinv hr0.le
+            _ = 1 - r := hrr
+            _ ≤ 1 := by linarith
+        have he : abs (r ^ (2 - 1) * abs (-(1 / (2 * Real.pi)) * Real.log r))
+            = 1 / (2 * Real.pi) * (r * -Real.log r) := by
+          rw [show r ^ (2 - 1) = r from by norm_num, abs_mul, abs_abs, abs_of_pos hr0,
+            abs_mul, abs_neg, abs_of_pos (show (0 : ℝ) < 1 / (2 * Real.pi) by positivity),
+            abs_of_nonpos hlognn]
+          ring
+        rw [he]
+        calc 1 / (2 * Real.pi) * (r * -Real.log r)
+            ≤ 1 / (2 * Real.pi) * 1 := mul_le_mul_of_nonneg_left hlogle (by positivity)
+          _ = 1 / (2 * Real.pi) := by ring
+  · -- `n ≥ 3`: the integrand simplifies to `|c|·r` (since `r^(n-1)·r^(2-n) = r`), continuous.
+    have hpow : ∀ r : ℝ, 0 < r → r ^ (n - 1) * r ^ (2 - (n : ℝ)) = r := by
+      intro r hr0
+      rw [← Real.rpow_natCast r (n - 1), ← Real.rpow_add hr0,
+        Nat.cast_sub (show 1 ≤ n by omega), Nat.cast_one,
+        show ((n : ℝ) - 1) + (2 - (n : ℝ)) = 1 by ring, Real.rpow_one]
+    have hF3 : ∀ r : ℝ, 0 < r → r ^ (n - 1) * F r
+        = |1 / ((n : ℝ) * ((n : ℝ) - 2) *
+            (volume (Metric.ball (0 : ℝⁿ) 1)).toReal)| * r := by
+      intro r hr0
+      simp only [hFdef, if_neg (show n ≠ 1 by omega), if_neg (show n ≠ 2 by omega)]
+      rw [show r ^ (n - 1) * (|1 / ((n : ℝ) * ((n : ℝ) - 2) *
+              (volume (Metric.ball (0 : ℝⁿ) 1)).toReal)| * r ^ (2 - (n : ℝ)))
+            = |1 / ((n : ℝ) * ((n : ℝ) - 2) *
+              (volume (Metric.ball (0 : ℝⁿ) 1)).toReal)| * (r ^ (n - 1) * r ^ (2 - (n : ℝ)))
+          from by ring, hpow r hr0]
+    refine MeasureTheory.IntegrableOn.congr_fun
+      (show MeasureTheory.IntegrableOn (fun r : ℝ => |1 / ((n : ℝ) * ((n : ℝ) - 2) *
+          (volume (Metric.ball (0 : ℝⁿ) 1)).toReal)| * r) (Set.Ioo 0 1) from
+        ((continuous_const.mul continuous_id).integrableOn_Icc).mono_set
+          Set.Ioo_subset_Icc_self)
+      ?_ measurableSet_Ioo
+    intro r hr
+    exact (hF3 r hr.1).symm
+
 /-- Near-singularity integral vanishes as ε → 0 (Evans §2.2.4, p.23).
     ∫_{B(x,ε)} ‖Φ(x-y)‖ dy → 0 as ε → 0⁺.
 
     Proof strategy:
     1. Translate: ∫_{B(x,ε)} ‖Φ(x-y)‖ = ∫_{B(0,ε)} ‖Φ‖ via integral_ball_translate.
-    2. ‖Φ‖ integrable on B(0,1): sorry (requires n-dim polar coordinates, not in Mathlib).
-       Evans proof: ∫_{B(0,ε)} ‖y‖^(2-n) dy = nωₙ ∫₀^ε r^(2-n)·r^(n-1) dr = nωₙ·ε²/2 → 0.
+    2. ‖Φ‖ integrable on B(0,1): `fundamentalSolution_norm_integrableOn_unitBall`, proved via
+       Mathlib's n-dim polar integration (∫_{B(0,1)} ‖y‖^(2-n) = nωₙ ∫₀¹ r dr < ∞).
     3. Sequential convergence: B(0,1/(k+1)) ↘ {0}, use tendsto_setIntegral_of_antitone.
     4. Transfer: sequential → nhdsWithin via Metric.tendsto_nhdsWithin_nhds. -/
 lemma fundamentalSolution_near_integral_tendsto_zero (x : ℝⁿ) :
@@ -328,12 +427,10 @@ lemma fundamentalSolution_near_integral_tendsto_zero (x : ℝⁿ) :
       ∫ z in Metric.ball (0 : ℝⁿ) ε, ‖fundamentalSolution z‖ :=
     fun ε => integral_ball_translate (fun z => ‖fundamentalSolution z‖) x ε
   simp_rw [hshift]
-  -- Step 2: ‖Φ‖ is locally integrable on B(0, 1)
-  -- Blocked: n-dimensional polar coordinates not in Mathlib.
-  -- Evans §2.2.4: ∫_{B(0,1)} ‖y‖^(2-n) dy = nωₙ ∫₀¹ r dr < ∞.
+  -- Step 2: ‖Φ‖ is locally integrable on B(0, 1), via n-dim polar integration
+  -- (Mathlib's `integrable_fun_norm_addHaar`).
   have hint : MeasureTheory.IntegrableOn (fun y : ℝⁿ => ‖fundamentalSolution y‖)
-      (Metric.ball 0 1) := by
-    sorry
+      (Metric.ball 0 1) := fundamentalSolution_norm_integrableOn_unitBall
   -- Step 3: sequential convergence via antitone balls B(0, 1/(k+1)) → {0}
   have hinter : ⋂ k : ℕ, Metric.ball (0 : ℝⁿ) (1 / ((k : ℝ) + 1)) = {0} := by
     ext y; simp only [Set.mem_iInter, Metric.mem_ball, dist_zero_right, Set.mem_singleton_iff]
