@@ -450,6 +450,41 @@ lemma laplacian_norm_rpow_eq (p : ℝ) (x : ℝⁿ) (hx : x ≠ 0) :
       rw [hcombine]]
   ring
 
+/-- **Laplacian of `‖·‖²`**: `Δ(‖·‖²) = 2n` everywhere on `ℝⁿ`. This is the canonical strictly
+    subharmonic function (`Δ > 0` for `n ≥ 1`), the perturbation used to prove the maximum
+    principle. Unlike `laplacian_norm_rpow_eq`, it holds at the origin too, since `‖·‖²` is
+    smooth there (constant Hessian `2·Id`). -/
+lemma laplacian_norm_sq (x : ℝⁿ) :
+    Laplacian.laplacian (fun y : ℝⁿ => ‖y‖ ^ 2) x = 2 * (n : ℝ) := by
+  let e := EuclideanSpace.basisFun (Fin n) ℝ
+  rw [show Laplacian.laplacian (fun y : ℝⁿ => ‖y‖ ^ 2) x =
+        ∑ i, iteratedFDeriv ℝ 2 (fun y : ℝⁿ => ‖y‖ ^ 2) x ![e i, e i] from
+      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis (fun y : ℝⁿ => ‖y‖ ^ 2) e) x]
+  simp_rw [iteratedFDeriv_two_apply]
+  have hfderiv : fderiv ℝ (fun y : ℝⁿ => ‖y‖ ^ 2) = fun y => (2 : ℕ) • realInnerL y := by
+    funext y
+    rw [(hasStrictFDerivAt_norm_sq y).hasFDerivAt.fderiv, innerSL_eq_realInnerBiL]
+    rfl
+  have hsecond : ∀ i : Fin n,
+      fderiv ℝ (fderiv ℝ (fun y : ℝⁿ => ‖y‖ ^ 2)) x (e i) (e i) = 2 := by
+    intro i
+    rw [hfderiv]
+    have hg : HasFDerivAt (fun y : ℝⁿ => (2 : ℕ) • realInnerL y) ((2 : ℕ) • realInnerBiL) x :=
+      realInnerBiL.hasFDerivAt.const_smul (2 : ℕ)
+    rw [hg.fderiv]
+    have hei : realInnerBiL (e i) (e i) = 1 := by
+      have h := (orthonormal_iff_ite (𝕜 := ℝ)).mp
+        (EuclideanSpace.basisFun (Fin n) ℝ).orthonormal i i
+      simp at h
+      have heq : realInnerBiL (e i) (e i) = ⟪e i, e i⟫_ℝ := realInnerL_apply (e i) (e i)
+      rw [heq]; simp only [e, EuclideanSpace.basisFun_apply]; exact h
+    simp only [ContinuousLinearMap.smul_apply, hei, nsmul_eq_mul, Nat.cast_ofNat, mul_one]
+  simp_rw [show ∀ i : Fin n, ![e i, e i] 0 = e i from fun i => rfl,
+           show ∀ i : Fin n, ![e i, e i] 1 = e i from fun i => rfl]
+  simp_rw [hsecond]
+  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+  ring
+
 /-! ### Radial integrability on the unit ball
 
 `n`-dimensional polar coordinates (`MeasureTheory.integrable_fun_norm_addHaar`) reduce the

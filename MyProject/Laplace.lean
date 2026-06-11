@@ -110,12 +110,66 @@ theorem harmonic_strongMax (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
     ∀ x ∈ U, u x = u x₀ := by
   sorry
 
-/-- **Weak Maximum Principle** (Evans §2.2.3, Theorem 3). -/
+/-- **Weak Maximum Principle** (Evans §2.2.3, Theorem 3). A `C²` harmonic function on a
+    bounded open set attains its supremum on the boundary. Proved by the standard subharmonic
+    perturbation `v_ε = u + ε‖·‖²` (`Δv_ε = 2nε > 0`, so by `laplacian_nonpos_of_isLocalMax` it
+    has no interior maximum), then letting `ε → 0`. -/
 theorem harmonic_weakMax (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
-    (hU : IsOpen U) (hbdd : Bornology.IsBounded U)
-    (hu : IsHarmonic U u) (hu_c : ContinuousOn u (closure U)) :
+    (hn : 1 ≤ n) (hU : IsOpen U) (hbdd : Bornology.IsBounded U)
+    (hu : IsHarmonic U u) (hu_c2 : ContDiff ℝ 2 u) :
     ∀ x ∈ U, u x ≤ sSup (u '' frontier U) := by
-  sorry
+  have hK : IsCompact (closure U) := hbdd.isCompact_closure
+  have hcont : Continuous u := hu_c2.continuous
+  have hnpos : (0 : ℝ) < n := by exact_mod_cast hn
+  obtain ⟨R, hR⟩ := (hbdd.closure).subset_closedBall (0 : ℝⁿ)
+  have hRnorm : ∀ y ∈ closure U, ‖y‖ ≤ R := fun y hy => by
+    simpa [Metric.mem_closedBall, dist_zero_right] using hR hy
+  have hfrontK : IsCompact (frontier U) :=
+    hK.of_isClosed_subset isClosed_frontier frontier_subset_closure
+  have hBdd : BddAbove (u '' frontier U) := (hfrontK.image hcont).bddAbove
+  set M := sSup (u '' frontier U) with hM
+  intro x hx
+  have key : ∀ ε : ℝ, 0 < ε → u x ≤ M + ε * R ^ 2 := by
+    intro ε hε
+    set v : ℝⁿ → ℝ := fun y => u y + ε * ‖y‖ ^ 2 with hv
+    have hvcont : Continuous v := by fun_prop
+    obtain ⟨xs, hxs_mem, hxs_max⟩ :=
+      hK.exists_isMaxOn ⟨x, subset_closure hx⟩ hvcont.continuousOn
+    have hxs_notU : xs ∉ U := by
+      intro hxsU
+      have hlm : IsLocalMax v xs :=
+        hxs_max.isLocalMax (Filter.mem_of_superset (hU.mem_nhds hxsU) subset_closure)
+      have hvadd : v = u + fun y : ℝⁿ => ε * ‖y‖ ^ 2 := by
+        funext y; simp only [hv, Pi.add_apply]
+      have hsq2 : ContDiffAt ℝ 2 (fun y : ℝⁿ => ‖y‖ ^ 2) xs :=
+        (contDiff_norm_sq ℝ : ContDiff ℝ 2 fun y : ℝⁿ => ‖y‖ ^ 2).contDiffAt
+      have h2 : ContDiffAt ℝ 2 (fun y : ℝⁿ => ε * ‖y‖ ^ 2) xs := hsq2.const_smul ε
+      have hvc2 : ContDiffAt ℝ 2 v xs := by rw [hvadd]; exact hu_c2.contDiffAt.add h2
+      have hle : Laplacian.laplacian v xs ≤ 0 := laplacian_nonpos_of_isLocalMax hvc2 hlm
+      have hΔ : Laplacian.laplacian v xs = Laplacian.laplacian u xs + ε * (2 * (n : ℝ)) := by
+        rw [hvadd, ContDiffAt.laplacian_add hu_c2.contDiffAt h2]
+        congr 1
+        have hsmul : (fun y : ℝⁿ => ε * ‖y‖ ^ 2) = ε • fun y : ℝⁿ => ‖y‖ ^ 2 := by
+          funext y; simp [Pi.smul_apply, smul_eq_mul]
+        rw [hsmul, laplacian_smul ε hsq2, laplacian_norm_sq, smul_eq_mul]
+      rw [hΔ, hu xs hxsU, zero_add] at hle
+      exact absurd hle (not_le.mpr (mul_pos hε (mul_pos two_pos hnpos)))
+    have hxs_front : xs ∈ frontier U :=
+      ⟨hxs_mem, by rw [hU.interior_eq]; exact hxs_notU⟩
+    have h1 : u x ≤ v x := by rw [hv]; nlinarith [sq_nonneg ‖x‖, hε]
+    have h2 : v x ≤ v xs := hxs_max (subset_closure hx)
+    have h4 : u xs ≤ M := le_csSup hBdd ⟨xs, hxs_front, rfl⟩
+    have h5 : ‖xs‖ ^ 2 ≤ R ^ 2 := by nlinarith [hRnorm xs hxs_mem, norm_nonneg xs]
+    calc u x ≤ v x := h1
+      _ ≤ v xs := h2
+      _ = u xs + ε * ‖xs‖ ^ 2 := rfl
+      _ ≤ M + ε * R ^ 2 := by nlinarith [h4, h5, hε.le]
+  refine le_of_forall_pos_le_add fun δ hδ => ?_
+  have hR1 : (0 : ℝ) < R ^ 2 + 1 := by positivity
+  have hk := key (δ / (R ^ 2 + 1)) (by positivity)
+  have hbound : δ / (R ^ 2 + 1) * R ^ 2 ≤ δ := by
+    rw [div_mul_eq_mul_div, div_le_iff₀ hR1]; nlinarith [hδ.le]
+  linarith [hk, hbound]
 
 /-! ### Smoothness of Harmonic Functions -/
 
