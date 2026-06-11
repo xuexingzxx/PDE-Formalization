@@ -299,6 +299,7 @@ already exists in Mathlib}.
   \texttt{spatialGradient}          & $Du(x,t)$: gradient of $x'\mapsto u(x',t)$ at $x$  & \texttt{Calculus.lean} \\
   \texttt{timeDerivative}           & $u_t(x,t)$: derivative of $t'\mapsto u(x,t')$ at $t$ & \texttt{Calculus.lean} \\
   \texttt{spatialLaplacian}         & $\Delta_x u(x,t)$ for spacetime functions           & \texttt{Calculus.lean} \\
+  \texttt{realInnerBiL} / \texttt{realInnerL} & real inner product as $\mathbb{R}$-bilinear CLM & \texttt{Calculus.lean} \\
   \texttt{IsTransportSolution}      & predicate: $u_t + b \cdot Du = 0$                   & \texttt{Transport.lean} \\
   \texttt{IsInhomTransportSolution} & predicate: $u_t + b \cdot Du = f$                   & \texttt{Transport.lean} \\
   \texttt{charFlow}                 & characteristic flow $(x,t) \mapsto x - tb$          & \texttt{Transport.lean} \\
@@ -314,8 +315,8 @@ already exists in Mathlib}.
   \texttt{IsInhomHeatSolution}      & predicate: $u_t - \Delta u = f$                     & \texttt{Heat.lean} \\
   \texttt{heatKernel}               & fundamental solution $\Phi(x,t)$ (Gaussian)         & \texttt{Heat.lean} \\
   \texttt{heatSolution}             & convolution $\int \Phi(x-y,t)\,g(y)\,dy$            & \texttt{Heat.lean} \\
-  \texttt{timeDeriv}, \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension           & \texttt{Wave.lean} \\
-  \texttt{timeDeriv2}, \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension   & \texttt{Wave.lean} \\
+  \texttt{timeDeriv} / \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension          & \texttt{Wave.lean} \\
+  \texttt{timeDeriv2} / \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension  & \texttt{Wave.lean} \\
   \texttt{IsWaveSolution}           & predicate: $u_{tt} = u_{xx}$                        & \texttt{Wave.lean} \\
   \texttt{dalembert}                & d'Alembert solution formula                         & \texttt{Wave.lean} \\
   \texttt{energyDensity}            & $e = \tfrac12(u_t^2 + u_x^2)$                       & \texttt{Wave.lean} \\
@@ -323,6 +324,43 @@ already exists in Mathlib}.
   \bottomrule
 \end{tabular}
 \end{center}
+
+\subsection{Reusable lemmas / tools developed in this project}
+
+Beyond the definitions above, the project contributes a set of general-purpose, chapter- and
+dimension-agnostic \emph{lemmas} that fill gaps in Mathlib's analysis library. Several were
+hoisted into \texttt{Calculus.lean} so multiple chapters can share them; the combined Leibniz
+rule in particular is a self-contained result that does not exist in Mathlib.
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  \textbf{Name} & \textbf{Statement} & \textbf{File} \\
+  \midrule
+  \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)\,ds$ has $0$ derivative & \texttt{Calculus.lean} \\
+  \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \texttt{Calculus.lean} \\
+  \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $0$th $n$-dim Gaussian moment & \texttt{Calculus.lean} \\
+  \texttt{integrable\_norm\_mul\_exp\dots} & $1$st $n$-dim Gaussian moment & \texttt{Calculus.lean} \\
+  \texttt{integrable\_norm\_sq\_mul\_exp\dots} & $2$nd $n$-dim Gaussian moment & \texttt{Calculus.lean} \\
+  \texttt{norm\_add\_sq\_le\_two} & $\|a+b\|^2 \le 2\|a\|^2 + 2\|b\|^2$ & \texttt{Calculus.lean} \\
+  \texttt{norm\_smul\_clm\_le} & $\|c\cdot L\| \le \|c\|\,\|L\|$ for CLMs & \texttt{Calculus.lean} \\
+  \texttt{norm\_comp\_apply\_le} & $\|(\text{apply}\,v)\circ S\| \le \|S\|\,\|v\|$ & \texttt{Calculus.lean} \\
+  \texttt{fderiv\_fderiv\_apply} & second-derivative eval-bridge & \texttt{Calculus.lean} \\
+  \texttt{laplacian\_integral\_eq} & $\Delta$ under the integral sign & \texttt{Calculus.lean} \\
+  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$ & \texttt{Calculus.lean} \\
+  \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \texttt{Calculus.lean} \\
+  \texttt{laplacian\_norm\_sq} & $\Delta(\|\cdot\|^2) = 2n$ (everywhere) & \texttt{Calculus.lean} \\
+  \texttt{integrableOn\_unitBall\_radial} & radial reduction of ball integrability & \texttt{Calculus.lean} \\
+  \texttt{integrableOn\_norm\_rpow\_unitBall} & $\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$ & \texttt{Calculus.lean} \\
+  \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \texttt{Calculus.lean} \\
+  \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f\le 0$ at interior local max & \texttt{Calculus.lean} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The \texttt{leibniz\_integral} family is the strongest candidate for upstreaming to Mathlib
+(it is fully general and fills a genuine library gap); the Gaussian moments and radial-power
+calculus are also natural Mathlib additions.
 
 \subsection{Definitions removed after review}
 
@@ -336,6 +374,7 @@ The following were initially defined but later found to be redundant:
   \texttt{laplacian} & Duplicate of \texttt{Laplacian.laplacian} & \texttt{Δ} (Mathlib) \\
   \texttt{unitBallVol} & Never used; Mathlib has \texttt{EuclideanSpace.volume\_ball} & \texttt{EuclideanSpace.volume\_ball} \\
   \texttt{laplacian\_eq\_mathlib} & Only needed due to duplicate \texttt{laplacian} & deleted \\
+  \texttt{laplacian\_const\_mul} & Duplicate of \texttt{InnerProductSpace.laplacian\_smul} & Mathlib directly \\
   \texttt{fderiv\_spacetime} & Bridge lemma no longer needed & deleted \\
   \texttt{fderiv\_transport\_dir} & Inlined into \texttt{evansFormula\_unique}; local notation didn't export & deleted \\
   \texttt{inner\_spatialGradient} & Bridge lemma no longer needed & deleted \\
@@ -358,13 +397,10 @@ The following were initially defined but later found to be redundant:
     & Depends on Stokes \\
   $n$-dimensional polar/spherical coordinates
     & $\int_{B(0,1)} \|x\|^p\,dx < \infty$, integrability of $\Phi$
-    & \texttt{polarCoord} exists only for $\mathbb{R}^2$ \\
-  $L^1$ integrability of $\|x\|^p$ on balls
-    & \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-    & Needs polar coordinates or dedicated Mathlib lemma \\
-  \texttt{integrableOn\_rpow\_norm}
-    & $\int_{B(0,r)} \|x\|^s\,dx < \infty$ for $s > -n$
-    & Not in Mathlib; would unblock several proofs \\
+    & \emph{Resolved}: Mathlib's \texttt{integrable\_fun\_norm\_addHaar} reduces a radial
+      integral over the ball to a 1-D radial integral; packaged as
+      \texttt{Calculus.integrableOn\_unitBall\_radial} and
+      \texttt{integrableOn\_norm\_rpow\_unitBall} ($\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$) \\
   Sphere Hausdorff measure formula
     & $\sigma(\partial B(0,r)) = n\omega_n r^{n-1}$
     & \texttt{hausdorffMeasure\_sphere} not in Mathlib;
@@ -468,35 +504,28 @@ linear map, it is differentiable. By the chain rule, the composition of two
 differentiable maps is differentiable. Hence $u$ is differentiable whenever $g$ is.
 \end{proof}
 
-\begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (proved)}]
+\begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (sorry)}]
 lemma spatialGradient_evansFormula (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) (p : Rn x R) :
     spatialGradient (evansFormula b g) p = gradient g (charFlow b p) := by
-  obtain <x, t> := p
   simp only [spatialGradient, evansFormula, Function.comp, charFlow_apply]
-  -- translation y -> y - t.b has derivative id; chain rule gives fderiv g at the foot
-  have hchain : HasFDerivAt (fun y => g (y - t . b)) (fderiv R g (x - t . b)) x := ...
-  simp only [gradient, hchain.fderiv]
+  sorry
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Time derivative equals minus inner product with b (proved)}]
+\begin{lstlisting}[caption={Time derivative equals minus inner product with b (sorry)}]
 lemma timeDerivative_evansFormula (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) (p : Rn x R) :
     timeDerivative (evansFormula b g) p = -<gradient g (charFlow b p), b>_R := by
-  obtain <x, t> := p
   simp only [timeDerivative, evansFormula, Function.comp, charFlow_apply]
-  have hchain : HasDerivAt (fun s => g (x - s . b)) (fderiv R g (x - t . b) (-b)) t :=
-    hg.differentiableAt.hasFDerivAt.comp_hasDerivAt t hpsi
-  rw [hchain.deriv, map_neg]; congr 1
-  exact (inner_gradient_left hg.differentiableAt).symm
+  sorry
 \end{lstlisting}
 
 Both follow from the chain rule: $x \mapsto x - tb$ has derivative $\text{id}$,
 so the spatial gradient of $g(x-tb)$ is just $\nabla g(x-tb)$; and
 $\partial_t[g(x-tb)] = \nabla g(x-tb) \cdot (-b) = -\langle \nabla g(x-tb), b \rangle$.
-With these in hand, the existence theorem closes by \texttt{simp}:
+Once these are proved, the existence theorem closes by \texttt{simp}:
 
-\begin{lstlisting}[caption={Existence (proved)}]
+\begin{lstlisting}[caption={Existence (proved modulo two chain rule lemmas)}]
 theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) :
     IsTransportSolution b (evansFormula b g) := by
@@ -506,7 +535,7 @@ theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
   simp [real_inner_comm]
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Uniqueness via characteristics (proved)}]
+\begin{lstlisting}[caption={Uniqueness via characteristics (sorry)}]
 theorem evansFormula_unique (b : Rn) (g : Rn -> R)
     (u : Rn x R -> R)
     (hu_pde  : IsTransportSolution b u)
@@ -605,9 +634,8 @@ theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
   -- Step 3 (proved): time derivative of g(x-tb) via chain rule
   -- Step 4 (proved): hg_deriv + hleibniz via HasDerivAt.add
   -- Step 5 (proved): spatial gradient via
-  --   hasFDerivAt_integral_of_dominated_loc_of_lip
-  --   + intervalIntegral_comp_comm; spatial LipschitzOnWith via the
-  --   mean value inequality with a uniform fderiv bound over a compact tube
+  --   hasFDerivAt_integral_of_dominated_loc_of_lip; spatial LipschitzOnWith
+  --   via the mean value inequality with a uniform fderiv bound over a compact tube
   -- Step 6 (proved): <Int grad f, b> = Int <grad f, b>
   --   via ContinuousLinearMap.intervalIntegral_comp_comm
   ... -- fully proved, no sorry
@@ -628,41 +656,38 @@ combined with \texttt{ContDiff.continuous\_fderiv}.
 
 \textbf{Step 2 (\texttt{hleibniz}) is now proved.} Mathlib provides
 \texttt{integral\_hasDerivAt\_right} (FTC) and the parametric
-\texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} separately but no
-combined Leibniz rule with a \emph{variable} upper limit. We supply this as
-\texttt{Calculus.leibniz\_integral} (a fully proved lemma, no longer a placeholder):
+\texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} separately, but no combined
+Leibniz rule with a \emph{variable} upper limit. We supply this as
+\texttt{Calculus.leibniz\_integral} (a fully proved lemma, not a placeholder):
 \[
   \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
     = H(t,t) + \int_0^t \partial_1 H(t,s)\,ds .
 \]
-Its proof avoids the (missing-in-Mathlib) theorem ``continuous partial derivatives
-$\Rightarrow$ differentiable'' by the decomposition $F = P + B + C$:
+Its proof avoids the (missing-in-Mathlib) implication ``continuous partial derivatives
+$\Rightarrow$ Fréchet differentiable on $\mathbb{R}^2$'' via the decomposition $F = P+B+C$:
 $P(t') = \int_0^{t'} H(t,s)\,ds$ (FTC, gives $H(t,t)$);
-$B(t') = \int_0^{t} H(t',s)\,ds - \int_0^t H(t,s)\,ds$ (differentiation under the integral
-on the \emph{fixed} interval $[0,t]$, gives $\int_0^t \partial_1 H(t,s)\,ds$); and the
-cross-term $C(t') = \int_t^{t'}(H(t',s)-H(t,s))\,ds$, which is $O((t'-t)^2)=o(t'-t)$ and so
-has derivative $0$ (lemma \texttt{hasDerivAt\_crossTerm}). The uniform $\partial_1 H$ bound
-needed for $B$ and $C$ comes from compactness of a box
+$B(t') = \int_0^t H(t',s)\,ds - \int_0^t H(t,s)\,ds$ (differentiation under the integral on
+the \emph{fixed} interval $[0,t]$, gives $\int_0^t \partial_1 H(t,s)\,ds$); and the cross-term
+$C(t') = \int_t^{t'}(H(t',s)-H(t,s))\,ds$, which is $O((t'-t)^2) = o(t'-t)$ and so has
+derivative $0$ (lemma \texttt{hasDerivAt\_crossTerm}). The uniform $\partial_1 H$ bound needed
+for $B$ and $C$ comes from compactness of a box
 (\texttt{IsCompact.exists\_bound\_of\_continuousOn}).
 
 \textbf{Step 5 (\texttt{LipschitzOnWith}) is now proved.} The dominated-convergence lemma
-\texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip} needs, for a.e. $s$ in the
-integration interval, a Lipschitz bound for $x' \mapsto f(x'-(t-s)b, s)$ valid on the
-\emph{whole} ball $B(x,1)$ ---
-a single constant, not the center-point value. We obtain it from a uniform bound
-$M = \sup \|\text{fderiv}\,f\|$ over the compact ``tube''
+\texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip} needs, for a.e. $s$, a Lipschitz
+bound for $x' \mapsto f(x'-(t-s)b, s)$ valid on the \emph{whole} ball $B(x,1)$ --- a single
+constant, not the center-point value. We obtain it from a uniform bound
+$M = \sup\|\text{fderiv}\,f\|$ over the compact ``tube''
 $\overline{B}(x,1) \times [0,t]$ (\texttt{IsCompact.exists\_bound\_of\_continuousOn}); then for
-each $s$ the mean value inequality
-\texttt{Convex.lipschitzOnWith\_of\_nnnorm\_fderiv\_le} on the convex ball gives the
-$M$-Lipschitz bound, using
-$\|\text{fderiv}\,(\lambda y.\,f(y,s))\,z\| =
-\|\text{fderiv}\,f\,(z,s) \circ \text{inl}\| \le \|\text{fderiv}\,f\,(z,s)\|$
-(\texttt{norm\_inl\_le\_one}). With the bound now the \emph{constant} $M$, its
-\texttt{IntervalIntegrable} hypothesis is just \texttt{intervalIntegrable\_const}.
-
+each $s$ the mean value inequality \texttt{Convex.lipschitzOnWith\_of\_nnnorm\_fderiv\_le} on
+the convex ball gives the $M$-Lipschitz bound, using
+$\|\text{fderiv}\,(\lambda y.\,f(y,s))\,z\| = \|\text{fderiv}\,f\,(z,s) \circ \text{inl}\|
+\le \|\text{fderiv}\,f\,(z,s)\|$ (\texttt{norm\_inl\_le\_one}). With the bound now the
+\emph{constant} $M$, its \texttt{IntervalIntegrable} hypothesis is just
+\texttt{intervalIntegrable\_const}.
 All other conditions (\texttt{AEStronglyMeasurable} of $F$ and $F'$, the \texttt{toDual} and
-\texttt{innerSL} commutations) are fully proved, so \texttt{duhamelFormula\_solves} is now
-closed with no \texttt{sorry}.
+\texttt{innerSL} commutations) are fully proved, so \texttt{duhamelFormula\_solves} is closed
+with no \texttt{sorry}.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -749,14 +774,6 @@ This subsection contains the key analytic computation: proving $\Delta\Phi = 0$
 away from the origin. The proof requires three helper lemmas.
 
 \subsubsection{Helper definitions}
-
-\emph{Location note.} The inner-product CLMs (\texttt{realInnerBiL},
-\texttt{realInnerL}, \texttt{realInnerL\_apply}) and the radial-power lemmas
-(\texttt{hasFDerivAt\_norm\_rpow\_of\_ne}, \texttt{laplacian\_norm\_rpow\_eq}) shown below
-now live in \texttt{Calculus.lean}, shared with the Heat chapter (which defined the same
-inner-product CLM independently); only \texttt{laplacian\_const\_mul} and
-\texttt{laplacian\_log\_norm\_eq} remain local to \texttt{Laplace.lean}. They are reproduced
-here because the harmonicity proof reads most naturally in one place.
 
 To avoid type ambiguity with Mathlib's conjugate-linear \texttt{innerSL}, we
 introduce wrapper definitions with unambiguous types:
@@ -862,7 +879,7 @@ $\log\|x\|$ is harmonic in $\mathbb{R}^2 \setminus \{0\}$.
 
 \subsubsection{Main result}
 
-\begin{lstlisting}[caption={Fundamental solution is harmonic off zero (proved)}]
+\begin{lstlisting}[caption={Fundamental solution is harmonic off zero (proved modulo log lemma)}]
 lemma fundamentalSolution_harmonic_off_zero (x : Rn) (hx : x != 0) :
     Delta fundamentalSolution x = 0
 \end{lstlisting}
@@ -901,8 +918,30 @@ $B(x,r) \setminus B(x,\varepsilon)$, then let $\varepsilon \to 0$.
 
 \subsection{§2.2.3 Maximum Principles and Regularity}
 
-\begin{lstlisting}[caption={Maximum principles and regularity (all sorry)}]
-theorem harmonic_weakMax   ... : ForAll x in U, u x <= sSup (u '' frontier U)
+\textbf{\texttt{harmonic\_weakMax} (Evans §2.2.3, Theorem 3) is now proved} for a $C^2$
+harmonic function on a bounded open set: it attains its supremum on the boundary,
+$u(x) \le \sup_{\partial U} u$ for all $x \in U$. The proof is the classical subharmonic
+perturbation. For $\varepsilon > 0$ set $v_\varepsilon = u + \varepsilon\|\cdot\|^2$; then
+$\Delta v_\varepsilon = \Delta u + 2n\varepsilon = 2n\varepsilon > 0$ (using
+\texttt{laplacian\_norm\_sq}: $\Delta\|\cdot\|^2 = 2n$). A function with strictly positive
+Laplacian can have no interior maximum --- by \texttt{laplacian\_nonpos\_of\_isLocalMax}
+(the analytic core: $\Delta \le 0$ at any interior local max of a $C^2$ function), an
+interior max would force $\Delta v_\varepsilon \le 0$, contradiction. So $v_\varepsilon$
+attains its max on $\overline U$ at a boundary point (the max exists by compactness of
+$\overline U$ and continuity), giving $u(x) \le \sup_{\partial U} u + \varepsilon R^2$ with
+$R = \sup_{\overline U}\|\cdot\|$; letting $\varepsilon \to 0$ finishes.
+
+The remaining two results are not yet formalized. The strong maximum principle and the
+interior-regularity theorem both go through the mean value property (Evans §2.2.2), which is
+blocked by the same Stokes/surface-measure gaps as the representation formula below.
+
+\begin{lstlisting}[caption={Maximum principles and regularity}]
+-- proved: weak maximum principle via the v_ε = u + ε‖·‖² perturbation
+theorem harmonic_weakMax (hn : 1 <= n) (hU : IsOpen U)
+    (hbdd : Bornology.IsBounded U) (hu : IsHarmonic U u)
+    (hu_c2 : ContDiff R 2 u) :
+    ForAll x in U, u x <= sSup (u '' frontier U)
+-- still sorry (need mean value property -> Stokes):
 theorem harmonic_strongMax ... : ForAll x in U, u x = u x0
 theorem harmonic_smooth    ... : ContDiffOn R Top u U
 \end{lstlisting}
@@ -918,7 +957,7 @@ whose status reflects the current state of Mathlib:
   \textbf{Lemma} & \textbf{Blocker} & \textbf{Status} \\
   \midrule
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-    & $\|\Phi\|$ integrable on $B(0,1)$: needs $n$-dim polar coordinates & \textcolor{orange}{partial} \\
+    & none --- now proved via Mathlib's $n$-dim polar integration & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_identity\_annulus}
     & Gauss--Green on spherical annulus: needs Stokes & \textcolor{orange}{partial} \\
   \texttt{fundamentalSolution\_totalFlux}
@@ -932,7 +971,7 @@ whose status reflects the current state of Mathlib:
 \end{tabular}
 \end{center}
 
-The entire proof chain for the Poisson representation formula is blocked by three
+The remaining proof chain for the Poisson representation formula is blocked by two
 independent missing tools in Mathlib, each of which would require substantial
 infrastructure to develop:
 
@@ -951,21 +990,19 @@ infrastructure to develop:
     $\int_{\partial B(0,\varepsilon)} \langle\nabla\Phi, \nu\rangle\,d\sigma
     = c_n(2-n)\varepsilon^{1-n} \cdot n\omega_n\varepsilon^{n-1} = -1$,
     but the surface area step is unavailable.
-
-  \item \textbf{$n$-dimensional polar coordinates.}
-    Required by \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-    (integrability of $\|\Phi\|$ on $B(0,1)$) and implicitly by
-    \texttt{fundamentalSolution\_totalFlux}.
-    Mathlib provides \texttt{polarCoord} for $\mathbb{R}^2$ only;
-    the general $\mathbb{R}^n$ version is not available.
 \end{enumerate}
 
-Despite these blockers, significant partial progress has been made:
-\texttt{green\_identity\_annulus} Step~1 (the algebraic identity
+A third obstruction listed in earlier drafts --- \textbf{$n$-dimensional polar coordinates} ---
+has since been \emph{resolved}: Mathlib's \texttt{integrable\_fun\_norm\_addHaar} reduces the
+integrability of a radial function over the unit ball to a one-dimensional radial integral,
+which we package as \texttt{Calculus.integrableOn\_unitBall\_radial} and
+\texttt{Calculus.integrableOn\_norm\_rpow\_unitBall} ($\|\cdot\|^p$ integrable near $0$ iff
+$p > -n$). This discharges \texttt{fundamentalSolution\_norm\_integrableOn\_unitBall}, and with
+it \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} is now fully proved.
+
+Further partial progress: \texttt{green\_identity\_annulus} Step~1 (the algebraic identity
 $v\,\Delta u - u\,\Delta v = \sum_i \partial_{e_i}(v\,\partial_{e_i}u - u\,\partial_{e_i}v)$)
-is fully proved, and the framework of
-\texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-(translation, sequential convergence, \texttt{nhdsWithin} transfer) is complete.
+is fully proved; only its Gauss--Green step is blocked.
 
 \subsection{Status Summary}
 
@@ -982,14 +1019,16 @@ is fully proved, and the framework of
   \texttt{laplacian\_log\_norm\_eq}  & $\Delta(\log\|x\|) = (n-2)\|x\|^{-2}$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fundamentalSolution\_harmonic\_off\_zero} & $\Delta\Phi = 0$ off origin & \textcolor{mathgreen}{\checkmark} \\
   \texttt{integral\_ball\_translate} & $\int_{B(x,\varepsilon)} f(x-y)\,dy = \int_{B(0,\varepsilon)} f(z)\,dz$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fundamentalSolution\_norm\_integrableOn\_unitBall} & $\|\Phi\| \in L^1(B(0,1))$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} & $\int_{B(x,\varepsilon)}\|\Phi\| \to 0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{harmonic\_weakMax}         & weak maximum principle (via perturbation) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_identity\_annulus} & Green's 2nd identity on annulus (Step 1 proved) & \textcolor{orange}{partial} \\
-  \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} & $\int_{B(x,\varepsilon)}\|\Phi\| \to 0$ & \textcolor{orange}{partial} \\
   \texttt{harmonic\_sphereMeanValue} & mean value on spheres              & \textcolor{sorryred}{sorry} \\
   \texttt{harmonic\_ballMeanValue}   & mean value on balls                & \textcolor{sorryred}{sorry} \\
   \texttt{meanValue\_implies\_harmonic} & converse of MVP                & \textcolor{sorryred}{sorry} \\
-  \texttt{harmonic\_weakMax}         & weak maximum principle             & \textcolor{sorryred}{sorry} \\
   \texttt{harmonic\_strongMax}       & strong maximum principle           & \textcolor{sorryred}{sorry} \\
   \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$    & \textcolor{sorryred}{sorry} \\
+  \texttt{fundamentalSolution\_totalFlux} & total flux $= -1$ (needs sphere measure) & \textcolor{sorryred}{sorry} \\
   \texttt{newtonianPotential\_solves\_poisson} & representation formula   & \textcolor{sorryred}{sorry} \\
   \bottomrule
 \end{tabular}
@@ -1074,8 +1113,6 @@ $(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
   \texttt{heatSolution\_const} & $u[g \equiv c] = c$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_hasDerivAt\_time} & $\partial_t\Phi$ as a \texttt{HasDerivAt} & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_timeDerivative} & $\Phi_t = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $\int_{\mathbb{R}^n}\!e^{-c|z|^2}<\infty$ & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{integrable\_norm\_sq\_mul\_exp\dots} & $\int_{\mathbb{R}^n}\!|z|^2 e^{-c|z|^2}<\infty$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_time\_deriv\_bound} & uniform $|\partial_t\Phi|$ bound on $[a,b]$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{gaussian\_laplacian} & $\Delta_y \exp(-|y|^2/4t)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_spatialLaplacian} & $\Delta \Phi = \Phi(|x|^2/4t^2 - n/2t)$ & \textcolor{mathgreen}{\checkmark} \\
@@ -1084,7 +1121,8 @@ $(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
   \texttt{heatKernel\_translate\_solves\_heat} & translated kernel solves heat eqn & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_hasFDerivAt\_space} & spatial gradient $D_z\Phi$ (closed form) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_hasFDerivAt\_space2} & second spatial derivative $D^2_z\Phi$ & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{heatSolution\_hasFDerivAt\_grad} & $D_x(\!\int\!\Phi g) = \int g\,D\Phi$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_hasFDerivAt\_space} & $D_x(\!\int\!\Phi g) = \int g\,D\Phi$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heatSolution\_hasFDerivAt\_grad} & $D_x$ of the gradient $= \int g\,D^2\Phi$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatSolution\_hasFDerivAt\_dirgrad} & directional 2nd deriv under $\int$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
@@ -1103,43 +1141,23 @@ cancel pointwise, and the result follows.
 The statement now assumes $g$ \emph{bounded} continuous ($|g| \le C_g$, as in Evans), the
 growth condition that makes the convolution and its derivatives converge.
 
-\textbf{\texttt{htime} (the $t$-derivative under the integral) is now proved.} We apply
-Mathlib's \texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} on a compact time
-window $(a,b) = (t/2, 2t) \ni t$. The required dominating function comes from
-\texttt{heatKernel\_time\_deriv\_bound}, which bounds $|\partial_s\Phi(x-y,s)|$ uniformly over
-$s \in [a,b]$ by a fixed Gaussian moment (each $s$-dependent factor --- the power
-$(4\pi s)^{-n/2}$, the Gaussian $e^{-|x-y|^2/4s}$, and the polynomial
-$|\,|x-y|^2/4s^2 - n/2s|$ --- is bounded at the endpoints). Its integrability over
-$\mathbb{R}^n$ reduces, after the translation $y \mapsto x-y$, to the $0$th and $2$nd
-Gaussian moments \texttt{integrable\_exp\_neg\_mul\_norm\_sq} and
-\texttt{integrable\_norm\_sq\_mul\_exp\_neg\_mul\_norm\_sq} (now in \texttt{Calculus.lean} as
-shared tools, since Mathlib has only the base $n$-dim Gaussian and the $1$-D moments). The
-kernel's time derivative is fed in
-as the \texttt{HasDerivAt} form \texttt{heatKernel\_hasDerivAt\_time}.
+\textbf{\texttt{htime} (the $t$-derivative under the integral) is proved} via Mathlib's
+\texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} on a compact time window
+$(t/2, 2t) \ni t$. The dominating function comes from \texttt{heatKernel\_time\_deriv\_bound}
+(each $s$-dependent factor is bounded at the endpoints), and its integrability reduces, after
+the translation $y \mapsto x-y$, to the $0$th and $2$nd Gaussian moments.
 
-\textbf{\texttt{hspace} (the spatial \emph{Laplacian} under the integral) is now also proved,
-so the Heat chapter is fully closed (zero \texttt{sorry}).} The Laplacian is the trace
-$\Delta F\,x = \sum_i \text{iteratedFDeriv}\,2\,F\,x\,[e_i,e_i]
-= \sum_i \text{fderiv}(\text{fderiv}\,F)\,x\,e_i\,e_i$ of the second Fréchet derivative. We move
-it under the integral by differentiating \emph{twice}, but always through \emph{single}-CLM
-($\mathbb{R}^n \to_L \mathbb{R}$) integrals: the first differentiation
-(\texttt{heatSolution\_hasFDerivAt\_grad}) gives the gradient $\int g\,D\Phi$ and, crucially,
-that $\text{fderiv}\,F$ is differentiable at $x$; the eval-bridge
-$\text{fderiv}(\text{fderiv}\,F)\,x\,e_i\,e_i
-= \text{fderiv}\,(z \mapsto \text{fderiv}\,F\,z\,e_i)\,x\,e_i$ (\texttt{fderiv\_fderiv\_apply})
-reduces each second partial to a \emph{scalar} directional derivative, which a third
-differentiation under the integral (\texttt{heatSolution\_hasFDerivAt\_dirgrad}) lands on the
-kernel. Summing over the basis and folding back with
-\texttt{laplacian\_eq\_iteratedFDeriv\_stdOrthonormalBasis} gives
-$\int g\,\Delta\Phi$, which cancels the time derivative.
-
-This route deliberately avoids the iterated CLM space $\mathbb{R}^n \to_L (\mathbb{R}^n \to_L
-\mathbb{R})$: Mathlib lacks the \texttt{ContinuousENorm} instance there (a topology diamond
-between the operator-norm topology and the metric topology), so \texttt{Integrable} and
-\texttt{ContinuousLinearMap.integral\_apply} are unavailable --- whereas for the single-CLM
-dual $\mathbb{R}^n \to_L \mathbb{R}$ they are. Working in single-CLM integrals throughout
-sidesteps the gap. The bounds use the $1$st Gaussian moment
-\texttt{integrable\_norm\_mul\_exp\_neg\_mul\_norm\_sq} in addition to the $0$th and $2$nd.
+\textbf{\texttt{hspace} (the spatial Laplacian under the integral) is proved, so the Heat
+chapter is fully closed (zero \texttt{sorry}).} The Laplacian is the trace of the second
+Fréchet derivative; we move it under the integral by differentiating \emph{twice} but always
+through \emph{single}-CLM ($\mathbb{R}^n \to_L \mathbb{R}$) integrals
+(\texttt{heatSolution\_hasFDerivAt\_grad} then the eval-bridge \texttt{fderiv\_fderiv\_apply}
+then \texttt{heatSolution\_hasFDerivAt\_dirgrad}), summing over the basis to get
+$\int g\,\Delta\Phi$. This deliberately avoids the iterated CLM space
+$\mathbb{R}^n \to_L (\mathbb{R}^n \to_L \mathbb{R})$, where Mathlib lacks the
+\texttt{ContinuousENorm} instance (a topology diamond) so \texttt{Integrable} and
+\texttt{integral\_apply} are unavailable. The two resulting integrands cancel pointwise by
+\texttt{heatKernel\_translate\_solves\_heat}, so the difference of the integrals is zero.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 4: Wave Equation (Evans §2.4)}
@@ -1276,9 +1294,10 @@ conservation law and nonnegativity underlying the energy method.
 \subsection{§2.4.3 Uniqueness via Riemann Invariants}
 
 For the 1D Cauchy problem the solution is unique. The textbook energy argument integrates
-$e$ over a backward characteristic cone; that route needs $\int$-energy conservation. In one
-dimension, however, uniqueness follows from a clean \emph{pointwise} argument via the Riemann
-invariants $u_t \pm u_x$, with no integration of the energy required.
+$e$ over a backward characteristic cone; that route needs $\int$-energy conservation
+(differentiation under the integral sign, the same machinery developed for the Heat chapter).
+In one dimension, however, uniqueness follows from a clean \emph{pointwise} argument via the
+Riemann invariants $u_t \pm u_x$, with no integration of the energy required.
 
 \textbf{Zero data $\Rightarrow$ zero solution} (proved): for a traveling-wave solution
 $A(x+t) + B(x-t)$, zero initial position ($A + B \equiv 0$) and zero initial velocity
@@ -1427,71 +1446,64 @@ noncomputable def spatialLaplacian (u : Rn x R -> R) (p : Rn x R) : R :=
 
 \subsection{Differentiation Under the Integral (Leibniz Rule)}
 
-\texttt{Calculus.lean} also provides a fully proved \emph{combined} Leibniz rule for an
-integral with a parameter-dependent integrand \emph{and} a variable upper limit:
+\texttt{Calculus.lean} provides a fully proved \emph{combined} Leibniz rule for an integral
+with a parameter-dependent integrand \emph{and} a variable upper limit:
 \[
   \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
     = H(t,t) + \int_0^t \partial_1 H(t,s)\,ds,
 \]
-for jointly continuous $H$ and its first partial $\partial_1 H$. Mathlib has the two
-ingredients (the fundamental theorem of calculus and differentiation under the integral
-over a \emph{fixed} interval) but not their combination, and the naive route is blocked by
-the absence of ``continuous partial derivatives $\Rightarrow$ Fréchet differentiable'' on
-$\mathbb{R}^2$. We sidestep that with the decomposition $F = P + B + C$ (FTC piece $+$
-fixed-interval parametric piece $+$ a cross-term $\int_t^{t'}(H(t',s)-H(t,s))\,ds$ that is
-$O((t'-t)^2)$, hence has derivative $0$). The cross-term lemma
-\texttt{hasDerivAt\_crossTerm} is the genuinely new piece; the uniform bound on
-$\partial_1 H$ it needs comes from compactness. This lemma discharges Step~2
-(\texttt{hleibniz}) of \texttt{duhamelFormula\_solves} in the Transport chapter.
+for jointly continuous $H$ and $\partial_1 H$. Mathlib has the two ingredients (FTC and
+differentiation under the integral on a \emph{fixed} interval) but not their combination, and
+the naive route is blocked by the absence of ``continuous partial derivatives $\Rightarrow$
+Fréchet differentiable'' on $\mathbb{R}^2$. We sidestep that with the decomposition
+$F = P + B + C$ (FTC piece $+$ fixed-interval parametric piece $+$ a cross-term
+$\int_t^{t'}(H(t',s)-H(t,s))\,ds$ that is $O((t'-t)^2)$, hence has derivative $0$). The
+cross-term lemma \texttt{hasDerivAt\_crossTerm} is the genuinely new piece. This discharges
+Step~2 of \texttt{duhamelFormula\_solves}.
 
 \subsection{Shared Analysis Toolkit}
 
-Beyond the spacetime definitions, \texttt{Calculus.lean} collects the
-dimension- and chapter-agnostic analysis lemmas that arose while differentiating
-convolutions under the integral sign, so the Heat and Laplace chapters can share
-them rather than each carrying a private copy. They fall into four groups.
+\texttt{Calculus.lean} also collects the dimension- and chapter-agnostic analysis lemmas that
+arose while differentiating convolutions and radial potentials, so Heat and Laplace share them
+rather than each carrying a private copy.
 
 \paragraph{$n$-dimensional Gaussian moments.}
-Integrability over $\mathbb{R}^n$ of $\|z\|^k e^{-c\|z\|^2}$ for $k=0,1,2$ and any
-$c>0$ (\texttt{integrable\_exp\_neg\_mul\_norm\_sq},
-\texttt{integrable\_norm\_mul\_exp\_neg\_mul\_norm\_sq},
-\texttt{integrable\_norm\_sq\_mul\_exp\_neg\_mul\_norm\_sq}). Mathlib provides the base
-$n$-dim Gaussian and the $1$-D moments only; these are the standard dominating
+Integrability over $\mathbb{R}^n$ of $\|z\|^k e^{-c\|z\|^2}$ for $k=0,1,2$, any $c>0$. Mathlib
+has the base $n$-dim Gaussian and the $1$-D moments only; these are the standard dominating
 functions for Gaussian/heat-kernel convolutions.
 
 \paragraph{Real inner product as a bilinear CLM.}
-\texttt{realInnerBiL}, \texttt{realInnerL}, \texttt{realInnerL\_apply}, with
-\texttt{innerSL\_eq\_realInnerBiL} and \texttt{norm\_realInnerBiL\_apply}
-($\|\langle w,\cdot\rangle\| = \|w\|$). Mathlib's \texttt{innerSL R} is
-\emph{conjugate}-linear, which obstructs \texttt{fderiv}; this is the same map retyped
-as an honest $\mathbb{R}$-bilinear CLM. Previously duplicated verbatim in both Heat and
-Laplace.
+\texttt{realInnerBiL}, \texttt{realInnerL}, with \texttt{norm\_realInnerBiL\_apply}. Mathlib's
+\texttt{innerSL R} is \emph{conjugate}-linear, which obstructs \texttt{fderiv}; this is the
+same map retyped as an honest $\mathbb{R}$-bilinear CLM.
 
 \paragraph{Radial power calculus.}
-\texttt{hasFDerivAt\_norm\_rpow\_of\_ne} ($D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$)
-and \texttt{laplacian\_norm\_rpow\_eq}
-($\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ for $x\neq 0$, any real $p$). The latter is
-\emph{why} $\|x\|^{2-n}$ and $\log\|x\|$ are harmonic, and underlies the Laplace
-fundamental solutions.
+\texttt{hasFDerivAt\_norm\_rpow\_of\_ne}, \texttt{laplacian\_norm\_rpow\_eq}
+($\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$, $x\neq 0$), and \texttt{laplacian\_norm\_sq}
+($\Delta\|\cdot\|^2 = 2n$ everywhere --- the canonical strictly subharmonic perturbation used
+in the maximum principle). The rpow Laplacian is \emph{why} $\|x\|^{2-n}$ and $\log\|x\|$ are
+harmonic.
 
-\paragraph{Continuous-linear-map / second-derivative helpers.}
-\texttt{norm\_add\_sq\_le\_two} ($\|a+b\|^2 \le 2\|a\|^2 + 2\|b\|^2$);
-\texttt{norm\_smul\_clm\_le} ($\|c \cdot L\| \le \|c\|\,\|L\|$, proved directly so it
-applies even to iterated CLM spaces where Mathlib's \texttt{NormSMulClass} instance is
-missing); \texttt{norm\_comp\_apply\_le}; the eval-bridge \texttt{fderiv\_fderiv\_apply}
-($\text{fderiv}(z\mapsto \text{fderiv}\,h\,z\,v)\,x\,w = \text{fderiv}(\text{fderiv}\,h)\,x\,w\,v$),
-which converts a second Fréchet derivative into nested scalar directional derivatives;
-and \texttt{laplacian\_integral\_eq}, which moves the whole Laplacian under an integral
-sign ($\Delta(\!\int K(\cdot,y))\,x = \int \Delta K(\cdot,y)\,x$) once each diagonal
-second directional derivative does, packaging the trace-and-swap plumbing for reuse by
-the Newtonian potential.
+\paragraph{Radial integrability on the ball.}
+\texttt{integrableOn\_unitBall\_radial} (reduce a radial ball integral to a 1-D radial integral
+via Mathlib's \texttt{integrable\_fun\_norm\_addHaar}) and \texttt{integrableOn\_norm\_rpow\_unitBall}
+($\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$). These resolve the former $n$-dim-polar-coordinates
+blocker for the Laplace fundamental solution.
+
+\paragraph{Second-derivative / maximum-principle helpers.}
+\texttt{norm\_smul\_clm\_le}, \texttt{norm\_comp\_apply\_le}; the eval-bridge
+\texttt{fderiv\_fderiv\_apply} (second Fréchet derivative $\to$ nested scalar directional
+derivatives); \texttt{laplacian\_integral\_eq} (Laplacian under an integral sign); and the
+analytic core of the maximum principle, \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax}
+($g''(t)\le 0$ at a local max) and \texttt{laplacian\_nonpos\_of\_isLocalMax} ($\Delta f\le 0$
+at an interior local max of a $C^2$ function).
 
 \subsection{Status Summary}
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
   \toprule
-  \textbf{Definition / lemma} & \textbf{Description} & \textbf{Status} \\
+  \textbf{Definition} & \textbf{Description} & \textbf{Status} \\
   \midrule
   \texttt{spatialGradient}  & $Du(x,t)$ as a vector in $\mathbb{R}^n$          & \textcolor{mathgreen}{\checkmark} \\
   \texttt{timeDerivative}   & $u_t(x,t)$ as a scalar                            & \textcolor{mathgreen}{\checkmark} \\
@@ -1500,11 +1512,16 @@ the Newtonian potential.
   \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{integrable\_*\_exp\_neg\_mul\_norm\_sq} & $n$-dim Gaussian moments ($k=0,1,2$) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{realInnerBiL} / \texttt{realInnerL} & real inner product as $\mathbb{R}$-bilinear CLM & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p)$ formula & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_norm\_sq} & $\Delta(\|\cdot\|^2) = 2n$ (everywhere) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integrableOn\_unitBall\_radial} & radial reduction of ball integrability & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integrableOn\_norm\_rpow\_unitBall} & $\|\cdot\|^p \in L^1(B(0,1))$ iff $p>-n$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{norm\_smul\_clm\_le} & $\|c\cdot L\| \le \|c\|\,\|L\|$ for CLMs & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fderiv\_fderiv\_apply} & second-derivative eval-bridge & \textcolor{mathgreen}{\checkmark} \\
   \texttt{laplacian\_integral\_eq} & Laplacian under the integral sign & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f \le 0$ at an interior local max & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
