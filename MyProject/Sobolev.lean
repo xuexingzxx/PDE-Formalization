@@ -369,4 +369,64 @@ theorem isWeakDerivInDir_of_tendsto_L1 {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝ�
     simpa only [← heq] using hR.neg
   exact tendsto_nhds_unique hL hRneg
 
+/-- **Hölder bridge.** On a set of finite measure, `Lᵖ` convergence (`1 ≤ p < ∞`) implies `L¹`
+convergence: if `eLpNorm (hₖ) p → 0` then `∫_K |hₖ| → 0`. This connects Mathlib's `Lᵖ` convergence
+to the `L¹`-on-compacts hypothesis of `isWeakDerivInDir_of_tendsto_L1`. -/
+lemma tendsto_setIntegral_abs_of_tendsto_eLpNorm
+    {hₖ : ℕ → ℝⁿ → ℝ} {K : Set ℝⁿ} (hKfin : volume K ≠ ⊤) {p : ℝ≥0∞} (hp1 : 1 ≤ p) (hp_ne : p ≠ ⊤)
+    (hmem : ∀ k, MemLp (hₖ k) p (volume.restrict K))
+    (hconv : Tendsto (fun k => eLpNorm (hₖ k) p (volume.restrict K)) atTop (nhds 0)) :
+    Tendsto (fun k => ∫ x in K, |hₖ k x|) atTop (nhds 0) := by
+  haveI : IsFiniteMeasure (volume.restrict K) :=
+    ⟨by rw [Measure.restrict_apply_univ]; exact lt_top_iff_ne_top.mpr hKfin⟩
+  have hpt : (1 : ℝ) ≤ p.toReal := by
+    rw [← ENNReal.toReal_one]; exact ENNReal.toReal_mono hp_ne hp1
+  have hexp : (0 : ℝ) ≤ 1 / (1 : ℝ≥0∞).toReal - 1 / p.toReal := by
+    rw [ENNReal.toReal_one]
+    have : (1 : ℝ) / p.toReal ≤ 1 := div_le_one_of_le₀ hpt (by linarith)
+    simpa using this
+  set c : ℝ≥0∞ := (volume.restrict K) Set.univ ^ (1 / (1 : ℝ≥0∞).toReal - 1 / p.toReal) with hc
+  have hc_ne : c ≠ ⊤ :=
+    ENNReal.rpow_ne_top_of_nonneg hexp (by rw [Measure.restrict_apply_univ]; exact hKfin)
+  have hle : ∀ k, eLpNorm (hₖ k) 1 (volume.restrict K)
+      ≤ eLpNorm (hₖ k) p (volume.restrict K) * c := fun k =>
+    eLpNorm_le_eLpNorm_mul_rpow_measure_univ hp1 (hmem k).aestronglyMeasurable
+  have hmulto : Tendsto (fun k => eLpNorm (hₖ k) p (volume.restrict K) * c) atTop (nhds 0) := by
+    simpa using ENNReal.Tendsto.mul_const hconv (Or.inr hc_ne)
+  have h1to : Tendsto (fun k => eLpNorm (hₖ k) 1 (volume.restrict K)) atTop (nhds 0) :=
+    tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hmulto (fun k => zero_le _) hle
+  have hint : ∀ k, ∫ x in K, |hₖ k x| = (eLpNorm (hₖ k) 1 (volume.restrict K)).toReal := by
+    intro k
+    rw [eLpNorm_one_eq_lintegral_enorm,
+      ← integral_norm_eq_lintegral_enorm (hmem k).aestronglyMeasurable]
+    simp only [Real.norm_eq_abs]
+  simp_rw [hint]
+  simpa using (ENNReal.tendsto_toReal ENNReal.zero_ne_top).comp h1to
+
+/-- **Closedness of the weak derivative under `Lᵖ` limits** (`1 ≤ p < ∞`). If each `vₖ` is a weak
+`e`-derivative of `uₖ`, and `uₖ → u`, `vₖ → v` in `Lᵖ`, then `v` is a weak `e`-derivative of `u`.
+This is the `Lᵖ`-level form of the completeness cornerstone, obtained from
+`isWeakDerivInDir_of_tendsto_L1` via the Hölder bridge above (on each compact set). -/
+theorem isWeakDerivInDir_of_tendsto_Lp {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ}
+    {uₖ vₖ : ℕ → ℝⁿ → ℝ} {p : ℝ≥0∞} (hp1 : 1 ≤ p) (hp_ne : p ≠ ⊤)
+    (hweak : ∀ k, IsWeakDerivInDir U e (uₖ k) (vₖ k))
+    (hukloc : ∀ k, LocallyIntegrable (uₖ k) volume) (huloc : LocallyIntegrable u volume)
+    (hvkloc : ∀ k, LocallyIntegrable (vₖ k) volume) (hvloc : LocallyIntegrable v volume)
+    (humem : ∀ k, MemLp (fun x => uₖ k x - u x) p volume)
+    (hvmem : ∀ k, MemLp (fun x => vₖ k x - v x) p volume)
+    (hucon : Tendsto (fun k => eLpNorm (fun x => uₖ k x - u x) p volume) atTop (nhds 0))
+    (hvcon : Tendsto (fun k => eLpNorm (fun x => vₖ k x - v x) p volume) atTop (nhds 0)) :
+    IsWeakDerivInDir U e u v := by
+  refine isWeakDerivInDir_of_tendsto_L1 hweak hukloc huloc hvkloc hvloc ?_ ?_
+  · intro K hK
+    refine tendsto_setIntegral_abs_of_tendsto_eLpNorm hK.measure_lt_top.ne hp1 hp_ne
+      (fun k => (humem k).restrict K) ?_
+    exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hucon
+      (fun k => zero_le _) (fun k => eLpNorm_mono_measure _ Measure.restrict_le_self)
+  · intro K hK
+    refine tendsto_setIntegral_abs_of_tendsto_eLpNorm hK.measure_lt_top.ne hp1 hp_ne
+      (fun k => (hvmem k).restrict K) ?_
+    exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hvcon
+      (fun k => zero_le _) (fun k => eLpNorm_mono_measure _ Measure.restrict_le_self)
+
 end Sobolev
