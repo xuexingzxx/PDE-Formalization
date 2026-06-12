@@ -197,6 +197,12 @@ theorem isWeakDerivInDir_const (U : Set ℝⁿ) (e : ℝⁿ) (c : ℝ) :
   rw [← heq]
   exact isWeakDerivInDir_of_contDiff U e contDiff_const
 
+/-- **Locality of the weak derivative.** A weak `e`-derivative on `U` is also a weak `e`-derivative
+on any subset `V ⊆ U`, since every test function on `V` is a test function on `U`. -/
+theorem IsWeakDerivInDir.mono {U V : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ} (hVU : V ⊆ U)
+    (h : IsWeakDerivInDir U e u v) : IsWeakDerivInDir V e u v :=
+  fun φ hφ => h φ ⟨hφ.contDiff, hφ.hasCompactSupport, hφ.tsupport_subset.trans hVU⟩
+
 /-- The weak-derivative relation only depends on `u` and `v` up to almost-everywhere equality,
 so it descends to `Lᵖ` equivalence classes. -/
 theorem IsWeakDerivInDir.congr_ae {U : Set ℝⁿ} {e : ℝⁿ} {u u' v v' : ℝⁿ → ℝ}
@@ -324,6 +330,14 @@ theorem memW1p_of_contDiff_hasCompactSupport (U : Set ℝⁿ) (p : ℝ≥0∞) {
       have hcs : HasCompactSupport (fun x => fderiv ℝ u x (EuclideanSpace.single i (1 : ℝ))) :=
         hsupp.fderiv_apply (𝕜 := ℝ) (EuclideanSpace.single i (1 : ℝ))
       exact (hcont.memLp_of_hasCompactSupport hcs).restrict U
+
+/-- **`W^{1,p}` is local**: if `u ∈ W^{1,p}(U)` and `V ⊆ U`, then `u ∈ W^{1,p}(V)`. -/
+theorem MemW1p.mono {U V : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hVU : V ⊆ U) (h : MemW1p U p u) :
+    MemW1p V p u where
+  memLp := h.memLp.mono_measure (Measure.restrict_mono hVU le_rfl)
+  exists_weakDeriv := fun i => by
+    obtain ⟨v, hv, hvLp⟩ := h.exists_weakDeriv i
+    exact ⟨v, hv.mono hVU, hvLp.mono_measure (Measure.restrict_mono hVU le_rfl)⟩
 
 /-! ### Closedness of the weak derivative under limits (towards completeness) -/
 
@@ -578,5 +592,78 @@ being a closed subspace of the complete space `Lᵖ × (Fin n → Lᵖ)`. -/
 theorem completeSpace_weakGradientSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
     CompleteSpace (weakGradientSubmodule (n := n) (p := p)) :=
   completeSpace_coe_iff_isComplete.mpr (isClosed_weakGradientSubmodule hp_ne).isComplete
+
+/-! ### The Sobolev norm
+
+The weak-gradient submodule above already gives a Banach space, but with the ambient `Lᵖ × (Fin
+n → Lᵖ)` norm (a max/sup combination). To carry the *genuine* Sobolev norm
+`‖u‖_{W^{1,p}} = (‖u‖ₚᵖ + ∑ᵢ ‖∂ᵢu‖ₚᵖ)^{1/p}` we realise the space inside `PiLp p (Fin (n+1) → Lᵖ)`,
+whose norm is exactly this `ℓᵖ` combination (`PiLp.norm_eq_sum`). Index `0` carries the function and
+index `i + 1` carries its weak `i`-th partial derivative. -/
+
+/-- `W^{1,p}(ℝⁿ)` carrying its genuine Sobolev norm, as a submodule of `PiLp p (Fin (n+1) → Lᵖ)`:
+index `0` is the function, index `i.succ` is its weak `i`-th partial derivative. -/
+def sobolevSpace {p : ℝ≥0∞} [Fact (1 ≤ p)] :
+    Submodule ℝ (PiLp p (fun _ : Fin (n + 1) => Lp ℝ p (volume : Measure ℝⁿ))) where
+  carrier := {x | ∀ i : Fin n,
+    IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ)) ⇑(x 0) ⇑(x i.succ)}
+  zero_mem' := by
+    intro i
+    have h0 : IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ))
+        (fun _ : ℝⁿ => (0 : ℝ)) (fun _ => 0) := by intro φ _; simp
+    exact h0.congr_ae (Lp.coeFn_zero ..).symm (Lp.coeFn_zero ..).symm
+  add_mem' := by
+    intro a b ha hb i
+    have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+    have key := IsWeakDerivInDir.add ((Lp.memLp (a 0)).locallyIntegrable hp1)
+      ((Lp.memLp (b 0)).locallyIntegrable hp1) ((Lp.memLp (a i.succ)).locallyIntegrable hp1)
+      ((Lp.memLp (b i.succ)).locallyIntegrable hp1) (ha i) (hb i)
+    exact key.congr_ae (Lp.coeFn_add (a 0) (b 0)).symm (Lp.coeFn_add (a i.succ) (b i.succ)).symm
+  smul_mem' := by
+    intro c a ha i
+    exact ((ha i).const_smul c).congr_ae (Lp.coeFn_smul c (a 0)).symm
+      (Lp.coeFn_smul c (a i.succ)).symm
+
+/-- The norm on `sobolevSpace` is the genuine **Sobolev norm**
+`(‖f‖ₚᵖ + ∑ᵢ ‖∂ᵢf‖ₚᵖ)^{1/p}` — the `ℓᵖ` norm of the function together with its weak partials. -/
+lemma norm_eq_sobolev {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤)
+    (x : PiLp p (fun _ : Fin (n + 1) => Lp ℝ p (volume : Measure ℝⁿ))) :
+    ‖x‖ = (∑ i, ‖x i‖ ^ p.toReal) ^ (1 / p.toReal) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hpos : (0 : ℝ) < p.toReal := ENNReal.toReal_pos (zero_lt_one.trans_le hp1).ne' hp_ne
+  exact PiLp.norm_eq_sum hpos x
+
+/-- `W^{1,p}(ℝⁿ)` (with the Sobolev norm) is closed in `PiLp p (Fin (n+1) → Lᵖ)`: it is the
+intersection over the coordinate directions of the single-direction weak-derivative graphs, pulled
+back along the continuous projections `x ↦ (x 0, x i.succ)`. -/
+theorem isClosed_sobolevSpace {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    IsClosed (sobolevSpace (n := n) (p := p) :
+      Set (PiLp p (fun _ : Fin (n + 1) => Lp ℝ p (volume : Measure ℝⁿ)))) := by
+  have hset : (sobolevSpace (n := n) (p := p) :
+        Set (PiLp p (fun _ : Fin (n + 1) => Lp ℝ p (volume : Measure ℝⁿ))))
+      = ⋂ i : Fin n,
+          (fun x : PiLp p (fun _ : Fin (n + 1) => Lp ℝ p (volume : Measure ℝⁿ)) =>
+            (x 0, x i.succ)) ⁻¹'
+          {ab : Lp ℝ p (volume : Measure ℝⁿ) × Lp ℝ p (volume : Measure ℝⁿ) |
+            IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ)) ⇑ab.1 ⇑ab.2} := by
+    ext x
+    simp only [SetLike.mem_coe, Set.mem_iInter, Set.mem_preimage, Set.mem_setOf_eq]
+    rfl
+  rw [hset]
+  refine isClosed_iInter fun i => ?_
+  have c0 : Continuous
+      (fun x : PiLp p (fun _ : Fin (n + 1) => Lp ℝ p (volume : Measure ℝⁿ)) => x 0) := by
+    fun_prop
+  have ci : Continuous
+      (fun x : PiLp p (fun _ : Fin (n + 1) => Lp ℝ p (volume : Measure ℝⁿ)) => x i.succ) := by
+    fun_prop
+  exact (isClosed_isWeakDerivInDir_graph hp_ne (EuclideanSpace.single i (1 : ℝ))).preimage
+    (c0.prodMk ci)
+
+/-- **`W^{1,p}(ℝⁿ)` with the Sobolev norm is a Banach space** (`1 ≤ p < ∞`): `sobolevSpace` is a
+closed subspace of the complete space `PiLp p (Fin (n+1) → Lᵖ)`. -/
+theorem completeSpace_sobolevSpace {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    CompleteSpace (sobolevSpace (n := n) (p := p)) :=
+  completeSpace_coe_iff_isComplete.mpr (isClosed_sobolevSpace hp_ne).isComplete
 
 end Sobolev
