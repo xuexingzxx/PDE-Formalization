@@ -451,4 +451,34 @@ theorem isClosed_isWeakDerivInDir_graph {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne
     (fun k => (Lp.memLp (F k).1).sub (Lp.memLp FG.1))
     (fun k => (Lp.memLp (F k).2).sub (Lp.memLp FG.2)) hucon hvcon
 
+/-- The **single-direction Sobolev space** as a submodule of `Lᵖ × Lᵖ`: the pairs `(f, g)` of `Lᵖ`
+functions on `ℝⁿ` with `g` the weak `e`-derivative of `f`. (The full `W^{1,p}(ℝⁿ)` is the analogous
+construction over `Lᵖ × (Fin n → Lᵖ)`, intersecting one such graph per coordinate direction.) The
+subspace axioms come from linearity of the weak derivative together with `congr_ae`, which makes the
+relation well-defined on `Lᵖ` equivalence classes. -/
+def weakDerivSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] (e : ℝⁿ) :
+    Submodule ℝ (Lp ℝ p (volume : Measure ℝⁿ) × Lp ℝ p (volume : Measure ℝⁿ)) where
+  carrier := {fg | IsWeakDerivInDir Set.univ e ⇑fg.1 ⇑fg.2}
+  zero_mem' := by
+    have h0 : IsWeakDerivInDir Set.univ e (fun _ : ℝⁿ => (0 : ℝ)) (fun _ => 0) := by
+      intro φ _; simp
+    exact h0.congr_ae (Lp.coeFn_zero ..).symm (Lp.coeFn_zero ..).symm
+  add_mem' := by
+    intro a b ha hb
+    have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+    have key := IsWeakDerivInDir.add ((Lp.memLp a.1).locallyIntegrable hp1)
+      ((Lp.memLp b.1).locallyIntegrable hp1) ((Lp.memLp a.2).locallyIntegrable hp1)
+      ((Lp.memLp b.2).locallyIntegrable hp1) ha hb
+    exact key.congr_ae (Lp.coeFn_add a.1 b.1).symm (Lp.coeFn_add a.2 b.2).symm
+  smul_mem' := by
+    intro c a ha
+    exact (ha.const_smul c).congr_ae (Lp.coeFn_smul c a.1).symm (Lp.coeFn_smul c a.2).symm
+
+/-- **The single-direction Sobolev space is a Banach space** (`1 ≤ p < ∞`): `weakDerivSubmodule e`
+is complete, being a closed subspace (`isClosed_isWeakDerivInDir_graph`) of the complete space
+`Lᵖ × Lᵖ`. -/
+theorem completeSpace_weakDerivSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) (e : ℝⁿ) :
+    CompleteSpace (weakDerivSubmodule (p := p) e) :=
+  completeSpace_coe_iff_isComplete.mpr (isClosed_isWeakDerivInDir_graph hp_ne e).isComplete
+
 end Sobolev
