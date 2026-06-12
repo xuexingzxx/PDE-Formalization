@@ -285,4 +285,88 @@ theorem memW1p_of_contDiff_hasCompactSupport (U : Set ℝⁿ) (p : ℝ≥0∞) {
         hsupp.fderiv_apply (𝕜 := ℝ) (EuclideanSpace.single i (1 : ℝ))
       exact (hcont.memLp_of_hasCompactSupport hcs).restrict U
 
+/-! ### Closedness of the weak derivative under limits (towards completeness) -/
+
+open Filter
+
+/-- If `wₖ → w` in `L¹` on the (compact) support of a continuous, compactly supported weight `g`,
+then `∫ wₖ · g → ∫ w · g`. Integration against a fixed compactly supported weight is continuous for
+`L¹`-on-compacts convergence; this is the analytic engine behind closedness of weak derivatives. -/
+lemma tendsto_integral_mul_of_tendsto_setIntegral_abs
+    {wₖ : ℕ → ℝⁿ → ℝ} {w g : ℝⁿ → ℝ}
+    (hwkloc : ∀ k, LocallyIntegrable (wₖ k) volume) (hwloc : LocallyIntegrable w volume)
+    (hg : Continuous g) (hgcs : HasCompactSupport g)
+    (hconv : Tendsto (fun k => ∫ x in tsupport g, |wₖ k x - w x|) atTop (nhds 0)) :
+    Tendsto (fun k => ∫ x, wₖ k x * g x) atTop (nhds (∫ x, w x * g x)) := by
+  obtain ⟨C, hC⟩ := hg.bounded_above_of_compact_support hgcs
+  have hKmeas : MeasurableSet (tsupport g) := (isClosed_tsupport g).measurableSet
+  -- Products and differences are integrable.
+  have iwk : ∀ k, Integrable (fun x => wₖ k x * g x) volume := fun k =>
+    (hwkloc k).integrable_smul_right_of_hasCompactSupport hg hgcs
+  have iw : Integrable (fun x => w x * g x) volume :=
+    hwloc.integrable_smul_right_of_hasCompactSupport hg hgcs
+  have ih : ∀ k, Integrable (fun x => (wₖ k x - w x) * g x) volume := fun k =>
+    ((hwkloc k).sub hwloc).integrable_smul_right_of_hasCompactSupport hg hgcs
+  have hdiff : ∀ k, (∫ x, wₖ k x * g x) - ∫ x, w x * g x = ∫ x, (wₖ k x - w x) * g x := by
+    intro k; rw [← integral_sub (iwk k) iw]; congr 1; funext x; ring
+  -- Pointwise/norm bound: `‖∫ (wₖ-w) g‖ ≤ C · ∫_{tsupp g} |wₖ-w|`.
+  have hbound : ∀ k, ‖∫ x, (wₖ k x - w x) * g x‖ ≤ C * ∫ x in tsupport g, |wₖ k x - w x| := by
+    intro k
+    have hzero : ∀ x ∉ tsupport g, ‖(wₖ k x - w x) * g x‖ = 0 := by
+      intro x hx; rw [image_eq_zero_of_notMem_tsupport hx, mul_zero, norm_zero]
+    have iRHS : IntegrableOn (fun x => C * |wₖ k x - w x|) (tsupport g) volume :=
+      (((hwkloc k).sub hwloc).integrableOn_isCompact hgcs).abs.const_mul C
+    have hpt : ∀ x ∈ tsupport g, ‖(wₖ k x - w x) * g x‖ ≤ C * |wₖ k x - w x| := by
+      intro x _
+      calc ‖(wₖ k x - w x) * g x‖ = |wₖ k x - w x| * |g x| := by
+              rw [Real.norm_eq_abs, abs_mul]
+        _ ≤ |wₖ k x - w x| * C := by
+              apply mul_le_mul_of_nonneg_left _ (abs_nonneg _)
+              rw [← Real.norm_eq_abs]; exact hC x
+        _ = C * |wₖ k x - w x| := mul_comm _ _
+    calc ‖∫ x, (wₖ k x - w x) * g x‖
+        ≤ ∫ x, ‖(wₖ k x - w x) * g x‖ := norm_integral_le_integral_norm _
+      _ = ∫ x in tsupport g, ‖(wₖ k x - w x) * g x‖ :=
+            (setIntegral_eq_integral_of_forall_compl_eq_zero hzero).symm
+      _ ≤ ∫ x in tsupport g, C * |wₖ k x - w x| :=
+            setIntegral_mono_on (ih k).norm.integrableOn iRHS hKmeas hpt
+      _ = C * ∫ x in tsupport g, |wₖ k x - w x| := integral_const_mul C _
+  -- Squeeze the difference to `0`, then add back the constant limit.
+  have hsqnorm : Tendsto (fun k => ‖∫ x, (wₖ k x - w x) * g x‖) atTop (nhds 0) :=
+    squeeze_zero (fun k => norm_nonneg _) hbound (by simpa using hconv.const_mul C)
+  have hsq : Tendsto (fun k => ∫ x, (wₖ k x - w x) * g x) atTop (nhds 0) :=
+    tendsto_zero_iff_norm_tendsto_zero.mpr hsqnorm
+  have hsub : Tendsto (fun k => (∫ x, wₖ k x * g x) - ∫ x, w x * g x) atTop (nhds 0) := by
+    simpa only [hdiff] using hsq
+  simpa using hsub.add_const (∫ x, w x * g x)
+
+/-- **Closedness of the weak derivative under `L¹`-on-compacts limits.** If each `vₖ` is a weak
+`e`-derivative of `uₖ`, and `uₖ → u`, `vₖ → v` in `L¹` on every compact set, then `v` is a weak
+`e`-derivative of `u`. This is the analytic cornerstone of completeness of `W^{1,p}`: it lets one
+pass to the limit in the defining integration-by-parts identity. -/
+theorem isWeakDerivInDir_of_tendsto_L1 {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ}
+    {uₖ vₖ : ℕ → ℝⁿ → ℝ}
+    (hweak : ∀ k, IsWeakDerivInDir U e (uₖ k) (vₖ k))
+    (hukloc : ∀ k, LocallyIntegrable (uₖ k) volume) (huloc : LocallyIntegrable u volume)
+    (hvkloc : ∀ k, LocallyIntegrable (vₖ k) volume) (hvloc : LocallyIntegrable v volume)
+    (hu : ∀ K : Set ℝⁿ, IsCompact K →
+      Tendsto (fun k => ∫ x in K, |uₖ k x - u x|) atTop (nhds 0))
+    (hv : ∀ K : Set ℝⁿ, IsCompact K →
+      Tendsto (fun k => ∫ x in K, |vₖ k x - v x|) atTop (nhds 0)) :
+    IsWeakDerivInDir U e u v := by
+  intro φ hφ
+  have hL : Tendsto (fun k => ∫ x, uₖ k x * fderiv ℝ φ x e) atTop
+      (nhds (∫ x, u x * fderiv ℝ φ x e)) :=
+    tendsto_integral_mul_of_tendsto_setIntegral_abs hukloc huloc
+      (hφ.continuous_dirDeriv e) (hφ.hasCompactSupport_dirDeriv e)
+      (hu _ (hφ.hasCompactSupport_dirDeriv e))
+  have hR : Tendsto (fun k => ∫ x, vₖ k x * φ x) atTop (nhds (∫ x, v x * φ x)) :=
+    tendsto_integral_mul_of_tendsto_setIntegral_abs hvkloc hvloc
+      hφ.continuous hφ.hasCompactSupport (hv _ hφ.hasCompactSupport)
+  have heq : ∀ k, ∫ x, uₖ k x * fderiv ℝ φ x e = -∫ x, vₖ k x * φ x := fun k => hweak k φ hφ
+  have hRneg : Tendsto (fun k => ∫ x, uₖ k x * fderiv ℝ φ x e) atTop
+      (nhds (-∫ x, v x * φ x)) := by
+    simpa only [← heq] using hR.neg
+  exact tendsto_nhds_unique hL hRneg
+
 end Sobolev

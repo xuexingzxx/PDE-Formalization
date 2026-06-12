@@ -1671,6 +1671,47 @@ $\partial_{e_i} u$, which is again continuous with compact support. Restricting 
 $U$ gives membership in $L^p(U)$.
 \end{proof}
 
+\subsection{Closedness under limits (towards completeness)}
+
+The analytic cornerstone of completeness of $W^{1,p}$ is that the weak derivative is
+\emph{closed} under convergence: one may pass to the limit in the defining
+integration-by-parts identity. We prove this for $L^1$-on-compacts convergence.
+
+\begin{theorem}[Closedness]
+Suppose each $v_k$ is a weak $e$-derivative of $u_k$, and $u_k\to u$, $v_k\to v$ in
+$L^1$ on every compact set. Then $v$ is a weak $e$-derivative of $u$.
+\end{theorem}
+
+\begin{lstlisting}[caption={Closedness under L1-on-compacts limits (proved)}]
+theorem isWeakDerivInDir_of_tendsto_L1 {U : Set Rn} {e : Rn} {u v : Rn -> R}
+    {uk vk : Nat -> Rn -> R}
+    (hweak : ForAll k, IsWeakDerivInDir U e (uk k) (vk k))
+    (hukloc : ForAll k, LocallyIntegrable (uk k)) (huloc : LocallyIntegrable u)
+    (hvkloc : ForAll k, LocallyIntegrable (vk k)) (hvloc : LocallyIntegrable v)
+    (hu : ForAll K, IsCompact K ->
+      Tendsto (fun k => integral x in K, |uk k x - u x|) atTop (nhds 0))
+    (hv : ForAll K, IsCompact K ->
+      Tendsto (fun k => integral x in K, |vk k x - v x|) atTop (nhds 0)) :
+    IsWeakDerivInDir U e u v
+\end{lstlisting}
+
+\begin{proof}
+Fix a test function $\phi$. For each $k$, $\int u_k\,\partial_e\phi = -\int v_k\,\phi$.
+The engine (lemma \texttt{tendsto\_integral\_mul\_of\_tendsto\_setIntegral\_abs}) is
+that integration against a fixed continuous compactly supported weight $g$ is
+continuous for $L^1$-on-compacts convergence: writing $K=\operatorname{tsupp}g$ and
+$C=\sup\|g\|$,
+\[
+  \Bigl\|\int (w_k-w)\,g\Bigr\|
+  \le \int_K \|(w_k-w)\,g\|
+  \le C\int_K |w_k-w| \;\longrightarrow\; 0,
+\]
+so $\int w_k\,g\to\int w\,g$ by a squeeze. Applying this with $g=\partial_e\phi$ and
+$g=\phi$ gives $\int u_k\,\partial_e\phi\to\int u\,\partial_e\phi$ and
+$\int v_k\,\phi\to\int v\,\phi$; uniqueness of limits in the per-$k$ identity yields
+$\int u\,\partial_e\phi = -\int v\,\phi$.
+\end{proof}
+
 \subsection{Mathlib foundations leveraged}
 
 Three Mathlib results --- which a preliminary survey expected to be missing --- made
@@ -1712,6 +1753,7 @@ explicitly in each lemma avoids it.
   \texttt{IsWeakDerivInDir.mul\_smooth} & product rule with a smooth function          & \textcolor{mathgreen}{\checkmark} \\
   \texttt{isWeakDerivInDir\_ae\_unique} & weak derivative unique a.e.                  & \textcolor{mathgreen}{\checkmark} \\
   \texttt{memW1p\_of\_contDiff\_hasCompactSupport} & $C^\infty_c \subseteq W^{1,p}$    & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{isWeakDerivInDir\_of\_tendsto\_L1} & closed under $L^1$-on-compacts limits   & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1723,7 +1765,10 @@ explicitly in each lemma avoids it.
     $W^{k,p}$ with its norm
     $\|u\|_{W^{k,p}} = \bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$.
   \item \textbf{Completeness} of $W^{1,p}$ (Banach), and the Sobolev norm as a genuine
-    norm on a quotient/subtype.
+    norm on a quotient/subtype. The analytic cornerstone --- closedness of the weak
+    derivative under limits --- is now proved
+    (\texttt{isWeakDerivInDir\_of\_tendsto\_L1}); what remains is the bundled normed-space
+    construction on top of Mathlib's $L^p$.
   \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
     language. Mathlib already proves the analytic core
     (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.
