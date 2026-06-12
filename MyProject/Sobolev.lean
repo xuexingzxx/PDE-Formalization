@@ -157,6 +157,46 @@ theorem IsWeakDerivInDir.const_smul {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ 
     rw [← integral_const_mul]; congr 1; ext x; ring
   rw [hl, hr, he, mul_neg]
 
+/-- The weak derivative negates: if `v` is a weak `e`-derivative of `u`, then `-v` is a weak
+`e`-derivative of `-u`. -/
+theorem IsWeakDerivInDir.neg {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ}
+    (h : IsWeakDerivInDir U e u v) :
+    IsWeakDerivInDir U e (fun x => -u x) (fun x => -v x) := by
+  intro φ hφ
+  have he := h φ hφ
+  simp only [neg_mul, integral_neg, he, neg_neg]
+
+/-- The weak derivative is subtractive: if `v₁, v₂` are weak `e`-derivatives of `u₁, u₂`, then
+`v₁ - v₂` is a weak `e`-derivative of `u₁ - u₂`. -/
+theorem IsWeakDerivInDir.sub {U : Set ℝⁿ} {e : ℝⁿ} {u₁ u₂ v₁ v₂ : ℝⁿ → ℝ}
+    (hu₁ : LocallyIntegrable u₁ volume) (hu₂ : LocallyIntegrable u₂ volume)
+    (hv₁ : LocallyIntegrable v₁ volume) (hv₂ : LocallyIntegrable v₂ volume)
+    (h₁ : IsWeakDerivInDir U e u₁ v₁) (h₂ : IsWeakDerivInDir U e u₂ v₂) :
+    IsWeakDerivInDir U e (fun x => u₁ x - u₂ x) (fun x => v₁ x - v₂ x) := by
+  intro φ hφ
+  have e₁ := h₁ φ hφ
+  have e₂ := h₂ φ hφ
+  have hsplit_lhs : ∫ x, (u₁ x - u₂ x) * fderiv ℝ φ x e
+      = (∫ x, u₁ x * fderiv ℝ φ x e) - ∫ x, u₂ x * fderiv ℝ φ x e := by
+    simp_rw [sub_mul]
+    exact integral_sub (integrable_mul_dirDeriv_testFunction e hu₁ hφ)
+      (integrable_mul_dirDeriv_testFunction e hu₂ hφ)
+  have hsplit_rhs : ∫ x, (v₁ x - v₂ x) * φ x
+      = (∫ x, v₁ x * φ x) - ∫ x, v₂ x * φ x := by
+    simp_rw [sub_mul]
+    exact integral_sub (integrable_mul_testFunction hv₁ hφ)
+      (integrable_mul_testFunction hv₂ hφ)
+  rw [hsplit_lhs, hsplit_rhs, e₁, e₂]; ring
+
+/-- A **constant function has zero weak derivative** in every direction. A clean corollary of the
+classical-to-weak bridge applied to the (smooth) constant. -/
+theorem isWeakDerivInDir_const (U : Set ℝⁿ) (e : ℝⁿ) (c : ℝ) :
+    IsWeakDerivInDir U e (fun _ => c) (fun _ => 0) := by
+  have heq : (fun x : ℝⁿ => fderiv ℝ (fun _ : ℝⁿ => c) x e) = fun _ => 0 := by
+    funext x; simp [fderiv_const_apply]
+  rw [← heq]
+  exact isWeakDerivInDir_of_contDiff U e contDiff_const
+
 /-- The weak-derivative relation only depends on `u` and `v` up to almost-everywhere equality,
 so it descends to `Lᵖ` equivalence classes. -/
 theorem IsWeakDerivInDir.congr_ae {U : Set ℝⁿ} {e : ℝⁿ} {u u' v v' : ℝⁿ → ℝ}
@@ -505,6 +545,14 @@ def weakGradientSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] :
   smul_mem' := by
     intro c a ha i
     exact ((ha i).const_smul c).congr_ae (Lp.coeFn_smul c a.1).symm (Lp.coeFn_smul c (a.2 i)).symm
+
+/-- Membership in `W^{1,p}(ℝⁿ)`: `(f, g)` lies in the weak-gradient submodule iff each `g i` is the
+weak derivative of `f` in the `i`-th coordinate direction. -/
+@[simp] lemma mem_weakGradientSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (fg : Lp ℝ p (volume : Measure ℝⁿ) × (Fin n → Lp ℝ p (volume : Measure ℝⁿ))) :
+    fg ∈ weakGradientSubmodule ↔
+      ∀ i, IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ)) ⇑fg.1 ⇑(fg.2 i) :=
+  Iff.rfl
 
 /-- `W^{1,p}(ℝⁿ)` is closed in `Lᵖ × (Fin n → Lᵖ)`: it is the intersection over the coordinate
 directions of the (closed) single-direction weak-derivative graphs, each pulled back along the
