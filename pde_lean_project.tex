@@ -1893,6 +1893,10 @@ explicitly in each lemma avoids it.
   \texttt{completeSpace\_weakGradientSubmodule} & $W^{1,p}(\mathbb{R}^n)$ is a Banach space & \textcolor{mathgreen}{\checkmark} \\
   \texttt{sobolevSpace} / \texttt{norm\_eq\_sobolev} & $W^{1,p}$ with the genuine Sobolev norm & \textcolor{mathgreen}{\checkmark} \\
   \texttt{completeSpace\_sobolevSpace} & \dots\ is a Banach space (Sobolev norm) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{IsWeakDerivInDir.congr\_ae\_restrict} & relation descends to $L^p(U)$ classes & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict} & closedness over $\mathrm{vol}\restriction U$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{weakGradientSubmoduleOn} & $W^{1,p}(U)$ over the restricted measure & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{completeSpace\_weakGradientSubmoduleOn} & $W^{1,p}(U)$ is a Banach space & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1906,8 +1910,15 @@ explicitly in each lemma avoids it.
   \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}:
     \texttt{completeSpace\_sobolevSpace} shows $W^{1,p}(\mathbb{R}^n)$, carrying its genuine Sobolev
     norm $(\|u\|_p^p+\sum_i\|\partial_i u\|_p^p)^{1/p}$ (via \texttt{PiLp}), is a Banach space for
-    $1\le p<\infty$. The remaining natural generalisation is to treat general open $U$ (with the
-    restricted measure) rather than all of $\mathbb{R}^n$.
+    $1\le p<\infty$. This is now \emph{also done for a general measurable set $U$ with the
+    restricted measure} $\mathrm{vol}\restriction U$ (i.e.\ genuine $L^p(U)$):
+    \texttt{completeSpace\_weakGradientSubmoduleOn} shows $W^{1,p}(U)$ is a Banach space. The
+    key extra ingredients are that the weak-derivative relation descends to $L^p(U)$ classes
+    (\texttt{IsWeakDerivInDir.congr\_ae\_restrict}; test functions vanish off $U$) and the
+    restricted-measure closedness cornerstone \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}
+    (the whole convergence chain was generalised to an arbitrary measure $\mu$, then used with
+    $\mu=\mathrm{vol}\restriction U$, bridging the $\mathrm{vol}$-integrals in the definition to
+    $\mathrm{vol}\restriction U$-integrals).
   \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
     language. Mathlib already proves the analytic core
     (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.

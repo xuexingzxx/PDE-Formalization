@@ -71,6 +71,17 @@ lemma hasCompactSupport_dirDeriv {U : Set ℝⁿ} {φ : ℝⁿ → ℝ} (hφ : I
     HasCompactSupport (fun x => fderiv ℝ φ x e) :=
   hφ.hasCompactSupport.fderiv_apply (𝕜 := ℝ) e
 
+/-- A test function vanishes outside `U`. -/
+lemma eq_zero_of_notMem {U : Set ℝⁿ} {φ : ℝⁿ → ℝ} (hφ : IsTestFunction U φ) {x : ℝⁿ}
+    (hx : x ∉ U) : φ x = 0 :=
+  image_eq_zero_of_notMem_tsupport fun hmem => hx (hφ.tsupport_subset hmem)
+
+/-- The directional derivative of a test function vanishes outside `U`. -/
+lemma dirDeriv_eq_zero_of_notMem {U : Set ℝⁿ} {φ : ℝⁿ → ℝ} (hφ : IsTestFunction U φ) (e : ℝⁿ)
+    {x : ℝⁿ} (hx : x ∉ U) : fderiv ℝ φ x e = 0 :=
+  image_eq_zero_of_notMem_tsupport (f := fun y => fderiv ℝ φ y e) fun hmem =>
+    hx (hφ.tsupport_subset (tsupport_fderiv_apply_subset (𝕜 := ℝ) (f := φ) e hmem))
+
 end IsTestFunction
 
 /-- If `w` is locally integrable and `φ` is a test function, then `w · φ` is integrable. -/
@@ -85,6 +96,20 @@ lemma integrable_mul_dirDeriv_testFunction {U : Set ℝⁿ} {w φ : ℝⁿ → �
     Integrable (fun x => w x * fderiv ℝ φ x e) volume :=
   hw.integrable_smul_right_of_hasCompactSupport (hφ.continuous_dirDeriv e)
     (hφ.hasCompactSupport_dirDeriv e)
+
+/-- If `w` is locally integrable **on `U`** and `g` is continuous with compact support, vanishing
+outside the measurable set `U`, then `w · g` is (globally) integrable. The product is supported in
+`U`, where `w` is integrable; off `U` it is `0`. -/
+lemma integrable_mul_of_locallyIntegrable_restrict {U : Set ℝⁿ} {g w : ℝⁿ → ℝ}
+    (hU : MeasurableSet U) (hw : LocallyIntegrable w (volume.restrict U))
+    (hg : Continuous g) (hgcs : HasCompactSupport g) (hgU : ∀ x ∉ U, g x = 0) :
+    Integrable (fun x => w x * g x) volume := by
+  have h1 : IntegrableOn (fun x => w x * g x) U volume :=
+    hw.integrable_smul_right_of_hasCompactSupport hg hgcs
+  have h2 : IntegrableOn (fun x => w x * g x) Uᶜ volume :=
+    integrableOn_zero.congr_fun (fun x hx => by rw [hgU x hx, mul_zero]) hU.compl
+  rw [← integrableOn_univ, ← Set.union_compl_self U]
+  exact h1.union h2
 
 /-! ### Weak derivatives -/
 
@@ -197,6 +222,37 @@ theorem isWeakDerivInDir_const (U : Set ℝⁿ) (e : ℝⁿ) (c : ℝ) :
   rw [← heq]
   exact isWeakDerivInDir_of_contDiff U e contDiff_const
 
+/-- Additivity of the weak derivative with local integrability taken **on `U`** (over
+`volume.restrict U`) — the form needed to build `W^{1,p}(U)` over the restricted measure. -/
+theorem IsWeakDerivInDir.add_restrict {U : Set ℝⁿ} (hU : MeasurableSet U) {e : ℝⁿ}
+    {u₁ u₂ v₁ v₂ : ℝⁿ → ℝ}
+    (hu₁ : LocallyIntegrable u₁ (volume.restrict U))
+    (hu₂ : LocallyIntegrable u₂ (volume.restrict U))
+    (hv₁ : LocallyIntegrable v₁ (volume.restrict U))
+    (hv₂ : LocallyIntegrable v₂ (volume.restrict U))
+    (h₁ : IsWeakDerivInDir U e u₁ v₁) (h₂ : IsWeakDerivInDir U e u₂ v₂) :
+    IsWeakDerivInDir U e (fun x => u₁ x + u₂ x) (fun x => v₁ x + v₂ x) := by
+  intro φ hφ
+  have e₁ := h₁ φ hφ
+  have e₂ := h₂ φ hφ
+  have hsplit_lhs : ∫ x, (u₁ x + u₂ x) * fderiv ℝ φ x e
+      = (∫ x, u₁ x * fderiv ℝ φ x e) + ∫ x, u₂ x * fderiv ℝ φ x e := by
+    simp_rw [add_mul]
+    exact integral_add
+      (integrable_mul_of_locallyIntegrable_restrict hU hu₁ (hφ.continuous_dirDeriv e)
+        (hφ.hasCompactSupport_dirDeriv e) fun x hx => hφ.dirDeriv_eq_zero_of_notMem e hx)
+      (integrable_mul_of_locallyIntegrable_restrict hU hu₂ (hφ.continuous_dirDeriv e)
+        (hφ.hasCompactSupport_dirDeriv e) fun x hx => hφ.dirDeriv_eq_zero_of_notMem e hx)
+  have hsplit_rhs : ∫ x, (v₁ x + v₂ x) * φ x
+      = (∫ x, v₁ x * φ x) + ∫ x, v₂ x * φ x := by
+    simp_rw [add_mul]
+    exact integral_add
+      (integrable_mul_of_locallyIntegrable_restrict hU hv₁ hφ.continuous hφ.hasCompactSupport
+        fun x hx => hφ.eq_zero_of_notMem hx)
+      (integrable_mul_of_locallyIntegrable_restrict hU hv₂ hφ.continuous hφ.hasCompactSupport
+        fun x hx => hφ.eq_zero_of_notMem hx)
+  rw [hsplit_lhs, hsplit_rhs, e₁, e₂, neg_add]
+
 /-- **Locality of the weak derivative.** A weak `e`-derivative on `U` is also a weak `e`-derivative
 on any subset `V ⊆ U`, since every test function on `V` is a test function on `U`. -/
 theorem IsWeakDerivInDir.mono {U V : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ} (hVU : V ⊆ U)
@@ -214,6 +270,29 @@ theorem IsWeakDerivInDir.congr_ae {U : Set ℝⁿ} {e : ℝⁿ} {u u' v v' : ℝ
   have hrhs : ∫ x, v' x * φ x = ∫ x, v x * φ x :=
     integral_congr_ae (hv.symm.mul (ae_eq_refl _))
   rw [hlhs, hrhs]; exact h φ hφ
+
+/-- The weak-derivative relation on `U` depends on `u` and `v` only up to almost-everywhere equality
+**restricted to `U`** — values off `U` are irrelevant, because test functions (and their
+derivatives) vanish there. This is what lets the relation descend to `Lᵖ(U)` classes, the
+prerequisite for defining `W^{1,p}(U)` over the restricted measure. -/
+theorem IsWeakDerivInDir.congr_ae_restrict {U : Set ℝⁿ} (hU : MeasurableSet U) {e : ℝⁿ}
+    {u u' v v' : ℝⁿ → ℝ} (hu : u =ᵐ[volume.restrict U] u') (hv : v =ᵐ[volume.restrict U] v')
+    (h : IsWeakDerivInDir U e u v) : IsWeakDerivInDir U e u' v' := by
+  intro φ hφ
+  have hu2 : ∀ᵐ x ∂volume, x ∈ U → u x = u' x := (ae_restrict_iff' hU).mp hu
+  have hv2 : ∀ᵐ x ∂volume, x ∈ U → v x = v' x := (ae_restrict_iff' hU).mp hv
+  have key1 : (fun x => u' x * fderiv ℝ φ x e) =ᵐ[volume] fun x => u x * fderiv ℝ φ x e := by
+    filter_upwards [hu2] with x hx
+    by_cases hxU : x ∈ U
+    · rw [hx hxU]
+    · rw [hφ.dirDeriv_eq_zero_of_notMem e hxU, mul_zero, mul_zero]
+  have key2 : (fun x => v' x * φ x) =ᵐ[volume] fun x => v x * φ x := by
+    filter_upwards [hv2] with x hx
+    by_cases hxU : x ∈ U
+    · rw [hx hxU]
+    · rw [hφ.eq_zero_of_notMem hxU, mul_zero, mul_zero]
+  rw [integral_congr_ae key1, integral_congr_ae key2]
+  exact h φ hφ
 
 /-- **Product rule with a smooth function** (Evans §5.2.3). If `v` is the weak `e`-derivative of `u`
 and `ψ` is smooth, then `ψ · u` has weak `e`-derivative `ψ · v + (∂_e ψ) · u`. Proved by applying
@@ -346,29 +425,30 @@ open Filter
 /-- If `wₖ → w` in `L¹` on the (compact) support of a continuous, compactly supported weight `g`,
 then `∫ wₖ · g → ∫ w · g`. Integration against a fixed compactly supported weight is continuous for
 `L¹`-on-compacts convergence; this is the analytic engine behind closedness of weak derivatives. -/
-lemma tendsto_integral_mul_of_tendsto_setIntegral_abs
+lemma tendsto_integral_mul_of_tendsto_setIntegral_abs {μ : Measure ℝⁿ}
     {wₖ : ℕ → ℝⁿ → ℝ} {w g : ℝⁿ → ℝ}
-    (hwkloc : ∀ k, LocallyIntegrable (wₖ k) volume) (hwloc : LocallyIntegrable w volume)
+    (hwkloc : ∀ k, LocallyIntegrable (wₖ k) μ) (hwloc : LocallyIntegrable w μ)
     (hg : Continuous g) (hgcs : HasCompactSupport g)
-    (hconv : Tendsto (fun k => ∫ x in tsupport g, |wₖ k x - w x|) atTop (nhds 0)) :
-    Tendsto (fun k => ∫ x, wₖ k x * g x) atTop (nhds (∫ x, w x * g x)) := by
+    (hconv : Tendsto (fun k => ∫ x in tsupport g, |wₖ k x - w x| ∂μ) atTop (nhds 0)) :
+    Tendsto (fun k => ∫ x, wₖ k x * g x ∂μ) atTop (nhds (∫ x, w x * g x ∂μ)) := by
   obtain ⟨C, hC⟩ := hg.bounded_above_of_compact_support hgcs
   have hKmeas : MeasurableSet (tsupport g) := (isClosed_tsupport g).measurableSet
   -- Products and differences are integrable.
-  have iwk : ∀ k, Integrable (fun x => wₖ k x * g x) volume := fun k =>
+  have iwk : ∀ k, Integrable (fun x => wₖ k x * g x) μ := fun k =>
     (hwkloc k).integrable_smul_right_of_hasCompactSupport hg hgcs
-  have iw : Integrable (fun x => w x * g x) volume :=
+  have iw : Integrable (fun x => w x * g x) μ :=
     hwloc.integrable_smul_right_of_hasCompactSupport hg hgcs
-  have ih : ∀ k, Integrable (fun x => (wₖ k x - w x) * g x) volume := fun k =>
+  have ih : ∀ k, Integrable (fun x => (wₖ k x - w x) * g x) μ := fun k =>
     ((hwkloc k).sub hwloc).integrable_smul_right_of_hasCompactSupport hg hgcs
-  have hdiff : ∀ k, (∫ x, wₖ k x * g x) - ∫ x, w x * g x = ∫ x, (wₖ k x - w x) * g x := by
+  have hdiff : ∀ k, (∫ x, wₖ k x * g x ∂μ) - ∫ x, w x * g x ∂μ
+      = ∫ x, (wₖ k x - w x) * g x ∂μ := by
     intro k; rw [← integral_sub (iwk k) iw]; congr 1; funext x; ring
   -- Pointwise/norm bound: `‖∫ (wₖ-w) g‖ ≤ C · ∫_{tsupp g} |wₖ-w|`.
-  have hbound : ∀ k, ‖∫ x, (wₖ k x - w x) * g x‖ ≤ C * ∫ x in tsupport g, |wₖ k x - w x| := by
+  have hbound : ∀ k, ‖∫ x, (wₖ k x - w x) * g x ∂μ‖ ≤ C * ∫ x in tsupport g, |wₖ k x - w x| ∂μ := by
     intro k
     have hzero : ∀ x ∉ tsupport g, ‖(wₖ k x - w x) * g x‖ = 0 := by
       intro x hx; rw [image_eq_zero_of_notMem_tsupport hx, mul_zero, norm_zero]
-    have iRHS : IntegrableOn (fun x => C * |wₖ k x - w x|) (tsupport g) volume :=
+    have iRHS : IntegrableOn (fun x => C * |wₖ k x - w x|) (tsupport g) μ :=
       (((hwkloc k).sub hwloc).integrableOn_isCompact hgcs).abs.const_mul C
     have hpt : ∀ x ∈ tsupport g, ‖(wₖ k x - w x) * g x‖ ≤ C * |wₖ k x - w x| := by
       intro x _
@@ -378,21 +458,21 @@ lemma tendsto_integral_mul_of_tendsto_setIntegral_abs
               apply mul_le_mul_of_nonneg_left _ (abs_nonneg _)
               rw [← Real.norm_eq_abs]; exact hC x
         _ = C * |wₖ k x - w x| := mul_comm _ _
-    calc ‖∫ x, (wₖ k x - w x) * g x‖
-        ≤ ∫ x, ‖(wₖ k x - w x) * g x‖ := norm_integral_le_integral_norm _
-      _ = ∫ x in tsupport g, ‖(wₖ k x - w x) * g x‖ :=
+    calc ‖∫ x, (wₖ k x - w x) * g x ∂μ‖
+        ≤ ∫ x, ‖(wₖ k x - w x) * g x‖ ∂μ := norm_integral_le_integral_norm _
+      _ = ∫ x in tsupport g, ‖(wₖ k x - w x) * g x‖ ∂μ :=
             (setIntegral_eq_integral_of_forall_compl_eq_zero hzero).symm
-      _ ≤ ∫ x in tsupport g, C * |wₖ k x - w x| :=
+      _ ≤ ∫ x in tsupport g, C * |wₖ k x - w x| ∂μ :=
             setIntegral_mono_on (ih k).norm.integrableOn iRHS hKmeas hpt
-      _ = C * ∫ x in tsupport g, |wₖ k x - w x| := integral_const_mul C _
+      _ = C * ∫ x in tsupport g, |wₖ k x - w x| ∂μ := integral_const_mul C _
   -- Squeeze the difference to `0`, then add back the constant limit.
-  have hsqnorm : Tendsto (fun k => ‖∫ x, (wₖ k x - w x) * g x‖) atTop (nhds 0) :=
+  have hsqnorm : Tendsto (fun k => ‖∫ x, (wₖ k x - w x) * g x ∂μ‖) atTop (nhds 0) :=
     squeeze_zero (fun k => norm_nonneg _) hbound (by simpa using hconv.const_mul C)
-  have hsq : Tendsto (fun k => ∫ x, (wₖ k x - w x) * g x) atTop (nhds 0) :=
+  have hsq : Tendsto (fun k => ∫ x, (wₖ k x - w x) * g x ∂μ) atTop (nhds 0) :=
     tendsto_zero_iff_norm_tendsto_zero.mpr hsqnorm
-  have hsub : Tendsto (fun k => (∫ x, wₖ k x * g x) - ∫ x, w x * g x) atTop (nhds 0) := by
+  have hsub : Tendsto (fun k => (∫ x, wₖ k x * g x ∂μ) - ∫ x, w x * g x ∂μ) atTop (nhds 0) := by
     simpa only [hdiff] using hsq
-  simpa using hsub.add_const (∫ x, w x * g x)
+  simpa using hsub.add_const (∫ x, w x * g x ∂μ)
 
 /-- **Closedness of the weak derivative under `L¹`-on-compacts limits.** If each `vₖ` is a weak
 `e`-derivative of `uₖ`, and `uₖ → u`, `vₖ → v` in `L¹` on every compact set, then `v` is a weak
@@ -426,12 +506,12 @@ theorem isWeakDerivInDir_of_tendsto_L1 {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝ�
 /-- **Hölder bridge.** On a set of finite measure, `Lᵖ` convergence (`1 ≤ p < ∞`) implies `L¹`
 convergence: if `eLpNorm (hₖ) p → 0` then `∫_K |hₖ| → 0`. This connects Mathlib's `Lᵖ` convergence
 to the `L¹`-on-compacts hypothesis of `isWeakDerivInDir_of_tendsto_L1`. -/
-lemma tendsto_setIntegral_abs_of_tendsto_eLpNorm
-    {hₖ : ℕ → ℝⁿ → ℝ} {K : Set ℝⁿ} (hKfin : volume K ≠ ⊤) {p : ℝ≥0∞} (hp1 : 1 ≤ p) (hp_ne : p ≠ ⊤)
-    (hmem : ∀ k, MemLp (hₖ k) p (volume.restrict K))
-    (hconv : Tendsto (fun k => eLpNorm (hₖ k) p (volume.restrict K)) atTop (nhds 0)) :
-    Tendsto (fun k => ∫ x in K, |hₖ k x|) atTop (nhds 0) := by
-  haveI : IsFiniteMeasure (volume.restrict K) :=
+lemma tendsto_setIntegral_abs_of_tendsto_eLpNorm {μ : Measure ℝⁿ}
+    {hₖ : ℕ → ℝⁿ → ℝ} {K : Set ℝⁿ} (hKfin : μ K ≠ ⊤) {p : ℝ≥0∞} (hp1 : 1 ≤ p) (hp_ne : p ≠ ⊤)
+    (hmem : ∀ k, MemLp (hₖ k) p (μ.restrict K))
+    (hconv : Tendsto (fun k => eLpNorm (hₖ k) p (μ.restrict K)) atTop (nhds 0)) :
+    Tendsto (fun k => ∫ x in K, |hₖ k x| ∂μ) atTop (nhds 0) := by
+  haveI : IsFiniteMeasure (μ.restrict K) :=
     ⟨by rw [Measure.restrict_apply_univ]; exact lt_top_iff_ne_top.mpr hKfin⟩
   have hpt : (1 : ℝ) ≤ p.toReal := by
     rw [← ENNReal.toReal_one]; exact ENNReal.toReal_mono hp_ne hp1
@@ -439,17 +519,17 @@ lemma tendsto_setIntegral_abs_of_tendsto_eLpNorm
     rw [ENNReal.toReal_one]
     have : (1 : ℝ) / p.toReal ≤ 1 := div_le_one_of_le₀ hpt (by linarith)
     simpa using this
-  set c : ℝ≥0∞ := (volume.restrict K) Set.univ ^ (1 / (1 : ℝ≥0∞).toReal - 1 / p.toReal) with hc
+  set c : ℝ≥0∞ := (μ.restrict K) Set.univ ^ (1 / (1 : ℝ≥0∞).toReal - 1 / p.toReal) with hc
   have hc_ne : c ≠ ⊤ :=
     ENNReal.rpow_ne_top_of_nonneg hexp (by rw [Measure.restrict_apply_univ]; exact hKfin)
-  have hle : ∀ k, eLpNorm (hₖ k) 1 (volume.restrict K)
-      ≤ eLpNorm (hₖ k) p (volume.restrict K) * c := fun k =>
+  have hle : ∀ k, eLpNorm (hₖ k) 1 (μ.restrict K)
+      ≤ eLpNorm (hₖ k) p (μ.restrict K) * c := fun k =>
     eLpNorm_le_eLpNorm_mul_rpow_measure_univ hp1 (hmem k).aestronglyMeasurable
-  have hmulto : Tendsto (fun k => eLpNorm (hₖ k) p (volume.restrict K) * c) atTop (nhds 0) := by
+  have hmulto : Tendsto (fun k => eLpNorm (hₖ k) p (μ.restrict K) * c) atTop (nhds 0) := by
     simpa using ENNReal.Tendsto.mul_const hconv (Or.inr hc_ne)
-  have h1to : Tendsto (fun k => eLpNorm (hₖ k) 1 (volume.restrict K)) atTop (nhds 0) :=
+  have h1to : Tendsto (fun k => eLpNorm (hₖ k) 1 (μ.restrict K)) atTop (nhds 0) :=
     tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hmulto (fun k => zero_le _) hle
-  have hint : ∀ k, ∫ x in K, |hₖ k x| = (eLpNorm (hₖ k) 1 (volume.restrict K)).toReal := by
+  have hint : ∀ k, ∫ x in K, |hₖ k x| ∂μ = (eLpNorm (hₖ k) 1 (μ.restrict K)).toReal := by
     intro k
     rw [eLpNorm_one_eq_lintegral_enorm,
       ← integral_norm_eq_lintegral_enorm (hmem k).aestronglyMeasurable]
@@ -483,6 +563,83 @@ theorem isWeakDerivInDir_of_tendsto_Lp {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝ�
     exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hvcon
       (fun k => zero_le _) (fun k => eLpNorm_mono_measure _ Measure.restrict_le_self)
 
+/-- **Closedness under `L¹`-on-compacts limits, restricted-measure form.** As
+`isWeakDerivInDir_of_tendsto_L1`, but all integrability and convergence is taken with respect to
+`volume.restrict U`. The bridge to the `volume` integrals defining `IsWeakDerivInDir U` is that test
+functions (and their derivatives) vanish outside `U`, so those integrals are unchanged by passing to
+`volume.restrict U`. -/
+theorem isWeakDerivInDir_of_tendsto_L1_restrict {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ}
+    {uₖ vₖ : ℕ → ℝⁿ → ℝ}
+    (hweak : ∀ k, IsWeakDerivInDir U e (uₖ k) (vₖ k))
+    (hukloc : ∀ k, LocallyIntegrable (uₖ k) (volume.restrict U))
+    (huloc : LocallyIntegrable u (volume.restrict U))
+    (hvkloc : ∀ k, LocallyIntegrable (vₖ k) (volume.restrict U))
+    (hvloc : LocallyIntegrable v (volume.restrict U))
+    (hu : ∀ K : Set ℝⁿ, IsCompact K →
+      Tendsto (fun k => ∫ x in K, |uₖ k x - u x| ∂(volume.restrict U)) atTop (nhds 0))
+    (hv : ∀ K : Set ℝⁿ, IsCompact K →
+      Tendsto (fun k => ∫ x in K, |vₖ k x - v x| ∂(volume.restrict U)) atTop (nhds 0)) :
+    IsWeakDerivInDir U e u v := by
+  intro φ hφ
+  -- Integrals against `φ` / `∂_e φ` are unchanged by restricting to `U` (the test function vanishes
+  -- outside `U`).
+  have convd : ∀ w : ℝⁿ → ℝ,
+      (∫ x, w x * fderiv ℝ φ x e) = ∫ x, w x * fderiv ℝ φ x e ∂(volume.restrict U) := fun w => by
+    rw [← setIntegral_eq_integral_of_forall_compl_eq_zero (s := U)
+      (fun x hx => by rw [hφ.dirDeriv_eq_zero_of_notMem e hx, mul_zero])]
+  have convf : ∀ w : ℝⁿ → ℝ,
+      (∫ x, w x * φ x) = ∫ x, w x * φ x ∂(volume.restrict U) := fun w => by
+    rw [← setIntegral_eq_integral_of_forall_compl_eq_zero (s := U)
+      (fun x hx => by rw [hφ.eq_zero_of_notMem hx, mul_zero])]
+  have hL : Tendsto (fun k => ∫ x, uₖ k x * fderiv ℝ φ x e ∂(volume.restrict U)) atTop
+      (nhds (∫ x, u x * fderiv ℝ φ x e ∂(volume.restrict U))) :=
+    tendsto_integral_mul_of_tendsto_setIntegral_abs hukloc huloc
+      (hφ.continuous_dirDeriv e) (hφ.hasCompactSupport_dirDeriv e)
+      (hu _ (hφ.hasCompactSupport_dirDeriv e))
+  have hR : Tendsto (fun k => ∫ x, vₖ k x * φ x ∂(volume.restrict U)) atTop
+      (nhds (∫ x, v x * φ x ∂(volume.restrict U))) :=
+    tendsto_integral_mul_of_tendsto_setIntegral_abs hvkloc hvloc
+      hφ.continuous hφ.hasCompactSupport (hv _ hφ.hasCompactSupport)
+  have heq : ∀ k, ∫ x, uₖ k x * fderiv ℝ φ x e ∂(volume.restrict U)
+      = -∫ x, vₖ k x * φ x ∂(volume.restrict U) := by
+    intro k; rw [← convd, ← convf]; exact hweak k φ hφ
+  have hRneg : Tendsto (fun k => ∫ x, uₖ k x * fderiv ℝ φ x e ∂(volume.restrict U)) atTop
+      (nhds (-∫ x, v x * φ x ∂(volume.restrict U))) := by
+    simpa only [← heq] using hR.neg
+  rw [convd, convf]
+  exact tendsto_nhds_unique hL hRneg
+
+/-- **Closedness under `Lᵖ` limits, restricted-measure form** (`1 ≤ p < ∞`): as
+`isWeakDerivInDir_of_tendsto_Lp`, but over `volume.restrict U`. This is the cornerstone for
+completeness of `W^{1,p}(U)`. -/
+theorem isWeakDerivInDir_of_tendsto_Lp_restrict {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ}
+    {uₖ vₖ : ℕ → ℝⁿ → ℝ} {p : ℝ≥0∞} (hp1 : 1 ≤ p) (hp_ne : p ≠ ⊤)
+    (hweak : ∀ k, IsWeakDerivInDir U e (uₖ k) (vₖ k))
+    (hukloc : ∀ k, LocallyIntegrable (uₖ k) (volume.restrict U))
+    (huloc : LocallyIntegrable u (volume.restrict U))
+    (hvkloc : ∀ k, LocallyIntegrable (vₖ k) (volume.restrict U))
+    (hvloc : LocallyIntegrable v (volume.restrict U))
+    (humem : ∀ k, MemLp (fun x => uₖ k x - u x) p (volume.restrict U))
+    (hvmem : ∀ k, MemLp (fun x => vₖ k x - v x) p (volume.restrict U))
+    (hucon : Tendsto (fun k => eLpNorm (fun x => uₖ k x - u x) p (volume.restrict U)) atTop (nhds 0))
+    (hvcon : Tendsto (fun k => eLpNorm (fun x => vₖ k x - v x) p (volume.restrict U)) atTop
+      (nhds 0)) :
+    IsWeakDerivInDir U e u v := by
+  have hKfin : ∀ K : Set ℝⁿ, IsCompact K → (volume.restrict U) K ≠ ⊤ := fun K hK => by
+    rw [Measure.restrict_apply hK.measurableSet]
+    exact ((measure_mono Set.inter_subset_left).trans_lt hK.measure_lt_top).ne
+  refine isWeakDerivInDir_of_tendsto_L1_restrict hweak hukloc huloc hvkloc hvloc ?_ ?_
+  · intro K hK
+    refine tendsto_setIntegral_abs_of_tendsto_eLpNorm (hKfin K hK) hp1 hp_ne
+      (fun k => (humem k).restrict K) ?_
+    exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hucon
+      (fun k => zero_le _) (fun k => eLpNorm_mono_measure _ Measure.restrict_le_self)
+  · intro K hK
+    refine tendsto_setIntegral_abs_of_tendsto_eLpNorm (hKfin K hK) hp1 hp_ne
+      (fun k => (hvmem k).restrict K) ?_
+    exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hvcon
+      (fun k => zero_le _) (fun k => eLpNorm_mono_measure _ Measure.restrict_le_self)
+
 /-- **The weak-derivative graph is closed in `Lᵖ × Lᵖ`** (`1 ≤ p < ∞`). The set of pairs `(f, g)`
 of `Lᵖ` functions on `ℝⁿ` for which `g` is the weak `e`-derivative of `f` is closed. Closedness of
 this linear relation is exactly what realises the Sobolev space `W^{1,p}(ℝⁿ)` as a closed subspace
@@ -500,6 +657,26 @@ theorem isClosed_isWeakDerivInDir_graph {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne
   have hvcon : Tendsto (fun k => eLpNorm (⇑(F k).2 - ⇑FG.2) p volume) atTop (nhds 0) :=
     (Lp.tendsto_Lp_iff_tendsto_eLpNorm' _ _).mp hlim.snd_nhds
   exact isWeakDerivInDir_of_tendsto_Lp hp1 hp_ne hmem
+    (fun k => (Lp.memLp (F k).1).locallyIntegrable hp1) ((Lp.memLp FG.1).locallyIntegrable hp1)
+    (fun k => (Lp.memLp (F k).2).locallyIntegrable hp1) ((Lp.memLp FG.2).locallyIntegrable hp1)
+    (fun k => (Lp.memLp (F k).1).sub (Lp.memLp FG.1))
+    (fun k => (Lp.memLp (F k).2).sub (Lp.memLp FG.2)) hucon hvcon
+
+/-- **The weak-derivative graph is closed in `Lᵖ(U) × Lᵖ(U)`** (`1 ≤ p < ∞`), the genuine
+`W^{1,p}(U)` over the restricted measure `volume.restrict U`. Same sequential-closedness argument as
+on all of `ℝⁿ`, now using the restricted-measure closedness cornerstone. -/
+theorem isClosed_isWeakDerivInDir_graph_restrict {U : Set ℝⁿ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hp_ne : p ≠ ⊤) (e : ℝⁿ) :
+    IsClosed {fg : Lp ℝ p (volume.restrict U) × Lp ℝ p (volume.restrict U) |
+      IsWeakDerivInDir U e ⇑fg.1 ⇑fg.2} := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  apply IsSeqClosed.isClosed
+  intro F FG hmem hlim
+  have hucon : Tendsto (fun k => eLpNorm (⇑(F k).1 - ⇑FG.1) p (volume.restrict U)) atTop (nhds 0) :=
+    (Lp.tendsto_Lp_iff_tendsto_eLpNorm' _ _).mp hlim.fst_nhds
+  have hvcon : Tendsto (fun k => eLpNorm (⇑(F k).2 - ⇑FG.2) p (volume.restrict U)) atTop (nhds 0) :=
+    (Lp.tendsto_Lp_iff_tendsto_eLpNorm' _ _).mp hlim.snd_nhds
+  exact isWeakDerivInDir_of_tendsto_Lp_restrict hp1 hp_ne hmem
     (fun k => (Lp.memLp (F k).1).locallyIntegrable hp1) ((Lp.memLp FG.1).locallyIntegrable hp1)
     (fun k => (Lp.memLp (F k).2).locallyIntegrable hp1) ((Lp.memLp FG.2).locallyIntegrable hp1)
     (fun k => (Lp.memLp (F k).1).sub (Lp.memLp FG.1))
@@ -665,5 +842,61 @@ closed subspace of the complete space `PiLp p (Fin (n+1) → Lᵖ)`. -/
 theorem completeSpace_sobolevSpace {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
     CompleteSpace (sobolevSpace (n := n) (p := p)) :=
   completeSpace_coe_iff_isComplete.mpr (isClosed_sobolevSpace hp_ne).isComplete
+
+/-! ### The Sobolev space `W^{1,p}(U)` on a general open set
+
+Everything above takes `U = ℝⁿ`. For a general measurable set `U` the genuine `W^{1,p}(U)` uses the
+restricted measure `volume.restrict U` (i.e. `Lᵖ(U)`); the well-definedness on classes is
+`IsWeakDerivInDir.congr_ae_restrict` and the completeness rests on the restricted-measure closedness
+cornerstone `isWeakDerivInDir_of_tendsto_Lp_restrict`. -/
+
+/-- **`W^{1,p}(U)`** over the restricted measure, as a submodule of `Lᵖ(U) × (Fin n → Lᵖ(U))`: pairs
+`(f, g)` with `g` the weak gradient of `f` on `U`. Subspace axioms come from `add_restrict` /
+`const_smul` together with `congr_ae_restrict`. -/
+def weakGradientSubmoduleOn (U : Set ℝⁿ) (hU : MeasurableSet U) {p : ℝ≥0∞} [Fact (1 ≤ p)] :
+    Submodule ℝ
+      (Lp ℝ p (volume.restrict U) × (Fin n → Lp ℝ p (volume.restrict U))) where
+  carrier := {fg | ∀ i, IsWeakDerivInDir U (EuclideanSpace.single i (1 : ℝ)) ⇑fg.1 ⇑(fg.2 i)}
+  zero_mem' := by
+    intro i
+    exact (isWeakDerivInDir_const U (EuclideanSpace.single i (1 : ℝ)) 0).congr_ae_restrict hU
+      (Lp.coeFn_zero ..).symm (Lp.coeFn_zero ..).symm
+  add_mem' := by
+    intro a b ha hb i
+    have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+    exact (IsWeakDerivInDir.add_restrict hU ((Lp.memLp a.1).locallyIntegrable hp1)
+      ((Lp.memLp b.1).locallyIntegrable hp1) ((Lp.memLp (a.2 i)).locallyIntegrable hp1)
+      ((Lp.memLp (b.2 i)).locallyIntegrable hp1) (ha i) (hb i)).congr_ae_restrict hU
+      (Lp.coeFn_add a.1 b.1).symm (Lp.coeFn_add (a.2 i) (b.2 i)).symm
+  smul_mem' := by
+    intro c a ha i
+    exact ((ha i).const_smul c).congr_ae_restrict hU (Lp.coeFn_smul c a.1).symm
+      (Lp.coeFn_smul c (a.2 i)).symm
+
+/-- `W^{1,p}(U)` is closed in `Lᵖ(U) × (Fin n → Lᵖ(U))`: the intersection over the coordinate
+directions of the (closed) restricted-measure single-direction graphs. -/
+theorem isClosed_weakGradientSubmoduleOn (U : Set ℝⁿ) (hU : MeasurableSet U) {p : ℝ≥0∞}
+    [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    IsClosed (weakGradientSubmoduleOn U hU (n := n) (p := p) :
+      Set (Lp ℝ p (volume.restrict U) × (Fin n → Lp ℝ p (volume.restrict U)))) := by
+  have hset : (weakGradientSubmoduleOn U hU (n := n) (p := p) :
+        Set (Lp ℝ p (volume.restrict U) × (Fin n → Lp ℝ p (volume.restrict U))))
+      = ⋂ i, (fun fg : Lp ℝ p (volume.restrict U) × (Fin n → Lp ℝ p (volume.restrict U)) =>
+            (fg.1, fg.2 i)) ⁻¹'
+          {ab | IsWeakDerivInDir U (EuclideanSpace.single i (1 : ℝ)) ⇑ab.1 ⇑ab.2} := by
+    ext fg
+    simp only [SetLike.mem_coe, Set.mem_iInter, Set.mem_preimage, Set.mem_setOf_eq]
+    rfl
+  rw [hset]
+  refine isClosed_iInter fun i => ?_
+  exact (isClosed_isWeakDerivInDir_graph_restrict hp_ne (EuclideanSpace.single i (1 : ℝ))).preimage
+    (continuous_fst.prodMk ((continuous_apply i).comp continuous_snd))
+
+/-- **`W^{1,p}(U)` is a Banach space** (`1 ≤ p < ∞`) for any measurable `U`: a closed subspace of the
+complete space `Lᵖ(U) × (Fin n → Lᵖ(U))`. -/
+theorem completeSpace_weakGradientSubmoduleOn (U : Set ℝⁿ) (hU : MeasurableSet U) {p : ℝ≥0∞}
+    [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    CompleteSpace (weakGradientSubmoduleOn U hU (n := n) (p := p)) :=
+  completeSpace_coe_iff_isComplete.mpr (isClosed_weakGradientSubmoduleOn U hU hp_ne).isComplete
 
 end Sobolev
