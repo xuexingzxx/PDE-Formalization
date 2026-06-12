@@ -429,4 +429,26 @@ theorem isWeakDerivInDir_of_tendsto_Lp {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝ�
     exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hvcon
       (fun k => zero_le _) (fun k => eLpNorm_mono_measure _ Measure.restrict_le_self)
 
+/-- **The weak-derivative graph is closed in `Lᵖ × Lᵖ`** (`1 ≤ p < ∞`). The set of pairs `(f, g)`
+of `Lᵖ` functions on `ℝⁿ` for which `g` is the weak `e`-derivative of `f` is closed. Closedness of
+this linear relation is exactly what realises the Sobolev space `W^{1,p}(ℝⁿ)` as a closed subspace
+of `Lᵖ × Lᵖ`, hence a Banach space. Proved by sequential closedness: `Lᵖ` convergence of a sequence
+in the graph gives `Lᵖ` convergence of the functions and their weak derivatives, so
+`isWeakDerivInDir_of_tendsto_Lp` transfers the relation to the limit. -/
+theorem isClosed_isWeakDerivInDir_graph {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) (e : ℝⁿ) :
+    IsClosed {fg : Lp ℝ p volume × Lp ℝ p volume |
+      IsWeakDerivInDir Set.univ e ⇑fg.1 ⇑fg.2} := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  apply IsSeqClosed.isClosed
+  intro F FG hmem hlim
+  have hucon : Tendsto (fun k => eLpNorm (⇑(F k).1 - ⇑FG.1) p volume) atTop (nhds 0) :=
+    (Lp.tendsto_Lp_iff_tendsto_eLpNorm' _ _).mp hlim.fst_nhds
+  have hvcon : Tendsto (fun k => eLpNorm (⇑(F k).2 - ⇑FG.2) p volume) atTop (nhds 0) :=
+    (Lp.tendsto_Lp_iff_tendsto_eLpNorm' _ _).mp hlim.snd_nhds
+  exact isWeakDerivInDir_of_tendsto_Lp hp1 hp_ne hmem
+    (fun k => (Lp.memLp (F k).1).locallyIntegrable hp1) ((Lp.memLp FG.1).locallyIntegrable hp1)
+    (fun k => (Lp.memLp (F k).2).locallyIntegrable hp1) ((Lp.memLp FG.2).locallyIntegrable hp1)
+    (fun k => (Lp.memLp (F k).1).sub (Lp.memLp FG.1))
+    (fun k => (Lp.memLp (F k).2).sub (Lp.memLp FG.2)) hucon hvcon
+
 end Sobolev

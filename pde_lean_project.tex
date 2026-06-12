@@ -1742,6 +1742,30 @@ to $0$. Applying this on each compact $K$ (with $\|h\|_{L^p(K)}\le\|h\|_{L^p}$) 
 exactly the hypotheses of the $L^1$-on-compacts theorem.
 \end{proof}
 
+Cast in the language of Mathlib's $L^p$ \emph{spaces}, this says the weak-derivative
+relation is a \textbf{closed graph}, which is precisely the property that makes
+$W^{1,p}$ a Banach space (a closed subspace of a complete space is complete).
+
+\begin{theorem}[Closed graph in $L^p\times L^p$]
+For $1\le p<\infty$, the set of pairs $(f,g)\in L^p(\mathbb{R}^n)\times L^p(\mathbb{R}^n)$
+such that $g$ is the weak $e$-derivative of $f$ is closed.
+\end{theorem}
+
+\begin{lstlisting}[caption={Weak-derivative graph is closed in Lp x Lp (proved)}]
+theorem isClosed_isWeakDerivInDir_graph {p : ENNReal} [Fact (1 <= p)]
+    (hp_ne : p != Top) (e : Rn) :
+    IsClosed {fg : Lp R p volume x Lp R p volume |
+      IsWeakDerivInDir univ e (coeFn fg.1) (coeFn fg.2)}
+\end{lstlisting}
+
+\begin{proof}
+$L^p$ is a metric space, so it suffices to check sequential closedness. If
+$(f_k,g_k)\to(f,g)$ in $L^p\times L^p$ with each $g_k$ the weak $e$-derivative of
+$f_k$, then $f_k\to f$ and $g_k\to g$ in $L^p$
+(\texttt{Lp.tendsto\_Lp\_iff\_tendsto\_eLpNorm'}), and the previous theorem
+(\texttt{isWeakDerivInDir\_of\_tendsto\_Lp}) transfers the relation to the limit.
+\end{proof}
+
 \subsection{Mathlib foundations leveraged}
 
 Three Mathlib results --- which a preliminary survey expected to be missing --- made
@@ -1786,6 +1810,7 @@ explicitly in each lemma avoids it.
   \texttt{isWeakDerivInDir\_of\_tendsto\_L1} & closed under $L^1$-on-compacts limits   & \textcolor{mathgreen}{\checkmark} \\
   \texttt{tendsto\_setIntegral\_abs\_of\_tendsto\_eLpNorm} & H\"older bridge $L^p\!\to\!L^1$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{isWeakDerivInDir\_of\_tendsto\_Lp} & closed under $L^p$ limits ($1\le p<\infty$) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{isClosed\_isWeakDerivInDir\_graph} & weak-derivative graph closed in $L^p\!\times\!L^p$ & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
