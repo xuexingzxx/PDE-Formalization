@@ -20,7 +20,7 @@ Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 | §2.2 Laplace/Poisson | `Laplace.lean` | partial | fundamental solution, radial-power & `log` Laplacians, Green's identity (algebraic step) proved; mean-value, maximum principle and the Poisson representation are blocked by Mathlib gaps |
 | §2.3 Heat | `Heat.lean` | ✅ **complete, zero `sorry`** | heat kernel is positive, has unit mass, and solves the heat equation; for **bounded continuous** `g`, the convolution `∫ Φ(x−y,t) g(y) dy` **provably solves the IVP** — both the time-derivative and the spatial-Laplacian are moved under the integral (n-dim Gaussian moments + nested differentiation under the integral) |
 | §2.4 Wave | `Wave.lean` | ✅ **complete, zero `sorry`** | traveling waves, d'Alembert (existence + `C²` regularity + initial conditions), energy conservation, uniqueness, finite propagation speed |
-| §5.2 Sobolev | `Sobolev.lean` | ✅ **foundations, zero `sorry`** | test functions `C_c^∞(U)`, weak directional derivatives, the classical⟹weak bridge (integration by parts), linearity, a.e. uniqueness (fundamental lemma of the calculus of variations), `W^{1,p}` membership, and `C_c^∞ ⊆ W^{1,p}` |
+| §5.2 Sobolev | `Sobolev.lean` | ✅ **foundations, zero `sorry`** | test functions `C_c^∞(U)`, weak directional derivatives, the classical⟹weak bridge (integration by parts), linearity, a.e.-invariance, the smooth product (Leibniz) rule, a.e. uniqueness (fundamental lemma of the calculus of variations), `W^{1,p}` membership, and `C_c^∞ ⊆ W^{1,p}` |
 
 `Calculus.lean` provides shared spacetime calculus utilities (`spatialGradient`,
 `timeDerivative`, `spatialLaplacian`, and a Leibniz-rule helper).

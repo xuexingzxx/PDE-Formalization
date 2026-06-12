@@ -157,6 +157,71 @@ theorem IsWeakDerivInDir.const_smul {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ 
     rw [← integral_const_mul]; congr 1; ext x; ring
   rw [hl, hr, he, mul_neg]
 
+/-- The weak-derivative relation only depends on `u` and `v` up to almost-everywhere equality,
+so it descends to `Lᵖ` equivalence classes. -/
+theorem IsWeakDerivInDir.congr_ae {U : Set ℝⁿ} {e : ℝⁿ} {u u' v v' : ℝⁿ → ℝ}
+    (hu : u =ᵐ[volume] u') (hv : v =ᵐ[volume] v')
+    (h : IsWeakDerivInDir U e u v) : IsWeakDerivInDir U e u' v' := by
+  intro φ hφ
+  have hlhs : ∫ x, u' x * fderiv ℝ φ x e = ∫ x, u x * fderiv ℝ φ x e :=
+    integral_congr_ae (hu.symm.mul (ae_eq_refl _))
+  have hrhs : ∫ x, v' x * φ x = ∫ x, v x * φ x :=
+    integral_congr_ae (hv.symm.mul (ae_eq_refl _))
+  rw [hlhs, hrhs]; exact h φ hφ
+
+/-- **Product rule with a smooth function** (Evans §5.2.3). If `v` is the weak `e`-derivative of `u`
+and `ψ` is smooth, then `ψ · u` has weak `e`-derivative `ψ · v + (∂_e ψ) · u`. Proved by applying
+the weak-derivative identity for `u` to the test function `ψ · φ` and expanding `∂_e(ψφ)` with the
+Leibniz rule for `fderiv`. -/
+theorem IsWeakDerivInDir.mul_smooth {U : Set ℝⁿ} {e : ℝⁿ} {u v ψ : ℝⁿ → ℝ}
+    (hu : LocallyIntegrable u volume) (hv : LocallyIntegrable v volume)
+    (hψ : ContDiff ℝ ∞ ψ) (h : IsWeakDerivInDir U e u v) :
+    IsWeakDerivInDir U e (fun x => ψ x * u x)
+      (fun x => ψ x * v x + fderiv ℝ ψ x e * u x) := by
+  intro φ hφ
+  have hψc : Continuous ψ := hψ.continuous
+  have hψd : Differentiable ℝ ψ := hψ.differentiable (by norm_num)
+  have hdψc : Continuous (fun x => fderiv ℝ ψ x e) :=
+    (hψ.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  -- `ψ · φ` is again a test function.
+  have hψφ : IsTestFunction U (fun x => ψ x * φ x) :=
+    ⟨hψ.mul hφ.contDiff, hφ.hasCompactSupport.mul_left,
+      (tsupport_mul_subset_right (f := ψ) (g := φ)).trans hφ.tsupport_subset⟩
+  -- Leibniz rule for the directional derivative of `ψ · φ`.
+  have hLeibniz : ∀ x, fderiv ℝ (fun y => ψ y * φ y) x e
+      = ψ x * fderiv ℝ φ x e + fderiv ℝ ψ x e * φ x := by
+    intro x
+    rw [fderiv_fun_mul (hψd x) (hφ.differentiable x)]
+    simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply, smul_eq_mul]
+    ring
+  -- The three integrable pieces (loc-integrable times continuous compact-support).
+  have iA : Integrable (fun x => u x * (ψ x * fderiv ℝ φ x e)) volume :=
+    hu.integrable_smul_right_of_hasCompactSupport (hψc.mul (hφ.continuous_dirDeriv e))
+      (hφ.hasCompactSupport_dirDeriv e).mul_left
+  have iB : Integrable (fun x => u x * (fderiv ℝ ψ x e * φ x)) volume :=
+    hu.integrable_smul_right_of_hasCompactSupport (hdψc.mul hφ.continuous)
+      hφ.hasCompactSupport.mul_left
+  have iC : Integrable (fun x => v x * (ψ x * φ x)) volume :=
+    hv.integrable_smul_right_of_hasCompactSupport (hψc.mul hφ.continuous)
+      hφ.hasCompactSupport.mul_left
+  -- Apply the weak-derivative identity for `u` to the test function `ψ · φ`, then split.
+  have hkey := h (fun x => ψ x * φ x) hψφ
+  have hsplit : (∫ x, u x * (ψ x * fderiv ℝ φ x e)) + ∫ x, u x * (fderiv ℝ ψ x e * φ x)
+      = -∫ x, v x * (ψ x * φ x) := by
+    rw [← integral_add iA iB, ← hkey]
+    exact integral_congr_ae (Filter.Eventually.of_forall fun x => by simp only [hLeibniz]; ring)
+  -- Re-assemble into the goal.
+  have hgoalL : ∫ x, (ψ x * u x) * fderiv ℝ φ x e = ∫ x, u x * (ψ x * fderiv ℝ φ x e) :=
+    integral_congr_ae (Filter.Eventually.of_forall fun x => by ring)
+  have hgoalR : ∫ x, (ψ x * v x + fderiv ℝ ψ x e * u x) * φ x
+      = (∫ x, v x * (ψ x * φ x)) + ∫ x, u x * (fderiv ℝ ψ x e * φ x) := by
+    have hfun : (fun x => (ψ x * v x + fderiv ℝ ψ x e * u x) * φ x)
+        = fun x => v x * (ψ x * φ x) + u x * (fderiv ℝ ψ x e * φ x) := by
+      funext x; ring
+    rw [hfun]; exact integral_add iC iB
+  rw [hgoalL, hgoalR]
+  linarith [hsplit]
+
 /-! ### Uniqueness of the weak derivative -/
 
 /-- **Uniqueness of the weak derivative (a.e.).** If `v₁` and `v₂` are both weak `e`-derivatives of

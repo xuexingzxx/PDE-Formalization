@@ -1600,6 +1600,23 @@ The weak derivative is $\mathbb{R}$-linear (\texttt{IsWeakDerivInDir.add},
 times a test function, packaged as the helper
 \texttt{integrable\_mul\_testFunction}.
 
+Two further properties from Evans §5.2.3 are proved:
+
+\begin{itemize}
+  \item \textbf{Invariance under a.e.\ equality} (\texttt{IsWeakDerivInDir.congr\_ae}):
+    the relation depends on $u$ and $v$ only up to almost-everywhere equality, so it
+    descends to $L^p$ equivalence classes --- a prerequisite for $W^{1,p}$ being a
+    well-defined normed space.
+  \item \textbf{Product rule with a smooth function}
+    (\texttt{IsWeakDerivInDir.mul\_smooth}): if $v$ is the weak $e$-derivative of $u$
+    and $\psi$ is smooth, then $\psi u$ has weak $e$-derivative
+    $\psi v + (\partial_e\psi)\,u$. Proved by applying the defining identity for $u$
+    to the test function $\psi\phi$ (again a test function) and expanding
+    $\partial_e(\psi\phi) = \psi\,\partial_e\phi + (\partial_e\psi)\,\phi$ via the
+    Leibniz rule for \texttt{fderiv}. This is the workhorse behind cutoff/localisation
+    arguments.
+\end{itemize}
+
 \begin{theorem}[Uniqueness a.e.]
 If $v_1$ and $v_2$ are both weak $e$-derivatives of $u$ on the open set $U$, then
 $v_1 = v_2$ almost everywhere on $U$.
@@ -1691,6 +1708,8 @@ explicitly in each lemma avoids it.
   \texttt{MemW1p}               & membership in $W^{1,p}(U)$                            & \textcolor{mathgreen}{\checkmark} \\
   \texttt{isWeakDerivInDir\_of\_contDiff} & classical $\Rightarrow$ weak (int.\ by parts) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{IsWeakDerivInDir.add} / \texttt{.const\_smul} & linearity                  & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{IsWeakDerivInDir.congr\_ae} & invariance under a.e.\ equality                & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{IsWeakDerivInDir.mul\_smooth} & product rule with a smooth function          & \textcolor{mathgreen}{\checkmark} \\
   \texttt{isWeakDerivInDir\_ae\_unique} & weak derivative unique a.e.                  & \textcolor{mathgreen}{\checkmark} \\
   \texttt{memW1p\_of\_contDiff\_hasCompactSupport} & $C^\infty_c \subseteq W^{1,p}$    & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
