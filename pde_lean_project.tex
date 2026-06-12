@@ -1788,10 +1788,29 @@ theorem completeSpace_weakDerivSubmodule {p : ENNReal} [Fact (1 <= p)]
 \begin{proof}
 The submodule is closed in $L^p\times L^p$ (the closed-graph theorem), and a closed
 subset of the complete space $L^p\times L^p$ is complete
-(\texttt{completeSpace\_coe\_iff\_isComplete}, \texttt{IsClosed.isComplete}). The full
-$W^{1,p}(\mathbb{R}^n)$ is the same construction inside $L^p\times(L^p)^n$, one weak-derivative
-graph per coordinate direction.
+(\texttt{completeSpace\_coe\_iff\_isComplete}, \texttt{IsClosed.isComplete}).
 \end{proof}
+
+\paragraph{The full space $W^{1,p}(\mathbb{R}^n)$.}
+The genuine Sobolev space is the analogous submodule of $L^p\times (L^p)^n$, pairing $f$
+with its weak gradient $g=(g_1,\dots,g_n)$ (each $g_i$ the weak $e_i$-derivative of $f$,
+$e_i=$ \texttt{EuclideanSpace.single i 1}):
+\[
+  \texttt{weakGradientSubmodule}
+  = \{(f,g) : \forall i,\ \text{$g_i$ is the weak $\partial_i$-derivative of $f$}\}
+  \le L^p\times (L^p)^n.
+\]
+It is the intersection over $i$ of the single-direction graphs pulled back along the
+continuous projections $(f,g)\mapsto(f,g_i)$, hence closed, hence complete.
+
+\begin{lstlisting}[caption={W^{1,p}(Rn) is a Banach space (proved)}]
+theorem completeSpace_weakGradientSubmodule {p : ENNReal} [Fact (1 <= p)]
+    (hp_ne : p != Top) : CompleteSpace (weakGradientSubmodule (n := n) (p := p))
+\end{lstlisting}
+
+This is the headline result of the chapter: \textbf{$W^{1,p}(\mathbb{R}^n)$ is a Banach
+space} for $1\le p<\infty$, built entirely on the weak-derivative theory developed here
+together with Mathlib's completeness of $L^p$.
 
 \subsection{Mathlib foundations leveraged}
 
@@ -1840,6 +1859,9 @@ explicitly in each lemma avoids it.
   \texttt{isClosed\_isWeakDerivInDir\_graph} & weak-derivative graph closed in $L^p\!\times\!L^p$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{weakDerivSubmodule} & single-direction Sobolev space as a submodule & \textcolor{mathgreen}{\checkmark} \\
   \texttt{completeSpace\_weakDerivSubmodule} & \dots\ is a Banach space ($1\le p<\infty$) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{weakGradientSubmodule} & $W^{1,p}(\mathbb{R}^n)$ as a submodule of $L^p\!\times\!(L^p)^n$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{isClosed\_weakGradientSubmodule} & $W^{1,p}(\mathbb{R}^n)$ is closed & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{completeSpace\_weakGradientSubmodule} & $W^{1,p}(\mathbb{R}^n)$ is a Banach space & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1850,13 +1872,12 @@ explicitly in each lemma avoids it.
   \item \textbf{Higher-order / multi-index} weak derivatives $D^\alpha$ and the full
     $W^{k,p}$ with its norm
     $\|u\|_{W^{k,p}} = \bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$.
-  \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done} in the single-direction case:
-    \texttt{weakDerivSubmodule}\,$e \le L^p\times L^p$ is a closed subspace and hence a
-    \texttt{CompleteSpace} (\texttt{completeSpace\_weakDerivSubmodule}). The remaining step is
-    purely organisational --- the full $W^{1,p}(\mathbb{R}^n)$ as the $n$-fold version inside
-    $L^p\times(L^p)^n$ --- plus, if desired, packaging the equivalent Sobolev norm
+  \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}:
+    \texttt{completeSpace\_weakGradientSubmodule} shows $W^{1,p}(\mathbb{R}^n)$ is a Banach space
+    for $1\le p<\infty$ (and \texttt{completeSpace\_weakDerivSubmodule} the single-direction case).
+    A natural refinement, if desired, is to package the equivalent Sobolev norm
     $\|u\|_{W^{1,p}}=(\|u\|_p^p+\sum_i\|\partial_i u\|_p^p)^{1/p}$ as a bundled
-    \texttt{NormedSpace} structure.
+    \texttt{NormedSpace} structure and to treat general open $U$ (with the restricted measure).
   \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
     language. Mathlib already proves the analytic core
     (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.

@@ -481,4 +481,54 @@ theorem completeSpace_weakDerivSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_n
     CompleteSpace (weakDerivSubmodule (p := p) e) :=
   completeSpace_coe_iff_isComplete.mpr (isClosed_isWeakDerivInDir_graph hp_ne e).isComplete
 
+/-! ### The Sobolev space `W^{1,p}(ℝⁿ)` -/
+
+/-- The **Sobolev space `W^{1,p}(ℝⁿ)`**, realised as a submodule of `Lᵖ × (Fin n → Lᵖ)`: the pairs
+`(f, g)` where each `g i` is the weak derivative of `f` in the `i`-th coordinate direction
+`EuclideanSpace.single i 1` (so `g` is the weak gradient of `f`). The subspace axioms follow from
+linearity of the weak derivative together with `congr_ae`. -/
+def weakGradientSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] :
+    Submodule ℝ (Lp ℝ p (volume : Measure ℝⁿ) × (Fin n → Lp ℝ p (volume : Measure ℝⁿ))) where
+  carrier := {fg | ∀ i, IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ)) ⇑fg.1 ⇑(fg.2 i)}
+  zero_mem' := by
+    intro i
+    have h0 : IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ))
+        (fun _ : ℝⁿ => (0 : ℝ)) (fun _ => 0) := by intro φ _; simp
+    exact h0.congr_ae (Lp.coeFn_zero ..).symm (Lp.coeFn_zero ..).symm
+  add_mem' := by
+    intro a b ha hb i
+    have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+    have key := IsWeakDerivInDir.add ((Lp.memLp a.1).locallyIntegrable hp1)
+      ((Lp.memLp b.1).locallyIntegrable hp1) ((Lp.memLp (a.2 i)).locallyIntegrable hp1)
+      ((Lp.memLp (b.2 i)).locallyIntegrable hp1) (ha i) (hb i)
+    exact key.congr_ae (Lp.coeFn_add a.1 b.1).symm (Lp.coeFn_add (a.2 i) (b.2 i)).symm
+  smul_mem' := by
+    intro c a ha i
+    exact ((ha i).const_smul c).congr_ae (Lp.coeFn_smul c a.1).symm (Lp.coeFn_smul c (a.2 i)).symm
+
+/-- `W^{1,p}(ℝⁿ)` is closed in `Lᵖ × (Fin n → Lᵖ)`: it is the intersection over the coordinate
+directions of the (closed) single-direction weak-derivative graphs, each pulled back along the
+continuous projection `(f, g) ↦ (f, g i)`. -/
+theorem isClosed_weakGradientSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    IsClosed (weakGradientSubmodule (n := n) (p := p) :
+      Set (Lp ℝ p (volume : Measure ℝⁿ) × (Fin n → Lp ℝ p (volume : Measure ℝⁿ)))) := by
+  have hset : (weakGradientSubmodule (n := n) (p := p) :
+        Set (Lp ℝ p (volume : Measure ℝⁿ) × (Fin n → Lp ℝ p (volume : Measure ℝⁿ))))
+      = ⋂ i, (fun fg : Lp ℝ p (volume : Measure ℝⁿ) × (Fin n → Lp ℝ p (volume : Measure ℝⁿ)) =>
+            (fg.1, fg.2 i)) ⁻¹'
+          {ab | IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ)) ⇑ab.1 ⇑ab.2} := by
+    ext fg
+    simp only [SetLike.mem_coe, Set.mem_iInter, Set.mem_preimage, Set.mem_setOf_eq]
+    rfl
+  rw [hset]
+  refine isClosed_iInter fun i => ?_
+  exact (isClosed_isWeakDerivInDir_graph hp_ne (EuclideanSpace.single i (1 : ℝ))).preimage
+    (continuous_fst.prodMk ((continuous_apply i).comp continuous_snd))
+
+/-- **`W^{1,p}(ℝⁿ)` is a Banach space** (`1 ≤ p < ∞`): the weak-gradient submodule is complete,
+being a closed subspace of the complete space `Lᵖ × (Fin n → Lᵖ)`. -/
+theorem completeSpace_weakGradientSubmodule {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    CompleteSpace (weakGradientSubmodule (n := n) (p := p)) :=
+  completeSpace_coe_iff_isComplete.mpr (isClosed_weakGradientSubmodule hp_ne).isComplete
+
 end Sobolev
