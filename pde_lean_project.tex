@@ -321,6 +321,9 @@ already exists in Mathlib}.
   \texttt{dalembert}                & d'Alembert solution formula                         & \texttt{Wave.lean} \\
   \texttt{energyDensity}            & $e = \tfrac12(u_t^2 + u_x^2)$                       & \texttt{Wave.lean} \\
   \texttt{energyFlux}               & $p = u_t\,u_x$                                      & \texttt{Wave.lean} \\
+  \texttt{IsTestFunction}           & predicate: $\phi \in C^\infty_c(U)$                 & \texttt{Sobolev.lean} \\
+  \texttt{IsWeakDerivInDir}         & weak derivative in a direction $e$                  & \texttt{Sobolev.lean} \\
+  \texttt{MemW1p}                   & membership in $W^{1,p}(U)$                           & \texttt{Sobolev.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1527,41 +1530,187 @@ at an interior local max of a $C^2$ function).
 \end{center}
 
 % ══════════════════════════════════════════════════════════════════════════════
-\section{Upcoming: Sobolev Spaces (Evans Ch.~5)}
+\section{Chapter 5: Sobolev Spaces (Evans §5.2)}
 % ══════════════════════════════════════════════════════════════════════════════
 
-This is the \textbf{main target} of the project. All of modern PDE theory is
-phrased in the language of Sobolev spaces, and Mathlib has almost nothing here.
+Sobolev spaces are the \textbf{main target} of the project: all of modern PDE
+theory is phrased in their language. This chapter (\texttt{Sobolev.lean}) lays the
+analytic foundations --- test functions, weak derivatives, and the space
+$W^{1,p}$ --- and proves the core bridge results connecting classical and weak
+calculus. Every result below is fully proved (checked \texttt{sorry}-free via
+\texttt{\#print axioms}); the proofs rest on three pieces of Mathlib
+infrastructure that turned out to already exist (see below).
 
-\subsection{Key definitions to formalize}
+\subsection{§5.2.1 Test functions and weak derivatives}
+
+\begin{definition}
+A \textbf{test function} on an open set $U \subseteq \mathbb{R}^n$ is a function
+$\phi \in C^\infty_c(U)$: smooth, compactly supported, with $\operatorname{tsupp}\phi
+\subseteq U$.
+\end{definition}
+
+\begin{lstlisting}[caption={Test functions}]
+def IsTestFunction (U : Set Rn) (phi : Rn -> R) : Prop :=
+  ContDiff R inf phi /\ HasCompactSupport phi /\ tsupport phi subset U
+\end{lstlisting}
+
+We work with first-order weak derivatives along a fixed direction $e \in \mathbb{R}^n$,
+which is all that $W^{1,p}$ needs. The direction-$e$ partial $\partial_e\phi$ is the
+Fréchet derivative paired with $e$, \texttt{fderiv R phi x e}.
+
+\begin{definition}[Evans §5.2.1]
+$v$ is the \textbf{weak derivative of $u$ in the direction $e$} on $U$ if
+\[
+  \int_{\mathbb{R}^n} u(x)\, \partial_e \phi(x)\, dx
+  = -\int_{\mathbb{R}^n} v(x)\, \phi(x)\, dx
+  \qquad \forall \phi \in C^\infty_c(U).
+\]
+\end{definition}
+
+\begin{lstlisting}[caption={Weak directional derivative}]
+def IsWeakDerivInDir (U : Set Rn) (e : Rn) (u v : Rn -> R) : Prop :=
+  ForAll phi, IsTestFunction U phi ->
+    integral x, u x * fderiv R phi x e = - integral x, v x * phi x
+\end{lstlisting}
+
+\begin{theorem}[Classical $\Rightarrow$ weak]
+If $u \in C^1$, then its classical directional derivative $x \mapsto \partial_e u(x)$
+is a weak derivative of $u$ in the direction $e$.
+\end{theorem}
+
+\begin{lstlisting}[caption={Classical derivative is the weak derivative (proved)}]
+theorem isWeakDerivInDir_of_contDiff (U : Set Rn) (e : Rn) {u : Rn -> R}
+    (hu : ContDiff R 1 u) :
+    IsWeakDerivInDir U e u (fun x => fderiv R u x e)
+\end{lstlisting}
+
+\begin{proof}
+This is integration by parts with no boundary term. Mathlib's
+\texttt{integral\_mul\_fderiv\_eq\_neg\_fderiv\_mul\_of\_integrable} gives
+$\int u\,\partial_e\phi = -\int (\partial_e u)\,\phi$ provided the three products
+$u\,\partial_e\phi$, $(\partial_e u)\,\phi$, $u\,\phi$ are integrable and $u,\phi$ are
+differentiable on each other's supports. Each product is continuous and supported
+inside the compact set $\operatorname{tsupp}\phi$ (the test function, or its
+derivative, localises it), hence integrable; differentiability is immediate.
+\end{proof}
+
+The weak derivative is $\mathbb{R}$-linear (\texttt{IsWeakDerivInDir.add},
+\texttt{IsWeakDerivInDir.const\_smul}), proved by splitting the defining integrals
+--- which is legitimate precisely because the integrands are locally-integrable
+times a test function, packaged as the helper
+\texttt{integrable\_mul\_testFunction}.
+
+\begin{theorem}[Uniqueness a.e.]
+If $v_1$ and $v_2$ are both weak $e$-derivatives of $u$ on the open set $U$, then
+$v_1 = v_2$ almost everywhere on $U$.
+\end{theorem}
+
+\begin{lstlisting}[caption={Weak derivative unique a.e. (proved)}]
+theorem isWeakDerivInDir_ae_unique {U : Set Rn} (hU : IsOpen U) {e : Rn}
+    {u v1 v2 : Rn -> R}
+    (hv1 : LocallyIntegrable v1) (hv2 : LocallyIntegrable v2)
+    (h1 : IsWeakDerivInDir U e u v1) (h2 : IsWeakDerivInDir U e u v2) :
+    ForAll-ae x, x in U -> v1 x = v2 x
+\end{lstlisting}
+
+\begin{proof}
+The two defining identities give $\int v_1\phi = \int v_2\phi$ for every test
+function, hence $\int \phi\,(v_1 - v_2) = 0$. The \textbf{fundamental lemma of the
+calculus of variations} --- Mathlib's
+\texttt{IsOpen.ae\_eq\_zero\_of\_integral\_contDiff\_smul\_eq\_zero} --- then forces
+$v_1 - v_2 = 0$ a.e.\ on $U$.
+\end{proof}
+
+\subsection{§5.2.2 The space $W^{1,p}$}
+
+\begin{definition}
+$u \in W^{1,p}(U)$ if $u \in L^p(U)$ and in every coordinate direction $e_i$ there
+is a weak derivative of $u$ that also lies in $L^p(U)$.
+\end{definition}
+
+\begin{lstlisting}[caption={Membership in W^{1,p}}]
+structure MemW1p (U : Set Rn) (p : ENNReal) (u : Rn -> R) : Prop where
+  memLp : MemLp u p (volume.restrict U)
+  exists_weakDeriv : ForAll i : Fin n, Exists v,
+    IsWeakDerivInDir U (EuclideanSpace.single i 1) u v
+      /\ MemLp v p (volume.restrict U)
+\end{lstlisting}
+
+\begin{theorem}[Prototypical Sobolev function]
+Every $u \in C^\infty_c$ lies in $W^{1,p}(U)$ for all $p$.
+\end{theorem}
+
+\begin{lstlisting}[caption={Smooth compact support implies W^{1,p} (proved)}]
+theorem memW1p_of_contDiff_hasCompactSupport (U : Set Rn) (p : ENNReal)
+    {u : Rn -> R} (hu : ContDiff R inf u) (hsupp : HasCompactSupport u) :
+    MemW1p U p u
+\end{lstlisting}
+
+\begin{proof}
+The weak derivatives are the classical partials (previous bridge theorem). A
+continuous, compactly supported function is in $L^p$ for every $p$
+(\texttt{Continuous.memLp\_of\_hasCompactSupport}); the same holds for each partial
+$\partial_{e_i} u$, which is again continuous with compact support. Restricting to
+$U$ gives membership in $L^p(U)$.
+\end{proof}
+
+\subsection{Mathlib foundations leveraged}
+
+Three Mathlib results --- which a preliminary survey expected to be missing --- made
+this chapter possible without a sorry:
+\begin{itemize}
+  \item \texttt{integral\_mul\_fderiv\_eq\_neg\_fderiv\_mul\_of\_integrable}
+    (integration by parts in a direction, integrable form) --- the
+    classical-to-weak bridge.
+  \item \texttt{IsOpen.ae\_eq\_zero\_of\_integral\_contDiff\_smul\_eq\_zero}
+    (fundamental lemma of the calculus of variations on an open set) --- uniqueness.
+  \item \texttt{LocallyIntegrable.integrable\_smul\_*\_of\_hasCompactSupport} and
+    \texttt{Continuous.memLp\_of\_hasCompactSupport} --- the integrability and
+    $L^p$-membership plumbing.
+\end{itemize}
+
+\begin{remark}[Implementation pitfall]
+The test-function smoothness must be $C^\infty$ (\texttt{ContDiff R inf}, i.e.\
+$\infty : \mathtt{With\-Top}\ \mathbb{N}_\infty$), \emph{not} $\top$, which in
+current Mathlib denotes the strictly stronger \emph{analytic} class $\omega$. A
+separate trap: introducing the point/function arguments via a section
+\texttt{variable} whose type unfolds through the \texttt{Rn} notation silently
+elaborates the declaration with a \texttt{sorry}; binding those arguments
+explicitly in each lemma avoids it.
+\end{remark}
+
+\subsection{Status Summary}
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Object} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{IsTestFunction}       & $\phi \in C^\infty_c(U)$                              & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{IsWeakDerivInDir}     & weak derivative in a direction $e$                   & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{MemW1p}               & membership in $W^{1,p}(U)$                            & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{isWeakDerivInDir\_of\_contDiff} & classical $\Rightarrow$ weak (int.\ by parts) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{IsWeakDerivInDir.add} / \texttt{.const\_smul} & linearity                  & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{isWeakDerivInDir\_ae\_unique} & weak derivative unique a.e.                  & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{memW1p\_of\_contDiff\_hasCompactSupport} & $C^\infty_c \subseteq W^{1,p}$    & \textcolor{mathgreen}{\checkmark} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Future work}
 
 \begin{enumerate}
-  \item \textbf{Weak derivative} (Evans Definition 5.1):
-    $v \in L^1_{\mathrm{loc}}(\Omega)$ is the $\alpha$-th weak derivative of
-    $u \in L^1_{\mathrm{loc}}(\Omega)$ if
-    \[
-      \int_\Omega u\, D^\alpha \phi \, dx
-      = (-1)^{|\alpha|} \int_\Omega v\, \phi \, dx
-      \quad \forall \phi \in C^\infty_c(\Omega).
-    \]
-
-  \item \textbf{Sobolev space} $W^{k,p}(\Omega)$:
-    \[
-      W^{k,p}(\Omega) = \{ u \in L^p(\Omega) :
-      D^\alpha u \in L^p(\Omega) \text{ for all } |\alpha| \leq k \}
-    \]
-    with norm $\|u\|_{W^{k,p}} = \left(\sum_{|\alpha|\leq k}
-    \|D^\alpha u\|_{L^p}^p\right)^{1/p}$.
-
-  \item \textbf{Sobolev embedding theorem.}
-  \item \textbf{Trace theorem.}
+  \item \textbf{Higher-order / multi-index} weak derivatives $D^\alpha$ and the full
+    $W^{k,p}$ with its norm
+    $\|u\|_{W^{k,p}} = \bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$.
+  \item \textbf{Completeness} of $W^{1,p}$ (Banach), and the Sobolev norm as a genuine
+    norm on a quotient/subtype.
+  \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
+    language. Mathlib already proves the analytic core
+    (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.
+  \item \textbf{Sobolev embedding} ($W^{1,p}\hookrightarrow L^{p^*}$), \textbf{Morrey},
+    \textbf{Rellich--Kondrachov}, and \textbf{trace} theorems.
 \end{enumerate}
-
-\begin{todo}
-  Check Mathlib for any existing infrastructure around
-  \texttt{MeasureTheory.Lp} that could serve as a foundation
-  for $W^{k,p}$.
-\end{todo}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Resources}
