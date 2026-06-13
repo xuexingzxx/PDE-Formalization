@@ -1115,3 +1115,182 @@ theorem heatSolution_solves_heat (g : ℝⁿ → ℝ) (hg : Continuous g)
     funext y
     rw [heatKernel_translate_solves_heat x y ht]
   rw [htime, hspace, hcancel, sub_self]
+
+/-! ### Maximum Principle and Uniqueness (Evans §2.3.3–2.3.4)
+
+The weak maximum principle on a space–time cylinder, proved by the subharmonic perturbation
+`vₑ = u − ε·t`, together with uniqueness on a bounded cylinder as a corollary. -/
+
+open Filter
+
+/-- The **parabolic boundary** of the cylinder `U × [0,T]`: the bottom `closure U × {0}`
+together with the lateral boundary `frontier U × [0,T]`. -/
+def parabolicBoundary (U : Set ℝⁿ) (T : ℝ) : Set (ℝⁿ × ℝ) :=
+  closure U ×ˢ {(0 : ℝ)} ∪ frontier U ×ˢ Set.Icc (0 : ℝ) T
+
+/-- A `C²` spacetime function has a differentiable time-slice. -/
+private lemma differentiableAt_timeSlice {u : ℝⁿ × ℝ → ℝ} (hu : ContDiff ℝ 2 u) (p : ℝⁿ × ℝ) :
+    DifferentiableAt ℝ (fun s : ℝ => u (p.1, s)) p.2 :=
+  (hu.differentiable (by norm_num)).differentiableAt.comp p.2
+    ((differentiableAt_const _).prodMk differentiableAt_id)
+
+/-- A `C²` spacetime function has a `C²` space-slice. -/
+private lemma contDiffAt_spaceSlice {u : ℝⁿ × ℝ → ℝ} (hu : ContDiff ℝ 2 u) (p : ℝⁿ × ℝ) :
+    ContDiffAt ℝ 2 (fun x : ℝⁿ => u (x, p.2)) p.1 :=
+  hu.contDiffAt.comp p.1 (contDiffAt_id.prodMk contDiffAt_const)
+
+/-- Time derivative is additive over differences (of `C²` functions). -/
+lemma timeDerivative_sub {u₁ u₂ : ℝⁿ × ℝ → ℝ} (h₁ : ContDiff ℝ 2 u₁) (h₂ : ContDiff ℝ 2 u₂)
+    (p : ℝⁿ × ℝ) :
+    timeDerivative (fun q => u₁ q - u₂ q) p = timeDerivative u₁ p - timeDerivative u₂ p := by
+  simp only [timeDerivative]
+  exact deriv_sub (differentiableAt_timeSlice h₁ p) (differentiableAt_timeSlice h₂ p)
+
+/-- Spatial Laplacian is additive over differences (of `C²` functions). -/
+lemma spatialLaplacian_sub {u₁ u₂ : ℝⁿ × ℝ → ℝ} (h₁ : ContDiff ℝ 2 u₁) (h₂ : ContDiff ℝ 2 u₂)
+    (p : ℝⁿ × ℝ) :
+    spatialLaplacian (fun q => u₁ q - u₂ q) p
+      = spatialLaplacian u₁ p - spatialLaplacian u₂ p := by
+  simp only [spatialLaplacian]
+  exact ContDiffAt.laplacian_sub (contDiffAt_spaceSlice h₁ p) (contDiffAt_spaceSlice h₂ p)
+
+/-- The linear-in-time perturbation `q ↦ ε·t` has time derivative `ε`. -/
+lemma timeDerivative_linEps (ε : ℝ) (p : ℝⁿ × ℝ) :
+    timeDerivative (fun q : ℝⁿ × ℝ => ε * q.2) p = ε := by
+  simp only [timeDerivative]
+  rw [deriv_const_mul _ differentiableAt_id, deriv_id'', mul_one]
+
+/-- The linear-in-time perturbation `q ↦ ε·t` is spatially harmonic. -/
+lemma spatialLaplacian_linEps (ε : ℝ) (p : ℝⁿ × ℝ) :
+    spatialLaplacian (fun q : ℝⁿ × ℝ => ε * q.2) p = 0 := by
+  simp only [spatialLaplacian]
+  exact congrFun laplacian_const p.1
+
+/-- **Weak maximum principle for the heat equation** (Evans §2.3.3). A `C²` solution of the heat
+equation on a bounded open set `U`, over the time interval `[0,T]`, is bounded on the space–time
+cylinder by its supremum over the parabolic boundary. Proved by the subharmonic perturbation
+`vₑ = u − ε·t`: since `∂t vₑ − Δ vₑ = −ε < 0`, `vₑ` can have no maximum at an interior space point
+with `t > 0` (there `∂t vₑ ≥ 0` and `Δ vₑ ≤ 0`), so its maximum over the closed cylinder lies on the
+parabolic boundary; letting `ε → 0` finishes. -/
+theorem heat_le_sSup_parabolicBoundary {U : Set ℝⁿ} {T : ℝ} {u : ℝⁿ × ℝ → ℝ}
+    (hU : IsOpen U) (hbdd : Bornology.IsBounded U) (hT : 0 < T)
+    (hu : IsHeatSolution u) (hu_c2 : ContDiff ℝ 2 u)
+    {x : ℝⁿ} (hx : x ∈ U) {t : ℝ} (ht0 : 0 < t) (htT : t ≤ T) :
+    u (x, t) ≤ sSup (u '' parabolicBoundary U T) := by
+  have hcont : Continuous u := hu_c2.continuous
+  set K : Set (ℝⁿ × ℝ) := closure U ×ˢ Set.Icc 0 T with hKdef
+  have hKcomp : IsCompact K := hbdd.isCompact_closure.prod isCompact_Icc
+  have hΓsub : parabolicBoundary U T ⊆ K := by
+    rintro p (⟨hp1, hp2⟩ | ⟨hp1, hp2⟩)
+    · exact ⟨hp1, by rw [Set.mem_singleton_iff.mp hp2]; exact ⟨le_refl 0, hT.le⟩⟩
+    · exact ⟨frontier_subset_closure hp1, hp2⟩
+  have hΓclosed : IsClosed (parabolicBoundary U T) :=
+    (isClosed_closure.prod isClosed_singleton).union (isClosed_frontier.prod isClosed_Icc)
+  have hΓcomp : IsCompact (parabolicBoundary U T) := hKcomp.of_isClosed_subset hΓclosed hΓsub
+  have hbddM : BddAbove (u '' parabolicBoundary U T) := (hΓcomp.image hcont).bddAbove
+  set M := sSup (u '' parabolicBoundary U T) with hMdef
+  have key : ∀ ε : ℝ, 0 < ε → u (x, t) ≤ M + ε * T := by
+    intro ε hε
+    set v : ℝⁿ × ℝ → ℝ := fun q => u q - ε * q.2 with hvdef
+    have hvc2 : ContDiff ℝ 2 v := by fun_prop
+    have hvcont : Continuous v := hvc2.continuous
+    have hxtK : (x, t) ∈ K := ⟨subset_closure hx, ht0.le, htT⟩
+    obtain ⟨q, hqK, hqmax⟩ := hKcomp.exists_isMaxOn ⟨(x, t), hxtK⟩ hvcont.continuousOn
+    have hqΓ : q ∈ parabolicBoundary U T := by
+      by_contra hqnot
+      obtain ⟨hq1, hq2⟩ := hqK
+      have hq2pos : 0 < q.2 := by
+        rcases lt_or_eq_of_le hq2.1 with h | h
+        · exact h
+        · exact absurd (Or.inl ⟨hq1, Set.mem_singleton_iff.mpr h.symm⟩) hqnot
+      have hq1U : q.1 ∈ U := by
+        by_contra hnU
+        exact hqnot (Or.inr ⟨⟨hq1, fun hint => hnU (hU.interior_eq ▸ hint)⟩, hq2⟩)
+      -- spatial: Δ_x v ≤ 0 at the interior max
+      have hLoc : IsLocalMax (fun y : ℝⁿ => v (y, q.2)) q.1 := by
+        filter_upwards [hU.mem_nhds hq1U] with y hy
+        exact hqmax ⟨subset_closure hy, hq2⟩
+      have hsp : spatialLaplacian v q ≤ 0 :=
+        laplacian_nonpos_of_isLocalMax (contDiffAt_spaceSlice hvc2 q) hLoc
+      -- temporal: ∂t v ≥ 0 at the (right-endpoint or interior) time-max
+      have hd : HasDerivAt (fun s => v (q.1, s)) (timeDerivative v q) q.2 :=
+        (differentiableAt_timeSlice hvc2 q).hasDerivAt
+      have htm : 0 ≤ timeDerivative v q := by
+        have hsl : Tendsto (slope (fun s => v (q.1, s)) q.2) (𝓝[<] q.2)
+            (𝓝 (timeDerivative v q)) :=
+          (hasDerivAt_iff_tendsto_slope.mp hd).mono_left
+            (nhdsWithin_mono _ fun y hy => ne_of_lt hy)
+        refine ge_of_tendsto hsl ?_
+        filter_upwards [self_mem_nhdsWithin,
+          (eventually_nhdsWithin_of_eventually_nhds (eventually_gt_nhds hq2pos))]
+          with y hylt hy0
+        have hyK : (q.1, y) ∈ K := ⟨hq1, hy0.le, (le_of_lt hylt).trans hq2.2⟩
+        have hle : v (q.1, y) ≤ v (q.1, q.2) := hqmax hyK
+        rw [slope_def_field]
+        exact div_nonneg_iff.mpr (Or.inr ⟨by linarith, by linarith [Set.mem_Iio.mp hylt]⟩)
+      -- heat operator: ∂t v − Δ v = −ε
+      have e1 : timeDerivative v q = timeDerivative u q - ε := by
+        have hslice : (fun s : ℝ => v (q.1, s)) = (fun s => u (q.1, s)) - (fun s => ε * s) := by
+          funext s; simp [hvdef]
+        have hεderiv : deriv (fun s : ℝ => ε * s) q.2 = ε :=
+          ((hasDerivAt_id q.2).const_mul ε).deriv.trans (mul_one ε)
+        simp only [timeDerivative, hslice]
+        rw [deriv_sub (differentiableAt_timeSlice hu_c2 q)
+              (by fun_prop : DifferentiableAt ℝ (fun s : ℝ => ε * s) q.2), hεderiv]
+      have e2 : spatialLaplacian v q = spatialLaplacian u q := by
+        have hslice : (fun y : ℝⁿ => v (y, q.2))
+            = (fun y => u (y, q.2)) - (fun _ => ε * q.2) := by funext y; simp [hvdef]
+        simp only [spatialLaplacian, hslice]
+        rw [ContDiffAt.laplacian_sub (contDiffAt_spaceSlice hu_c2 q) contDiffAt_const]
+        simp
+      have e3 := hu q
+      linarith [hsp, htm, e1, e2, e3]
+    -- conclude the ε-bound
+    have h1 : v (x, t) ≤ v q := hqmax hxtK
+    have h2 : v q ≤ u q := by
+      have : 0 ≤ ε * q.2 := mul_nonneg hε.le (hΓsub hqΓ).2.1
+      simp only [hvdef]; linarith
+    have h3 : u q ≤ M := le_csSup hbddM ⟨q, hqΓ, rfl⟩
+    have h4 : u (x, t) - ε * t = v (x, t) := rfl
+    nlinarith [h1, h2, h3, h4, htT, hε.le]
+  refine le_of_forall_pos_le_add fun δ hδ => ?_
+  have hk := key (δ / T) (by positivity)
+  rw [div_mul_cancel₀ _ hT.ne'] at hk
+  linarith
+
+/-- The difference of two `C²` heat solutions is again a heat solution. -/
+lemma isHeatSolution_sub {u₁ u₂ : ℝⁿ × ℝ → ℝ} (h₁ : IsHeatSolution u₁) (h₂ : IsHeatSolution u₂)
+    (hc₁ : ContDiff ℝ 2 u₁) (hc₂ : ContDiff ℝ 2 u₂) :
+    IsHeatSolution (fun p => u₁ p - u₂ p) := by
+  intro p
+  rw [timeDerivative_sub hc₁ hc₂, spatialLaplacian_sub hc₁ hc₂]
+  linarith [h₁ p, h₂ p]
+
+/-- **Uniqueness for the heat equation on a bounded cylinder** (Evans §2.3.4). Two `C²` solutions
+of the heat equation that agree on the parabolic boundary of `U × [0,T]` agree throughout the
+cylinder. Immediate from the weak maximum principle applied to `u₁ − u₂` and `u₂ − u₁`, whose
+parabolic-boundary data vanish. -/
+theorem heat_eq_of_eq_on_parabolicBoundary {U : Set ℝⁿ} {T : ℝ} {u₁ u₂ : ℝⁿ × ℝ → ℝ}
+    (hU : IsOpen U) (hbdd : Bornology.IsBounded U) (hT : 0 < T)
+    (hu₁ : IsHeatSolution u₁) (hu₂ : IsHeatSolution u₂)
+    (hc₁ : ContDiff ℝ 2 u₁) (hc₂ : ContDiff ℝ 2 u₂)
+    (hbdry : ∀ p ∈ parabolicBoundary U T, u₁ p = u₂ p)
+    {x : ℝⁿ} (hx : x ∈ U) {t : ℝ} (ht0 : 0 < t) (htT : t ≤ T) :
+    u₁ (x, t) = u₂ (x, t) := by
+  have hx0 : (x, (0 : ℝ)) ∈ parabolicBoundary U T := Or.inl ⟨subset_closure hx, rfl⟩
+  -- For a heat solution vanishing on the parabolic boundary, the max-principle bound is `≤ 0`.
+  have hbound : ∀ w : ℝⁿ × ℝ → ℝ, IsHeatSolution w → ContDiff ℝ 2 w →
+      (∀ p ∈ parabolicBoundary U T, w p = 0) → w (x, t) ≤ 0 := by
+    intro w hw hcw hw0
+    have himg : w '' parabolicBoundary U T = {0} := by
+      apply Set.eq_singleton_iff_unique_mem.mpr
+      exact ⟨⟨(x, 0), hx0, hw0 _ hx0⟩, by rintro a ⟨p, hp, rfl⟩; exact hw0 p hp⟩
+    have := heat_le_sSup_parabolicBoundary hU hbdd hT hw hcw hx ht0 htT
+    rwa [himg, csSup_singleton] at this
+  have h1 : u₁ (x, t) - u₂ (x, t) ≤ 0 :=
+    hbound _ (isHeatSolution_sub hu₁ hu₂ hc₁ hc₂) (hc₁.sub hc₂)
+      (fun p hp => sub_eq_zero.mpr (hbdry p hp))
+  have h2 : u₂ (x, t) - u₁ (x, t) ≤ 0 :=
+    hbound _ (isHeatSolution_sub hu₂ hu₁ hc₂ hc₁) (hc₂.sub hc₁)
+      (fun p hp => sub_eq_zero.mpr (hbdry p hp).symm)
+  linarith

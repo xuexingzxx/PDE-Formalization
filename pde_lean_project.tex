@@ -317,6 +317,7 @@ already exists in Mathlib}.
   \texttt{IsHeatSolution}           & predicate: $u_t - \Delta u = 0$                     & \texttt{Heat.lean} \\
   \texttt{IsInhomHeatSolution}      & predicate: $u_t - \Delta u = f$                     & \texttt{Heat.lean} \\
   \texttt{heatKernel}               & fundamental solution $\Phi(x,t)$ (Gaussian)         & \texttt{Heat.lean} \\
+  \texttt{parabolicBoundary}        & parabolic boundary of $U\times[0,T]$                & \texttt{Heat.lean} \\
   \texttt{heatSolution}             & convolution $\int \Phi(x-y,t)\,g(y)\,dy$            & \texttt{Heat.lean} \\
   \texttt{timeDeriv} / \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension          & \texttt{Wave.lean} \\
   \texttt{timeDeriv2} / \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension  & \texttt{Wave.lean} \\
@@ -1120,6 +1121,8 @@ $(4\pi t)^{-n/2}$ factors out by linearity. The result coincides with the time d
   \texttt{heatSolution\_hasFDerivAt\_grad} & $D_x$ of the gradient $= \int g\,D^2\Phi$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatSolution\_hasFDerivAt\_dirgrad} & directional 2nd deriv under $\int$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatSolution\_solves\_heat} & convolution solves heat eqn & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heat\_le\_sSup\_parabolicBoundary} & weak maximum principle (§2.3.3) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{heat\_eq\_of\_eq\_on\_parabolicBoundary} & uniqueness on a cylinder (§2.3.4) & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1147,6 +1150,57 @@ the zeroth and second Gaussian moments. The spatial Laplacian is obtained as the
 basis of the second directional derivatives $\int g\,\partial_{e_i}^2\Phi$. With domination in
 hand, both $u_t = \int g\,\Phi_t$ and $\Delta u = \int g\,\Delta\Phi$ are valid, and their
 integrands cancel.
+\end{proof}
+
+\subsection{§2.3.3–2.3.4 Maximum Principle and Uniqueness}
+
+On a bounded space–time cylinder, a $C^2$ solution of the heat equation is controlled by its
+values on the \textbf{parabolic boundary}
+\[
+  \Gamma_T = \bigl(\overline U \times \{0\}\bigr) \cup \bigl(\partial U \times [0,T]\bigr),
+\]
+the bottom of the cylinder together with its lateral side (but \emph{not} the top
+$\overline U \times \{T\}$).
+
+\begin{theorem}[Weak maximum principle]
+Let $U\subseteq\mathbb{R}^n$ be bounded open and $T>0$. If $u\in C^2$ solves $u_t=\Delta u$,
+then for every $x\in U$ and $0<t\le T$,
+\[
+  u(x,t)\ \le\ \sup_{\Gamma_T} u .
+\]
+\end{theorem}
+
+\begin{proof}
+Fix $\varepsilon>0$ and set $v_\varepsilon(x,t)=u(x,t)-\varepsilon t$. Then
+$\partial_t v_\varepsilon-\Delta v_\varepsilon=(u_t-\Delta u)-\varepsilon=-\varepsilon<0$.
+The closed cylinder $\overline U\times[0,T]$ is compact and $v_\varepsilon$ is continuous, so
+$v_\varepsilon$ attains a maximum there, at some point $(x_0,t_0)$. Suppose this maximum point
+were \emph{not} on $\Gamma_T$, i.e.\ $x_0\in U$ and $t_0\in(0,T]$. Then:
+\begin{itemize}
+  \item the spatial slice $x\mapsto v_\varepsilon(x,t_0)$ has an interior maximum at $x_0$, so
+    $\Delta v_\varepsilon(x_0,t_0)\le 0$ (the Laplacian is the trace of a negative semidefinite
+    Hessian at an interior maximum);
+  \item the time slice $s\mapsto v_\varepsilon(x_0,s)$ has a maximum on $[0,t_0]$ at the right
+    end $t_0$, so its derivative there is $\ge 0$: the left difference quotients
+    $(v_\varepsilon(x_0,s)-v_\varepsilon(x_0,t_0))/(s-t_0)$ are $\ge 0$ for $s<t_0$, and pass to
+    the limit. Hence $\partial_t v_\varepsilon(x_0,t_0)\ge 0$.
+\end{itemize}
+Therefore $\partial_t v_\varepsilon-\Delta v_\varepsilon\ge 0$ at $(x_0,t_0)$, contradicting
+$=-\varepsilon<0$. So the maximum of $v_\varepsilon$ lies on $\Gamma_T$, and for any $(x,t)$ in
+the cylinder, $v_\varepsilon(x,t)\le\max_{\Gamma_T}v_\varepsilon\le\sup_{\Gamma_T}u$ (as
+$v_\varepsilon\le u$). Thus $u(x,t)\le\sup_{\Gamma_T}u+\varepsilon t\le\sup_{\Gamma_T}u+\varepsilon T$;
+letting $\varepsilon\to0$ gives the claim.
+\end{proof}
+
+\begin{theorem}[Uniqueness on a cylinder]
+Two $C^2$ solutions of the heat equation that agree on the parabolic boundary $\Gamma_T$ agree
+throughout the cylinder.
+\end{theorem}
+
+\begin{proof}
+The difference $w=u_1-u_2$ is again a $C^2$ heat solution (the heat operator is linear), and
+$w=0$ on $\Gamma_T$. Applying the maximum principle to $w$ gives $w\le\sup_{\Gamma_T}w=0$, and to
+$-w=u_2-u_1$ gives $-w\le 0$; hence $w\equiv 0$ on the cylinder.
 \end{proof}
 
 % ══════════════════════════════════════════════════════════════════════════════
