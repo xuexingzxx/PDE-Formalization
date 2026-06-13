@@ -273,7 +273,10 @@ already exists in Mathlib}.
   Inner product $\langle\cdot,\cdot\rangle$ & \texttt{inner} / \texttt{⟪·,·⟫\_ℝ} & \texttt{Transport.lean} \\
   Inner product linear map & \texttt{innerSL ℝ} & \texttt{Laplace.lean} \\
   Continuous linear map & \texttt{ContinuousLinearMap} (\texttt{→L[ℝ]}) & \texttt{Transport.lean} \\
-  $L^p$ space & \texttt{MeasureTheory.Lp} & (future) \\
+  $L^p$ space & \texttt{MeasureTheory.Lp} & \texttt{Sobolev.lean} \\
+  $\ell^p$ product space & \texttt{PiLp} / \texttt{WithLp} & \texttt{Sobolev.lean} \\
+  $L^p$ membership / (semi)norm & \texttt{MemLp} / \texttt{eLpNorm} & \texttt{Sobolev.lean} \\
+  Locally integrable & \texttt{LocallyIntegrable} & \texttt{Sobolev.lean} \\
   Lebesgue integral & \texttt{MeasureTheory.integral} & \texttt{Transport.lean} \\
   Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{Transport.lean} \\
   Average integral & \texttt{MeasureTheory.average} (\texttt{average}) & \texttt{Laplace.lean} \\
@@ -324,6 +327,10 @@ already exists in Mathlib}.
   \texttt{IsTestFunction}           & predicate: $\phi \in C^\infty_c(U)$                 & \texttt{Sobolev.lean} \\
   \texttt{IsWeakDerivInDir}         & weak derivative in a direction $e$                  & \texttt{Sobolev.lean} \\
   \texttt{MemW1p}                   & membership in $W^{1,p}(U)$                           & \texttt{Sobolev.lean} \\
+  \texttt{weakDerivSubmodule}       & single-direction $W^{1,p}$ as a submodule           & \texttt{Sobolev.lean} \\
+  \texttt{weakGradientSubmodule}    & $W^{1,p}(\mathbb{R}^n)$ in $L^p\!\times\!(L^p)^n$    & \texttt{Sobolev.lean} \\
+  \texttt{sobolevSpace}             & $W^{1,p}(\mathbb{R}^n)$ with the Sobolev norm (\texttt{PiLp}) & \texttt{Sobolev.lean} \\
+  \texttt{weakGradientSubmoduleOn}  & $W^{1,p}(U)$ over the restricted measure            & \texttt{Sobolev.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -497,14 +504,14 @@ theorem evansFormula_differentiable (b : Rn) (g : Rn -> R)
     Differentiable R (evansFormula b g)
 \end{lstlisting}
 
-\begin{proof}[Proof of \texttt{evansFormula\_initial}]
-By definition, $u(x,0) = g(\texttt{charFlow}\,b\,(x,0)) = g(x - 0 \cdot b) = g(x)$.
+\begin{proof}[Initial condition]
+By definition $u(x,t) = g(x - tb)$, so $u(x,0) = g(x - 0\cdot b) = g(x)$.
 \end{proof}
 
-\begin{proof}[Proof of \texttt{evansFormula\_differentiable}]
-Since $u = g \circ \texttt{charFlow}\,b$ and \texttt{charFlow} $b$ is a continuous
-linear map, it is differentiable. By the chain rule, the composition of two
-differentiable maps is differentiable. Hence $u$ is differentiable whenever $g$ is.
+\begin{proof}[Regularity]
+The solution is the composition $u = g\circ\Phi$, where $\Phi(x,t) = x - tb$ is an affine
+(in particular smooth) map. By the chain rule a composition of differentiable maps is
+differentiable, so $u$ is differentiable whenever $g$ is.
 \end{proof}
 
 \begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (sorry)}]
@@ -523,10 +530,12 @@ lemma timeDerivative_evansFormula (b : Rn) (g : Rn -> R)
   sorry
 \end{lstlisting}
 
-Both follow from the chain rule: $x \mapsto x - tb$ has derivative $\text{id}$,
+Both follow from the chain rule: $x \mapsto x - tb$ has spatial derivative the identity,
 so the spatial gradient of $g(x-tb)$ is just $\nabla g(x-tb)$; and
 $\partial_t[g(x-tb)] = \nabla g(x-tb) \cdot (-b) = -\langle \nabla g(x-tb), b \rangle$.
-Once these are proved, the existence theorem closes by \texttt{simp}:
+Substituting these two identities into $u_t + b\cdot Du$ gives
+$-\langle\nabla g, b\rangle + \langle b, \nabla g\rangle = 0$, so the formula solves the
+transport equation:
 
 \begin{lstlisting}[caption={Existence (proved modulo two chain rule lemmas)}]
 theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
@@ -550,20 +559,18 @@ theorem evansFormula_unique (b : Rn) (g : Rn -> R)
   -- so z is constant; z(-t) = g(x-tb) gives u(x,t) = g(x-tb)
 \end{lstlisting}
 
-The uniqueness proof is fully formalized. The key steps are:
-\begin{enumerate}
-  \item \textbf{\texttt{const\_of\_deriv\_zero}}: a function $f : \mathbb{R} \to \mathbb{R}$
-    with $f' \equiv 0$ is constant, proved via
-    \texttt{image\_sub\_le\_mul\_sub\_of\_deriv\_le} (MVT).
-    Note: \texttt{isConst\_of\_deriv\_eq\_zero} does not exist in Mathlib.
-  \item \textbf{Characteristic path}: $\gamma(s) = (x + sb, t+s)$ has derivative
-    $(b, 1)$ by \texttt{HasDerivAt.prodMk}.
-  \item \textbf{Chain rule}: $z'(s) = \text{fderiv}\,u\,(\gamma(s))\,(b,1)$,
-    which equals $\langle \text{spatialGradient}\,u, b\rangle + \text{timeDerivative}\,u = 0$
-    by the PDE hypothesis (inline of \texttt{fderiv\_transport\_dir}).
-  \item \textbf{Conclusion}: $z$ is constant, $z(-t) = u(x-tb, 0) = g(x-tb)$,
-    so $u(x,t) = z(0) = g(x-tb)$.
-\end{enumerate}
+\begin{proof}[Uniqueness]
+Let $u$ be any differentiable solution with $u(\cdot,0)=g$, and fix $(x,t)$. Consider the
+function along the characteristic through $(x,t)$,
+\[
+  z(s) = u(x+sb,\ t+s).
+\]
+By the chain rule its derivative is the directional derivative of $u$ at $(x+sb,t+s)$ in the
+direction $(b,1)$, namely $\langle Du,\,b\rangle + u_t$, which vanishes by the transport
+equation. A function on $\mathbb{R}$ with identically zero derivative is constant (mean value
+theorem), so $z$ is constant. Evaluating at $s=-t$ gives $z(-t) = u(x-tb,0) = g(x-tb)$, and
+hence $u(x,t) = z(0) = g(x-tb)$. As $(x,t)$ was arbitrary, $u$ equals the explicit solution.
+\end{proof}
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -644,53 +651,40 @@ theorem duhamelFormula_solves (b : Rn) (g : Rn -> R)
   ... -- fully proved, no sorry
 \end{lstlisting}
 
-\textbf{Proof sketch:} Split $u = v + w$ where $v(x,t) = g(x-tb)$ and
-$w(x,t) = \int_0^t f(x-(t-s)b, s)\,ds$. We know $v_t + b \cdot Dv = 0$.
-For $w$, the Leibniz rule gives a boundary term $f(x,t)$ from the fundamental
-theorem of calculus, while $\partial_t[f(x-(t-s)b,s)] = -b \cdot \nabla f$
-cancels with the spatial part $b \cdot Dw$. Hence $w_t + b \cdot Dw = f$.
+\begin{proof}
+Write $u = v + w$, where $v(x,t) = g(x-tb)$ solves the homogeneous equation
+$v_t + b\cdot Dv = 0$ with $v(\cdot,0)=g$ (the previous case), and
+\[
+  w(x,t) = \int_0^t f\bigl(x-(t-s)b,\ s\bigr)\,ds .
+\]
+Differentiate $w$ in $t$ by the Leibniz rule for an integral with a \emph{variable} upper
+limit. The moving endpoint contributes the boundary term $f\bigl(x-(t-t)b,\ t\bigr)=f(x,t)$,
+and differentiating the integrand contributes, by the chain rule,
+\[
+  \int_0^t \partial_t\!\bigl[f(x-(t-s)b,s)\bigr]\,ds
+    = -\int_0^t b\cdot\nabla f(x-(t-s)b,s)\,ds .
+\]
+The spatial term, again by the chain rule and differentiation under the integral sign, is
+\[
+  b\cdot Dw(x,t) = \int_0^t b\cdot\nabla f(x-(t-s)b,s)\,ds .
+\]
+Adding, the two integrals cancel and $w_t + b\cdot Dw = f(x,t)$. Since $w(\cdot,0)=0$, the
+sum $u = v+w$ satisfies $u_t + b\cdot Du = f$ with $u(\cdot,0)=g$.
 
-The proof structure is complete and most technical conditions are now discharged.
-The continuity of $s \mapsto \nabla_x f(x-(t-s)b, s)$ (needed for the
-\texttt{IntervalIntegrable} hypotheses and the \texttt{toDual}/\texttt{innerSL}
-commutations in Steps 5--6) is proved via the identity
-$\text{fderiv}\,(\lambda y.\,f(y,s))\,z = \text{fderiv}\,f\,(z,s) \circ \text{inl}$
-combined with \texttt{ContDiff.continuous\_fderiv}.
-
-\textbf{Step 2 (\texttt{hleibniz}) is now proved.} Mathlib provides
-\texttt{integral\_hasDerivAt\_right} (FTC) and the parametric
-\texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} separately, but no combined
-Leibniz rule with a \emph{variable} upper limit. We supply this as
-\texttt{Calculus.leibniz\_integral} (a fully proved lemma, not a placeholder):
+The one ingredient not directly available off the shelf is the Leibniz rule with a variable
+upper limit,
 \[
   \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
-    = H(t,t) + \int_0^t \partial_1 H(t,s)\,ds .
+    = H(t,t) + \int_0^t \partial_1 H(t,s)\,ds,
 \]
-Its proof avoids the (missing-in-Mathlib) implication ``continuous partial derivatives
-$\Rightarrow$ Fréchet differentiable on $\mathbb{R}^2$'' via the decomposition $F = P+B+C$:
-$P(t') = \int_0^{t'} H(t,s)\,ds$ (FTC, gives $H(t,t)$);
-$B(t') = \int_0^t H(t',s)\,ds - \int_0^t H(t,s)\,ds$ (differentiation under the integral on
-the \emph{fixed} interval $[0,t]$, gives $\int_0^t \partial_1 H(t,s)\,ds$); and the cross-term
-$C(t') = \int_t^{t'}(H(t',s)-H(t,s))\,ds$, which is $O((t'-t)^2) = o(t'-t)$ and so has
-derivative $0$ (lemma \texttt{hasDerivAt\_crossTerm}). The uniform $\partial_1 H$ bound needed
-for $B$ and $C$ comes from compactness of a box
-(\texttt{IsCompact.exists\_bound\_of\_continuousOn}).
-
-\textbf{Step 5 (\texttt{LipschitzOnWith}) is now proved.} The dominated-convergence lemma
-\texttt{hasFDerivAt\_integral\_of\_dominated\_loc\_of\_lip} needs, for a.e. $s$, a Lipschitz
-bound for $x' \mapsto f(x'-(t-s)b, s)$ valid on the \emph{whole} ball $B(x,1)$ --- a single
-constant, not the center-point value. We obtain it from a uniform bound
-$M = \sup\|\text{fderiv}\,f\|$ over the compact ``tube''
-$\overline{B}(x,1) \times [0,t]$ (\texttt{IsCompact.exists\_bound\_of\_continuousOn}); then for
-each $s$ the mean value inequality \texttt{Convex.lipschitzOnWith\_of\_nnnorm\_fderiv\_le} on
-the convex ball gives the $M$-Lipschitz bound, using
-$\|\text{fderiv}\,(\lambda y.\,f(y,s))\,z\| = \|\text{fderiv}\,f\,(z,s) \circ \text{inl}\|
-\le \|\text{fderiv}\,f\,(z,s)\|$ (\texttt{norm\_inl\_le\_one}). With the bound now the
-\emph{constant} $M$, its \texttt{IntervalIntegrable} hypothesis is just
-\texttt{intervalIntegrable\_const}.
-All other conditions (\texttt{AEStronglyMeasurable} of $F$ and $F'$, the \texttt{toDual} and
-\texttt{innerSL} commutations) are fully proved, so \texttt{duhamelFormula\_solves} is closed
-with no \texttt{sorry}.
+which we prove by splitting $F(t')=\int_0^{t'}H(t',s)\,ds$ as $P+B+C$: the fixed-integrand
+piece $P(t')=\int_0^{t'}H(t,s)\,ds$ (handled by the fundamental theorem of calculus, giving
+$H(t,t)$); the fixed-interval piece $B(t')=\int_0^t\bigl(H(t',s)-H(t,s)\bigr)\,ds$
+(differentiation under the integral over $[0,t]$, giving $\int_0^t\partial_1 H(t,s)\,ds$);
+and a cross-term $C(t')=\int_t^{t'}\bigl(H(t',s)-H(t,s)\bigr)\,ds = O\bigl((t'-t)^2\bigr)$,
+whose derivative at $t$ is $0$. The uniform bounds these steps require follow from continuity
+of $\partial_1 H$ on a compact box.
+\end{proof}
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -824,8 +818,8 @@ lemma laplacian_norm_rpow_eq (p : R) (x : Rn) (hx : x != 0) :
 \end{lstlisting}
 
 \begin{proof}
-From \texttt{hasFDerivAt\_norm\_rpow\_of\_ne}, the gradient is
-$\nabla(\|x\|^p) = p\|x\|^{p-2}x$.
+The gradient is $\nabla(\|x\|^p) = p\|x\|^{p-2}x$ (chain rule, using
+$\nabla\|x\| = x/\|x\|$).
 Differentiating again using the product rule:
 \[
   D^2(\|x\|^p)(x)(v,w) = p(p-2)\|x\|^{p-4}\langle x,v\rangle\langle x,w\rangle
@@ -847,7 +841,7 @@ lemma laplacian_log_norm_eq (x : Rn) (hx : x != 0) :
 \end{lstlisting}
 
 \begin{proof}
-The proof follows the same structure as \texttt{laplacian\_norm\_rpow\_eq}.
+The computation parallels that of $\Delta(\|x\|^p)$ above.
 
 \textbf{Step 1: First derivative.}
 Write $\log\|y\| = \log(\|y\|^1)$ and apply the chain rule.
@@ -893,15 +887,15 @@ We consider each dimension separately.
 \textbf{Case $n = 0$:} $\Phi \equiv 0$, so $\Delta\Phi = 0$ trivially.
 
 \textbf{Case $n = 1$:} $\Phi(x) = \frac{1}{2}\|x\|^1$.
-By \texttt{laplacian\_const\_mul} and \texttt{laplacian\_norm\_rpow\_eq} with $p = 1$:
+By linearity and the formula $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ with $p = 1$:
 \[ \Delta\Phi = \frac{1}{2} \cdot 1 \cdot (1 + 1 - 2) \cdot \|x\|^{-1} = 0. \]
 
 \textbf{Case $n = 2$:} $\Phi(x) = -\frac{1}{2\pi}\log\|x\|$.
-By \texttt{laplacian\_const\_mul} and \texttt{laplacian\_log\_norm\_eq}:
+By linearity and $\Delta(\log\|x\|) = (n-2)\|x\|^{-2}$:
 \[ \Delta\Phi = -\frac{1}{2\pi} \cdot (2-2) \cdot \|x\|^{-2} = 0. \]
 
 \textbf{Case $n \geq 3$:} $\Phi(x) = \frac{1}{n(n-2)\omega_n}\|x\|^{2-n}$.
-By \texttt{laplacian\_const\_mul} and \texttt{laplacian\_norm\_rpow\_eq} with $p = 2-n$:
+By linearity and the same formula with $p = 2-n$:
 \[ \Delta\Phi = c \cdot (2-n) \cdot (n + (2-n) - 2) \cdot \|x\|^{-n}
              = c \cdot (2-n) \cdot 0 = 0. \]
 
@@ -925,11 +919,11 @@ $B(x,r) \setminus B(x,\varepsilon)$, then let $\varepsilon \to 0$.
 harmonic function on a bounded open set: it attains its supremum on the boundary,
 $u(x) \le \sup_{\partial U} u$ for all $x \in U$. The proof is the classical subharmonic
 perturbation. For $\varepsilon > 0$ set $v_\varepsilon = u + \varepsilon\|\cdot\|^2$; then
-$\Delta v_\varepsilon = \Delta u + 2n\varepsilon = 2n\varepsilon > 0$ (using
-\texttt{laplacian\_norm\_sq}: $\Delta\|\cdot\|^2 = 2n$). A function with strictly positive
-Laplacian can have no interior maximum --- by \texttt{laplacian\_nonpos\_of\_isLocalMax}
-(the analytic core: $\Delta \le 0$ at any interior local max of a $C^2$ function), an
-interior max would force $\Delta v_\varepsilon \le 0$, contradiction. So $v_\varepsilon$
+$\Delta v_\varepsilon = \Delta u + 2n\varepsilon = 2n\varepsilon > 0$, since
+$\Delta\|\cdot\|^2 = 2n$. A function with strictly positive Laplacian can have no interior
+maximum: at an interior local maximum of a $C^2$ function the Laplacian (the trace of the
+Hessian, which is negative semidefinite there) is $\le 0$, so an interior maximum would force
+$\Delta v_\varepsilon \le 0$, a contradiction. Hence $v_\varepsilon$
 attains its max on $\overline U$ at a boundary point (the max exists by compactness of
 $\overline U$ and continuity), giving $u(x) \le \sup_{\partial U} u + \varepsilon R^2$ with
 $R = \sup_{\overline U}\|\cdot\|$; letting $\varepsilon \to 0$ finishes.
@@ -1086,20 +1080,18 @@ which turn out to be \emph{equal}, so the kernel solves the heat equation:
 \end{align}
 
 \textbf{Normalization} ($\int_{\mathbb{R}^n} \Phi(\cdot, t) = 1$): the kernel is
-$(4\pi t)^{-n/2}$ times the Gaussian $\exp(-|x|^2/4t)$, whose integral over
-$\mathbb{R}^n$ is $(4\pi t)^{n/2}$ by Mathlib's
-\texttt{GaussianFourier.integral\_rexp\_neg\_mul\_sq\_norm}. The two powers cancel.
+$(4\pi t)^{-n/2}$ times the Gaussian $\exp(-|x|^2/4t)$, whose integral over $\mathbb{R}^n$ is
+$(4\pi t)^{n/2}$ (the standard Gaussian integral). The two powers cancel.
 
-\textbf{Time derivative}: on $t > 0$ the kernel agrees with the smooth branch
-$F(s) = (4\pi s)^{-n/2} \exp(-|x|^2/4s)$. Writing $\Phi = u \cdot v$ with
-$u(s) = (4\pi s)^{-n/2}$, $v(s) = \exp(-|x|^2/4s)$, the product and chain rules give the
-claim. The derivative is transferred to the kernel via \texttt{Filter.EventuallyEq}.
+\textbf{Time derivative}: for $t > 0$ the kernel agrees with the smooth branch
+$F(s) = (4\pi s)^{-n/2} \exp(-|x|^2/4s)$; writing $\Phi = u\cdot v$ with
+$u(s) = (4\pi s)^{-n/2}$ and $v(s) = \exp(-|x|^2/4s)$, the product and chain rules give the
+stated formula.
 
-\textbf{Spatial Laplacian}: the Gaussian Laplacian is computed by expanding over the
-standard orthonormal basis (\texttt{laplacian\_eq\_iteratedFDeriv\_orthonormalBasis}),
-computing the second directional derivative along each $e_i$ via the product rule, and
-summing using Parseval ($\sum_i \langle x, e_i \rangle^2 = |x|^2$). The constant
-$(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
+\textbf{Spatial Laplacian}: expanding over the standard orthonormal basis, the second
+directional derivative of the Gaussian along each $e_i$ is computed by the product rule, and
+summing gives $\Delta$ using $\sum_i \langle x, e_i\rangle^2 = |x|^2$; the constant
+$(4\pi t)^{-n/2}$ factors out by linearity. The result coincides with the time derivative.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -1132,35 +1124,30 @@ $(4\pi t)^{-n/2}$ pulls out of the Laplacian via \texttt{laplacian\_smul}.
 \end{tabular}
 \end{center}
 
-The proof of \texttt{heatSolution\_solves\_heat} is structured so that the
-\emph{cancellation} is fully proved: the helper \texttt{heatKernel\_translate\_solves\_heat}
-shows that for each fixed $y$, the translated kernel $(x,t) \mapsto \Phi(x-y,t)$ solves the
-heat equation (its time derivative equals its spatial Laplacian), using
-\texttt{heatKernel\_timeDerivative}, \texttt{heatKernel\_spatialLaplacian}, and
-\texttt{laplacian\_comp\_sub} (translation invariance of the Laplacian via
-\texttt{iteratedFDeriv\_comp\_sub}). Under the integral, the two derivatives therefore
-cancel pointwise, and the result follows.
+\begin{proof}
+The cancellation is the heart of the matter. For each fixed $y$, the translated kernel
+$(x,t)\mapsto\Phi(x-y,t)$ again solves the heat equation: the Laplacian is
+translation-invariant, and $\Phi$ itself solves the equation, so the translate's time
+derivative equals its spatial Laplacian. Consequently, \emph{provided both derivatives may be
+taken under the integral sign},
+\[
+  u_t(x,t) - \Delta u(x,t)
+  = \int_{\mathbb{R}^n}\bigl[\partial_t\Phi(x-y,t) - \Delta_x\Phi(x-y,t)\bigr]g(y)\,dy = 0,
+\]
+the integrand vanishing pointwise.
 
-The statement now assumes $g$ \emph{bounded} continuous ($|g| \le C_g$, as in Evans), the
-growth condition that makes the convolution and its derivatives converge.
-
-\textbf{\texttt{htime} (the $t$-derivative under the integral) is proved} via Mathlib's
-\texttt{hasDerivAt\_integral\_of\_dominated\_loc\_of\_deriv\_le} on a compact time window
-$(t/2, 2t) \ni t$. The dominating function comes from \texttt{heatKernel\_time\_deriv\_bound}
-(each $s$-dependent factor is bounded at the endpoints), and its integrability reduces, after
-the translation $y \mapsto x-y$, to the $0$th and $2$nd Gaussian moments.
-
-\textbf{\texttt{hspace} (the spatial Laplacian under the integral) is proved, so the Heat
-chapter is fully closed (zero \texttt{sorry}).} The Laplacian is the trace of the second
-Fréchet derivative; we move it under the integral by differentiating \emph{twice} but always
-through \emph{single}-CLM ($\mathbb{R}^n \to_L \mathbb{R}$) integrals
-(\texttt{heatSolution\_hasFDerivAt\_grad} then the eval-bridge \texttt{fderiv\_fderiv\_apply}
-then \texttt{heatSolution\_hasFDerivAt\_dirgrad}), summing over the basis to get
-$\int g\,\Delta\Phi$. This deliberately avoids the iterated CLM space
-$\mathbb{R}^n \to_L (\mathbb{R}^n \to_L \mathbb{R})$, where Mathlib lacks the
-\texttt{ContinuousENorm} instance (a topology diamond) so \texttt{Integrable} and
-\texttt{integral\_apply} are unavailable. The two resulting integrands cancel pointwise by
-\texttt{heatKernel\_translate\_solves\_heat}, so the difference of the integrals is zero.
+It remains to justify differentiating under the integral. We assume, as in Evans, that $g$
+is \emph{bounded} continuous ($|g|\le C_g$) --- the growth condition that makes the
+convolution and its derivatives converge. Both differentiations are justified by domination
+on a compact time window $(t/2,2t)\ni t$. The relevant derivatives of the kernel ---
+$\partial_t\Phi$, and the first and second spatial derivatives $D_x\Phi$, $D^2_x\Phi$, all
+available in closed form --- are Gaussians multiplied by polynomials in $x-y$, hence dominated
+by integrable functions whose integrability reduces (after the substitution $y\mapsto x-y$) to
+the zeroth and second Gaussian moments. The spatial Laplacian is obtained as the sum over the
+basis of the second directional derivatives $\int g\,\partial_{e_i}^2\Phi$. With domination in
+hand, both $u_t = \int g\,\Phi_t$ and $\Delta u = \int g\,\Delta\Phi$ are valid, and their
+integrands cancel.
+\end{proof}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 4: Wave Equation (Evans §2.4)}
@@ -1203,12 +1190,10 @@ noncomputable def dalembert (g h : R -> R) : R x R -> R :=
 \end{lstlisting}
 
 \textbf{Traveling waves} (all proved): if $\varphi \in C^2$, then $\varphi(x+t)$ and
-$\varphi(x-t)$ each solve $u_{tt} = u_{xx}$. The proof computes both second derivatives
-via the chain rule for the affine shifts $a \pm \cdot$, $\cdot \pm a$ (helper lemmas
-\texttt{deriv\_addL/addR/subL/subR} and their \texttt{HasDerivAt} variants); both $u_{tt}$
-and $u_{xx}$ equal $\varphi''(x \pm t)$. The superposition lemma
-\texttt{travelingWaves\_isWaveSolution} combines a forward and a backward wave: both
-second derivatives equal $\Phi''(x+t) + \Psi''(x-t)$.
+$\varphi(x-t)$ each solve $u_{tt} = u_{xx}$. By the chain rule applied to the affine shifts
+$x\mapsto x\pm t$, both $u_{tt}$ and $u_{xx}$ equal $\varphi''(x\pm t)$, so they coincide. By
+superposition, a sum $\Phi(x+t)+\Psi(x-t)$ of a forward and a backward wave is also a solution,
+both of its second derivatives equalling $\Phi''(x+t) + \Psi''(x-t)$.
 
 \textbf{Initial position} (proved): $u(x,0) = g(x)$, since the integral term vanishes
 when the limits coincide.
@@ -1237,8 +1222,7 @@ an antiderivative $H$, then differentiating).
 \textbf{d'Alembert solves the wave equation} (proved): with $H(a) = \int_0^a h$, the
 splitting $\int_{x-t}^{x+t} h = H(x+t) - H(x-t)$ rewrites d'Alembert as the traveling-wave
 superposition $\Phi(x+t) + \Psi(x-t)$ with $\Phi = (g+H)/2$, $\Psi = (g-H)/2$. Both are
-$C^2$ (since $H' = h \in C^1$, established via \texttt{contDiff\_succ\_iff\_deriv}), so
-\texttt{travelingWaves\_isWaveSolution} applies directly.
+$C^2$ (since $H' = h \in C^1$), so the traveling-wave result above applies directly.
 
 This makes \textbf{Wave §2.4.1 the first fully closed chapter} --- every result is proved
 with no \texttt{sorry}, not even technical ones, since the one-dimensional setting needs
@@ -1269,10 +1253,9 @@ $(\Phi')^2$ and $(\Psi')^2$:
 \end{align}
 using the first-derivative formulas
 $\partial_t[A(x+t)+B(x-t)] = A'(x+t) - B'(x-t)$ and
-$\partial_x[\cdots] = A'(x+t) + B'(x-t)$ (helpers \texttt{timeDeriv\_super},
-\texttt{spaceDeriv\_super}). Differentiating both and comparing gives the conservation law
-with no analytic side conditions --- the mixed partials are manifestly symmetric for a
-traveling wave.
+$\partial_x[\cdots] = A'(x+t) + B'(x-t)$. Differentiating the energy density and the flux and
+comparing gives the conservation law with no analytic side conditions --- the mixed partials
+are manifestly symmetric for a traveling wave.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -1286,13 +1269,10 @@ traveling wave.
 \end{tabular}
 \end{center}
 
-Two corollaries complete the section: \texttt{energyDensity\_nonneg} ($e \ge 0$, as
-$e$ is $\tfrac{1}{2}$ a sum of squares) and \texttt{dalembert\_energy\_conservation},
-which specializes the local conservation law to $u = \texttt{dalembert}\,g\,h$ via the
-superposition decomposition $\Phi = (g+H)/2$, $\Psi = (g-H)/2$.
-
-Like §2.4.1, this section is fully closed (no \texttt{sorry}). It provides the local
-conservation law and nonnegativity underlying the energy method.
+Two corollaries complete the section: the energy density is nonnegative ($e \ge 0$, being
+$\tfrac{1}{2}$ a sum of squares), and the local conservation law specializes to the
+d'Alembert solution via the superposition decomposition $\Phi = (g+H)/2$, $\Psi = (g-H)/2$.
+This provides the local conservation law and nonnegativity underlying the energy method.
 
 \subsection{§2.4.3 Uniqueness via Riemann Invariants}
 
@@ -1306,14 +1286,14 @@ Riemann invariants $u_t \pm u_x$, with no integration of the energy required.
 $A(x+t) + B(x-t)$, zero initial position ($A + B \equiv 0$) and zero initial velocity
 ($A' - B' \equiv 0$) force both Riemann invariants $A' + B'$ and $A' - B'$ to vanish.
 Differentiating the position condition gives $A' + B' \equiv 0$; combined with the velocity
-condition, $A' \equiv B' \equiv 0$, so $A$ and $B$ are constant
-(\texttt{is\_const\_of\_deriv\_eq\_zero}) and cancel by the value at $0$.
+condition, $A' \equiv B' \equiv 0$, so $A$ and $B$ are constant (a function with identically
+zero derivative is constant) and cancel by their values at $0$.
 
 \textbf{Uniqueness} (proved): two traveling-wave solutions with the same initial position
-and velocity coincide everywhere. Applying the previous result to the difference of the
+and velocity coincide everywhere, by applying the previous result to the difference of their
 profiles. Since every $C^2$ solution of the 1D wave equation is a traveling-wave
-superposition, this is uniqueness for the Cauchy problem --- in particular,
-\texttt{dalembert} is the unique such solution of its data.
+superposition, this is uniqueness for the Cauchy problem --- in particular, the d'Alembert
+formula gives the unique such solution of its data.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -1332,9 +1312,8 @@ superposition, this is uniqueness for the Cauchy problem --- in particular,
 on the initial data $(g, h)$ restricted to the interval $[x_0 - t_0,\, x_0 + t_0]$. If two
 pairs of data agree on that interval, the solutions agree at $(x_0, t_0)$. The proof reads
 off the three places the formula samples the data --- the endpoints $x_0 \pm t_0$ for the
-$g$-terms and the interval $[x_0-t_0, x_0+t_0]$ for the integral of $h$
-(\texttt{intervalIntegral.integral\_congr}) --- all within the dependence interval.
-Disturbances therefore propagate at speed at most $1$.
+$g$-terms and the interval $[x_0-t_0, x_0+t_0]$ for the integral of $h$ --- all within the
+dependence interval. Disturbances therefore propagate at speed at most $1$.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -1354,19 +1333,18 @@ $\Phi(x+t)+\Psi(x-t)$, where the symmetry of mixed partials $\partial_t\partial_
 the one extra ingredient (beyond $u_{tt}=u_{xx}$) needed to extend the energy conservation
 law to all solutions. We prove it directly.
 
-\textbf{\texttt{mixed\_partials\_symm}} (proved): for $u \in C^2(\mathbb{R}^2)$,
-$\partial_t(\partial_x u) = \partial_x(\partial_t u)$. The slice derivatives are bridged to
-the Fréchet derivative ($\partial_x u = \text{fderiv}\,u\,(x,t)\,(1,0)$, etc., via
-\texttt{HasFDerivAt.comp\_hasDerivAt} along the curves $r\mapsto(r,s)$, $s\mapsto(x,s)$ and
-\texttt{clm\_apply} for the \texttt{fderiv}-valued map), reducing the claim to Mathlib's
-\texttt{second\_derivative\_symmetric}.
+\textbf{Symmetry of mixed partials} (proved): for $u \in C^2(\mathbb{R}^2)$,
+$\partial_t(\partial_x u) = \partial_x(\partial_t u)$. This is the classical equality of mixed
+second partial derivatives of a twice continuously differentiable function (Clairaut/Schwarz),
+obtained here by relating the one-variable slice derivatives to the second Fréchet derivative
+of $u$, which is symmetric.
 
-\textbf{\texttt{energy\_conservation}} (proved): with this bridge, the local conservation law
-$\partial_t e = \partial_x p$ now holds for \emph{every} $C^2$ solution, not just a
-traveling wave. The proof differentiates the energy density and flux directly; the difference
-reduces to $u_t(u_{tt}-u_{xx}) + u_x(\partial_t\partial_x u - \partial_x\partial_t u)$, whose
-first term vanishes by \texttt{IsWaveSolution} and second by the symmetry above. This is the
-general energy method of Evans §2.4.3, matching the textbook in full generality.
+\textbf{General energy conservation} (proved): with this symmetry, the local conservation law
+$\partial_t e = \partial_x p$ holds for \emph{every} $C^2$ solution, not just a traveling
+wave. Differentiating the energy density and the flux directly, the difference reduces to
+$u_t(u_{tt}-u_{xx}) + u_x(\partial_t\partial_x u - \partial_x\partial_t u)$; the first term
+vanishes because $u$ solves the wave equation, and the second by the symmetry of mixed
+partials. This is the general energy method of Evans §2.4.3, in full generality.
 
 \begin{center}
 \begin{tabular}{@{}llc@{}}
@@ -1379,9 +1357,9 @@ general energy method of Evans §2.4.3, matching the textbook in full generality
 \end{tabular}
 \end{center}
 
-(Uniqueness is still stated for the traveling-wave class via \texttt{travelingWaves\_unique};
-extending it to all $C^2$ solutions needs the general-solution-structure theorem, left as
-future work.)
+(Uniqueness is established for the traveling-wave class; extending it to all $C^2$ solutions
+needs the general structure theorem for solutions of the 1D wave equation, left as future
+work.)
 
 \textbf{The entire Wave chapter is fully closed --- zero \texttt{sorry}.} It covers
 existence, regularity, both initial conditions, the energy conservation law (for both the
@@ -1536,10 +1514,10 @@ at an interior local max of a $C^2$ function).
 Sobolev spaces are the \textbf{main target} of the project: all of modern PDE
 theory is phrased in their language. This chapter (\texttt{Sobolev.lean}) lays the
 analytic foundations --- test functions, weak derivatives, and the space
-$W^{1,p}$ --- and proves the core bridge results connecting classical and weak
-calculus. Every result below is fully proved (checked \texttt{sorry}-free via
-\texttt{\#print axioms}); the proofs rest on three pieces of Mathlib
-infrastructure that turned out to already exist (see below).
+$W^{1,p}$ --- and proves the core results connecting classical and weak calculus and
+establishing that $W^{1,p}$ is a Banach space. Every statement below is fully proved and
+machine-checked; the proofs are given here in ordinary mathematical language, in the style
+of Evans.
 
 \subsection{§5.2.1 Test functions and weak derivatives}
 
@@ -1556,7 +1534,7 @@ def IsTestFunction (U : Set Rn) (phi : Rn -> R) : Prop :=
 
 We work with first-order weak derivatives along a fixed direction $e \in \mathbb{R}^n$,
 which is all that $W^{1,p}$ needs. The direction-$e$ partial $\partial_e\phi$ is the
-Fréchet derivative paired with $e$, \texttt{fderiv R phi x e}.
+Fréchet derivative of $\phi$ evaluated at $e$.
 
 \begin{definition}[Evans §5.2.1]
 $v$ is the \textbf{weak derivative of $u$ in the direction $e$} on $U$ if
@@ -1585,36 +1563,47 @@ theorem isWeakDerivInDir_of_contDiff (U : Set Rn) (e : Rn) {u : Rn -> R}
 \end{lstlisting}
 
 \begin{proof}
-This is integration by parts with no boundary term. Mathlib's
-\texttt{integral\_mul\_fderiv\_eq\_neg\_fderiv\_mul\_of\_integrable} gives
-$\int u\,\partial_e\phi = -\int (\partial_e u)\,\phi$ provided the three products
-$u\,\partial_e\phi$, $(\partial_e u)\,\phi$, $u\,\phi$ are integrable and $u,\phi$ are
-differentiable on each other's supports. Each product is continuous and supported
-inside the compact set $\operatorname{tsupp}\phi$ (the test function, or its
-derivative, localises it), hence integrable; differentiability is immediate.
+This is integration by parts with no boundary term. Fix $\phi\in C^\infty_c(U)$. The
+product $u\phi$ is $C^1$ and compactly supported (its support lies in
+$\operatorname{tsupp}\phi$), so $\int_{\mathbb{R}^n}\partial_e(u\phi)\,dx=0$: the integral
+of a directional derivative of a compactly supported $C^1$ function vanishes. By the
+product rule $\partial_e(u\phi)=(\partial_e u)\,\phi+u\,\partial_e\phi$, and each of the
+functions $u\,\partial_e\phi$ and $(\partial_e u)\,\phi$ is continuous and supported in the
+compact set $\operatorname{tsupp}\phi$, hence integrable. Integrating the product-rule
+identity therefore gives $\int u\,\partial_e\phi=-\int(\partial_e u)\,\phi$, i.e.\
+$\partial_e u$ is the weak $e$-derivative of $u$.
 \end{proof}
 
-The weak derivative is $\mathbb{R}$-linear (\texttt{IsWeakDerivInDir.add},
-\texttt{IsWeakDerivInDir.const\_smul}), proved by splitting the defining integrals
---- which is legitimate precisely because the integrands are locally-integrable
-times a test function, packaged as the helper
-\texttt{integrable\_mul\_testFunction}.
+The weak derivative is $\mathbb{R}$-linear: if $v_1,v_2$ are weak $e$-derivatives of
+$u_1,u_2$, then for scalars $\alpha,\beta$ the function $\alpha v_1+\beta v_2$ is a weak
+$e$-derivative of $\alpha u_1+\beta u_2$ (and similarly for sums, differences and
+negatives). This follows at once from the defining identity once one may split the
+integral $\int(\alpha u_1+\beta u_2)\,\partial_e\phi=\alpha\int u_1\,\partial_e\phi+\beta
+\int u_2\,\partial_e\phi$, which is legitimate because each integrand is a locally
+integrable function times a compactly supported test weight, hence integrable.
 
-Two further properties from Evans §5.2.3 are proved:
+Further properties from Evans §5.2.3 hold:
 
 \begin{itemize}
-  \item \textbf{Invariance under a.e.\ equality} (\texttt{IsWeakDerivInDir.congr\_ae}):
-    the relation depends on $u$ and $v$ only up to almost-everywhere equality, so it
-    descends to $L^p$ equivalence classes --- a prerequisite for $W^{1,p}$ being a
-    well-defined normed space.
-  \item \textbf{Product rule with a smooth function}
-    (\texttt{IsWeakDerivInDir.mul\_smooth}): if $v$ is the weak $e$-derivative of $u$
-    and $\psi$ is smooth, then $\psi u$ has weak $e$-derivative
-    $\psi v + (\partial_e\psi)\,u$. Proved by applying the defining identity for $u$
-    to the test function $\psi\phi$ (again a test function) and expanding
-    $\partial_e(\psi\phi) = \psi\,\partial_e\phi + (\partial_e\psi)\,\phi$ via the
-    Leibniz rule for \texttt{fderiv}. This is the workhorse behind cutoff/localisation
-    arguments.
+  \item \textbf{Constants.} A constant is smooth with vanishing classical derivative, so by
+    the classical-to-weak result above its weak $e$-derivative is $0$, in every direction.
+  \item \textbf{Locality.} A weak $e$-derivative on $U$ is also a weak $e$-derivative on any
+    $V\subseteq U$, since every test function supported in $V$ is in particular a test
+    function supported in $U$; consequently $W^{1,p}(U)\subseteq W^{1,p}(V)$.
+  \item \textbf{Invariance under a.e.\ equality.} The defining identity sees $u$ and $v$
+    only through their integrals against test functions and their derivatives, so it is
+    unchanged if either is altered on a null set; the relation therefore descends to $L^p$
+    equivalence classes. On a general domain $U$ it is even insensitive to changes
+    \emph{outside} $U$ --- a test function and its derivative vanish there --- so it descends
+    to $L^p(U)$ classes. This is the prerequisite for $W^{1,p}$ being a well-defined normed
+    space.
+  \item \textbf{Product rule with a smooth function.} If $v$ is the weak $e$-derivative of
+    $u$ and $\psi$ is smooth, then $\psi u$ has weak $e$-derivative
+    $\psi v+(\partial_e\psi)\,u$. Indeed, for any test function $\phi$ the product
+    $\psi\phi$ is again a test function; applying the defining identity for $u$ to $\psi\phi$
+    and using the Leibniz rule
+    $\partial_e(\psi\phi)=\psi\,\partial_e\phi+(\partial_e\psi)\,\phi$ gives the claim after
+    rearranging. This is the workhorse behind cutoff and localisation arguments.
 \end{itemize}
 
 \begin{theorem}[Uniqueness a.e.]
@@ -1631,11 +1620,11 @@ theorem isWeakDerivInDir_ae_unique {U : Set Rn} (hU : IsOpen U) {e : Rn}
 \end{lstlisting}
 
 \begin{proof}
-The two defining identities give $\int v_1\phi = \int v_2\phi$ for every test
-function, hence $\int \phi\,(v_1 - v_2) = 0$. The \textbf{fundamental lemma of the
-calculus of variations} --- Mathlib's
-\texttt{IsOpen.ae\_eq\_zero\_of\_integral\_contDiff\_smul\_eq\_zero} --- then forces
-$v_1 - v_2 = 0$ a.e.\ on $U$.
+Subtracting the two defining identities gives $\int (v_1-v_2)\,\phi=0$ for every test
+function $\phi\in C^\infty_c(U)$. By the \textbf{fundamental lemma of the calculus of
+variations}, a locally integrable function whose integral against every smooth compactly
+supported test function vanishes must be zero almost everywhere; applied on $U$ this forces
+$v_1=v_2$ almost everywhere on $U$.
 \end{proof}
 
 \subsection{§5.2.2 The space $W^{1,p}$}
@@ -1664,11 +1653,12 @@ theorem memW1p_of_contDiff_hasCompactSupport (U : Set Rn) (p : ENNReal)
 \end{lstlisting}
 
 \begin{proof}
-The weak derivatives are the classical partials (previous bridge theorem). A
-continuous, compactly supported function is in $L^p$ for every $p$
-(\texttt{Continuous.memLp\_of\_hasCompactSupport}); the same holds for each partial
-$\partial_{e_i} u$, which is again continuous with compact support. Restricting to
-$U$ gives membership in $L^p(U)$.
+By the classical-to-weak bridge, each classical partial $\partial_{e_i}u$ is the weak
+$e_i$-derivative of $u$. A continuous, compactly supported function lies in $L^p$ for every
+$p$: it is bounded and supported on a set of finite measure, so $\int|u|^p<\infty$. This
+applies to $u$ and to each $\partial_{e_i}u$ (again continuous with compact support).
+Restricting to $U$ gives $u\in L^p(U)$ with all weak partials in $L^p(U)$, i.e.\
+$u\in W^{1,p}(U)$.
 \end{proof}
 
 \subsection{Closedness under limits (towards completeness)}
@@ -1696,20 +1686,20 @@ theorem isWeakDerivInDir_of_tendsto_L1 {U : Set Rn} {e : Rn} {u v : Rn -> R}
 \end{lstlisting}
 
 \begin{proof}
-Fix a test function $\phi$. For each $k$, $\int u_k\,\partial_e\phi = -\int v_k\,\phi$.
-The engine (lemma \texttt{tendsto\_integral\_mul\_of\_tendsto\_setIntegral\_abs}) is
-that integration against a fixed continuous compactly supported weight $g$ is
-continuous for $L^1$-on-compacts convergence: writing $K=\operatorname{tsupp}g$ and
-$C=\sup\|g\|$,
+Fix a test function $\phi$; for each $k$ we have $\int u_k\,\partial_e\phi=-\int
+v_k\,\phi$. The key observation is that integration against a fixed continuous, compactly
+supported weight $g$ is continuous under $L^1$-on-compacts convergence: writing
+$K=\operatorname{tsupp}g$ and $C=\sup|g|$,
 \[
-  \Bigl\|\int (w_k-w)\,g\Bigr\|
-  \le \int_K \|(w_k-w)\,g\|
+  \Bigl|\int (w_k-w)\,g\Bigr|
+  \le \int_K |w_k-w|\,|g|
   \le C\int_K |w_k-w| \;\longrightarrow\; 0,
 \]
-so $\int w_k\,g\to\int w\,g$ by a squeeze. Applying this with $g=\partial_e\phi$ and
-$g=\phi$ gives $\int u_k\,\partial_e\phi\to\int u\,\partial_e\phi$ and
-$\int v_k\,\phi\to\int v\,\phi$; uniqueness of limits in the per-$k$ identity yields
-$\int u\,\partial_e\phi = -\int v\,\phi$.
+so $\int w_k\,g\to\int w\,g$. Applying this with $g=\partial_e\phi$ and with $g=\phi$ gives
+$\int u_k\,\partial_e\phi\to\int u\,\partial_e\phi$ and $\int v_k\,\phi\to\int v\,\phi$.
+Letting $k\to\infty$ in $\int u_k\,\partial_e\phi=-\int v_k\,\phi$ and using uniqueness of
+limits yields $\int u\,\partial_e\phi=-\int v\,\phi$, i.e.\ $v$ is the weak $e$-derivative of
+$u$.
 \end{proof}
 
 The same closedness holds for genuine $L^p$ convergence ($1\le p<\infty$), which is the
@@ -1733,18 +1723,20 @@ theorem isWeakDerivInDir_of_tendsto_Lp {U : Set Rn} {e : Rn} {u v : Rn -> R}
 \end{lstlisting}
 
 \begin{proof}
-This reduces to the $L^1$-on-compacts form via a \textbf{Hölder bridge}
-(\texttt{tendsto\_setIntegral\_abs\_of\_tendsto\_eLpNorm}): on a set $K$ of finite
-measure, $L^p$ convergence implies $L^1$ convergence, since
-$\|h\|_{L^1(K)} \le \|h\|_{L^p(K)}\,\mu(K)^{1-1/p}$
-(\texttt{eLpNorm\_le\_eLpNorm\_mul\_rpow\_measure\_univ}) and the right-hand side tends
-to $0$. Applying this on each compact $K$ (with $\|h\|_{L^p(K)}\le\|h\|_{L^p}$) supplies
-exactly the hypotheses of the $L^1$-on-compacts theorem.
+It suffices to reduce $L^p$ convergence to $L^1$-on-compacts convergence and apply the
+previous theorem. On a set $K$ of finite measure, Hölder's inequality gives the
+\textbf{Hölder bridge}
+\[
+  \|h\|_{L^1(K)} \le \|h\|_{L^p(K)}\,\mu(K)^{1-1/p}.
+\]
+Since $\|u_k-u\|_{L^p(K)}\le\|u_k-u\|_{L^p}\to0$ (and likewise for $v$), the right-hand side
+tends to $0$, so $\int_K|u_k-u|\to0$ on every compact $K$. These are exactly the hypotheses
+of the $L^1$-on-compacts closedness theorem.
 \end{proof}
 
-Cast in the language of Mathlib's $L^p$ \emph{spaces}, this says the weak-derivative
-relation is a \textbf{closed graph}, which is precisely the property that makes
-$W^{1,p}$ a Banach space (a closed subspace of a complete space is complete).
+Cast in the language of $L^p$ \emph{spaces}, this says the weak-derivative relation is a
+\textbf{closed graph}, which is precisely the property that makes $W^{1,p}$ a Banach space:
+a closed subspace of a complete space is complete.
 
 \begin{theorem}[Closed graph in $L^p\times L^p$]
 For $1\le p<\infty$, the set of pairs $(f,g)\in L^p(\mathbb{R}^n)\times L^p(\mathbb{R}^n)$
@@ -1759,25 +1751,22 @@ theorem isClosed_isWeakDerivInDir_graph {p : ENNReal} [Fact (1 <= p)]
 \end{lstlisting}
 
 \begin{proof}
-$L^p$ is a metric space, so it suffices to check sequential closedness. If
-$(f_k,g_k)\to(f,g)$ in $L^p\times L^p$ with each $g_k$ the weak $e$-derivative of
-$f_k$, then $f_k\to f$ and $g_k\to g$ in $L^p$
-(\texttt{Lp.tendsto\_Lp\_iff\_tendsto\_eLpNorm'}), and the previous theorem
-(\texttt{isWeakDerivInDir\_of\_tendsto\_Lp}) transfers the relation to the limit.
+$L^p$ is a metric space, so it suffices to check sequential closedness. Suppose
+$(f_k,g_k)\to(f,g)$ in $L^p\times L^p$ with each $g_k$ the weak $e$-derivative of $f_k$.
+Convergence in $L^p\times L^p$ means $\|f_k-f\|_{L^p}\to0$ and $\|g_k-g\|_{L^p}\to0$, so by
+the $L^p$ closedness theorem $g$ is the weak $e$-derivative of $f$; thus the limit
+$(f,g)$ again lies in the set.
 \end{proof}
 
 \paragraph{A Banach space.}
-Promoting the closed graph to a genuine subspace yields an honest Banach space. We
-realise the single-direction Sobolev space as the submodule
+Promoting the closed graph to a genuine subspace yields an honest Banach space. The
+single-direction Sobolev space is the linear subspace
 \[
-  \texttt{weakDerivSubmodule}\ e
-  = \{\,(f,g)\in L^p\times L^p : \text{$g$ is the weak $e$-derivative of $f$}\,\}
+  \{\,(f,g)\in L^p\times L^p : \text{$g$ is the weak $e$-derivative of $f$}\,\}
   \le L^p\times L^p,
 \]
-whose subspace axioms are exactly linearity of the weak derivative
-(\texttt{IsWeakDerivInDir.add}, \texttt{.const\_smul}) transported to $L^p$ classes via
-\texttt{IsWeakDerivInDir.congr\_ae} and the coercion lemmas \texttt{Lp.coeFn\_add} /
-\texttt{coeFn\_smul} / \texttt{coeFn\_zero}.
+a subspace because the weak derivative is linear --- and the defining relation is
+well-defined on $L^p$ equivalence classes, since it is insensitive to changes on null sets.
 
 \begin{lstlisting}[caption={Single-direction Sobolev space is a Banach space (proved)}]
 theorem completeSpace_weakDerivSubmodule {p : ENNReal} [Fact (1 <= p)]
@@ -1786,22 +1775,21 @@ theorem completeSpace_weakDerivSubmodule {p : ENNReal} [Fact (1 <= p)]
 \end{lstlisting}
 
 \begin{proof}
-The submodule is closed in $L^p\times L^p$ (the closed-graph theorem), and a closed
-subset of the complete space $L^p\times L^p$ is complete
-(\texttt{completeSpace\_coe\_iff\_isComplete}, \texttt{IsClosed.isComplete}).
+The subspace is closed in $L^p\times L^p$ by the closed-graph theorem, and a closed linear
+subspace of a complete normed space is itself complete. Hence it is a Banach space.
 \end{proof}
 
 \paragraph{The full space $W^{1,p}(\mathbb{R}^n)$.}
-The genuine Sobolev space is the analogous submodule of $L^p\times (L^p)^n$, pairing $f$
-with its weak gradient $g=(g_1,\dots,g_n)$ (each $g_i$ the weak $e_i$-derivative of $f$,
-$e_i=$ \texttt{EuclideanSpace.single i 1}):
+The genuine Sobolev space pairs $f$ with its full weak gradient $g=(g_1,\dots,g_n)$, each
+$g_i$ the weak $\partial_i$-derivative of $f$ (i.e.\ the weak derivative in the $i$-th
+coordinate direction):
 \[
-  \texttt{weakGradientSubmodule}
-  = \{(f,g) : \forall i,\ \text{$g_i$ is the weak $\partial_i$-derivative of $f$}\}
-  \le L^p\times (L^p)^n.
+  \{(f,g)\in L^p\times (L^p)^n : \forall i,\ \text{$g_i$ is the weak
+  $\partial_i$-derivative of $f$}\}.
 \]
-It is the intersection over $i$ of the single-direction graphs pulled back along the
-continuous projections $(f,g)\mapsto(f,g_i)$, hence closed, hence complete.
+This is the intersection over $i$ of the single-direction graphs, pulled back along the
+continuous coordinate projections $(f,g)\mapsto(f,g_i)$; as a finite intersection of closed
+subspaces it is closed, hence complete.
 
 \begin{lstlisting}[caption={W^{1,p}(Rn) is a Banach space (proved)}]
 theorem completeSpace_weakGradientSubmodule {p : ENNReal} [Fact (1 <= p)]
@@ -1809,18 +1797,20 @@ theorem completeSpace_weakGradientSubmodule {p : ENNReal} [Fact (1 <= p)]
 \end{lstlisting}
 
 This is the headline result of the chapter: \textbf{$W^{1,p}(\mathbb{R}^n)$ is a Banach
-space} for $1\le p<\infty$, built entirely on the weak-derivative theory developed here
-together with Mathlib's completeness of $L^p$.
+space} for $1\le p<\infty$, built on the weak-derivative theory developed here together with
+the completeness of $L^p$.
 
 \paragraph{The Sobolev norm.}
-The construction above gives a Banach space, but carrying the ambient $L^p\times(L^p)^n$
-norm (a $\max$/$\sup$ combination). To carry the \emph{genuine} Sobolev norm
+The construction above gives a Banach space, but with the ambient product norm (a
+$\max$/$\sup$ combination of the $L^p$ norms of the components). To carry the \emph{genuine}
+Sobolev norm
 \[
   \|u\|_{W^{1,p}} = \Bigl(\|u\|_p^p + \sum_{i=1}^n \|\partial_i u\|_p^p\Bigr)^{1/p}
 \]
-we instead realise the space inside $\mathtt{PiLp}\ p\ (\mathrm{Fin}(n{+}1)\to L^p)$, whose
-norm is exactly this $\ell^p$ combination (Mathlib's \texttt{PiLp.norm\_eq\_sum}). Index $0$
-carries the function and index $i{+}1$ its weak $i$-th partial derivative.
+one instead places the tuple $(f,\partial_1 f,\dots,\partial_n f)$ in the $\ell^p$-product of
+$n+1$ copies of $L^p$, whose norm is exactly this $\ell^p$ combination. All norm axioms ---
+in particular the triangle inequality (Minkowski) --- are then inherited from the
+$\ell^p$-product.
 
 \begin{lstlisting}[caption={W^{1,p}(Rn) with its Sobolev norm is a Banach space (proved)}]
 def sobolevSpace {p : ENNReal} [Fact (1 <= p)] :
@@ -1834,10 +1824,59 @@ theorem completeSpace_sobolevSpace (hp_ne : p != Top) :
     CompleteSpace (sobolevSpace (n := n) (p := p))
 \end{lstlisting}
 
-The closedness proof is identical in spirit (intersection of single-direction graphs pulled
-back along the continuous \texttt{PiLp} projections $x\mapsto(x_0, x_{i+1})$), so
+The closedness argument is the same (a finite intersection of single-direction graphs,
+pulled back along the continuous coordinate projections $x\mapsto(x_0,x_{i+1})$), so
 $(\,W^{1,p}(\mathbb{R}^n),\ \|\cdot\|_{W^{1,p}}\,)$ is a genuine Banach space --- now with the
-textbook norm, all of whose axioms come for free from \texttt{PiLp}.
+textbook norm, whose axioms all come from the $\ell^p$-product structure.
+
+\subsection{$W^{1,p}(U)$ on a general domain (restricted measure)}
+
+Everything so far takes $U=\mathbb{R}^n$. For a general measurable set $U$ the genuine
+$W^{1,p}(U)$ uses the \emph{restricted} measure $\mathrm{vol}\restriction U$ --- i.e.\ real
+$L^p(U)$, whose elements are pinned down only almost everywhere on $U$. Three points make the
+construction go through.
+
+\begin{enumerate}
+  \item \textbf{Well-definedness on $L^p(U)$ classes.} The weak-derivative relation on $U$
+    depends on $u,v$ only up to almost-everywhere equality \emph{on $U$}: values off $U$ are
+    invisible, because a test function $\phi$ and its derivative $\partial_e\phi$ vanish
+    outside $\operatorname{tsupp}\phi\subseteq U$. Hence the relation descends to $L^p(U)$
+    equivalence classes.
+  \item \textbf{Bridging the measures.} The integrals defining the relation are taken over all
+    of $\mathbb{R}^n$; but since $\phi$ and $\partial_e\phi$ vanish off $U$, the integrand
+    vanishes there too, so these integrals equal the corresponding integrals over $U$. The
+    convergence arguments above therefore apply verbatim with Lebesgue measure replaced by its
+    restriction to $U$ --- indeed they were carried out for an arbitrary measure, $\mathbb{R}^n$
+    being the case of full Lebesgue measure.
+  \item \textbf{Localised algebra.} Additivity of the weak derivative needs only local
+    integrability on $U$: a product of a function locally integrable on $U$ with a compactly
+    supported test weight is globally integrable, being supported in $U$ (where the function is
+    integrable) and zero elsewhere.
+\end{enumerate}
+
+\begin{lstlisting}[caption={W^{1,p}(U) over the restricted measure is a Banach space (proved)}]
+theorem isWeakDerivInDir_of_tendsto_Lp_restrict {U : Set Rn} ... :
+    -- Lp(U)-convergence closedness cornerstone
+    IsWeakDerivInDir U e u v
+
+theorem isClosed_isWeakDerivInDir_graph_restrict {U : Set Rn} {p : ENNReal}
+    [Fact (1 <= p)] (hp_ne : p != Top) (e : Rn) :
+    IsClosed {fg : Lp R p (volume.restrict U) x Lp R p (volume.restrict U) |
+      IsWeakDerivInDir U e (coeFn fg.1) (coeFn fg.2)}
+
+def weakGradientSubmoduleOn (U : Set Rn) (hU : MeasurableSet U) {p : ENNReal} [Fact (1 <= p)] :
+    Submodule R (Lp R p (volume.restrict U) x (Fin n -> Lp R p (volume.restrict U)))
+
+theorem completeSpace_weakGradientSubmoduleOn (U : Set Rn) (hU : MeasurableSet U)
+    {p : ENNReal} [Fact (1 <= p)] (hp_ne : p != Top) :
+    CompleteSpace (weakGradientSubmoduleOn U hU (n := n) (p := p))
+\end{lstlisting}
+
+The closed-graph argument is the same as on $\mathbb{R}^n$ but uses the restricted-measure
+form of closedness; the subspace axioms follow from linearity of the weak derivative together
+with its invariance under a.e.-equality on $U$. Thus \textbf{$W^{1,p}(U)$ is a Banach space} for
+every measurable $U$ and $1\le p<\infty$ --- the genuine, textbook Sobolev space on a general
+domain.
 
 \subsection{Mathlib foundations leveraged}
 
@@ -1907,18 +1946,10 @@ explicitly in each lemma avoids it.
   \item \textbf{Higher-order / multi-index} weak derivatives $D^\alpha$ and the full
     $W^{k,p}$ with its norm
     $\|u\|_{W^{k,p}} = \bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$.
-  \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}:
-    \texttt{completeSpace\_sobolevSpace} shows $W^{1,p}(\mathbb{R}^n)$, carrying its genuine Sobolev
-    norm $(\|u\|_p^p+\sum_i\|\partial_i u\|_p^p)^{1/p}$ (via \texttt{PiLp}), is a Banach space for
-    $1\le p<\infty$. This is now \emph{also done for a general measurable set $U$ with the
-    restricted measure} $\mathrm{vol}\restriction U$ (i.e.\ genuine $L^p(U)$):
-    \texttt{completeSpace\_weakGradientSubmoduleOn} shows $W^{1,p}(U)$ is a Banach space. The
-    key extra ingredients are that the weak-derivative relation descends to $L^p(U)$ classes
-    (\texttt{IsWeakDerivInDir.congr\_ae\_restrict}; test functions vanish off $U$) and the
-    restricted-measure closedness cornerstone \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}
-    (the whole convergence chain was generalised to an arbitrary measure $\mu$, then used with
-    $\mu=\mathrm{vol}\restriction U$, bridging the $\mathrm{vol}$-integrals in the definition to
-    $\mathrm{vol}\restriction U$-integrals).
+  \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}, both for $\mathbb{R}^n$ with the
+    genuine Sobolev norm (\texttt{completeSpace\_sobolevSpace}) and for a general measurable domain
+    $U$ over the restricted measure (\texttt{completeSpace\_weakGradientSubmoduleOn}); see the two
+    subsections above.
   \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
     language. Mathlib already proves the analytic core
     (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.
