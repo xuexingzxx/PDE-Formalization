@@ -332,6 +332,8 @@ already exists in Mathlib}.
   \texttt{weakGradientSubmodule}    & $W^{1,p}(\mathbb{R}^n)$ in $L^p\!\times\!(L^p)^n$    & \texttt{Sobolev.lean} \\
   \texttt{sobolevSpace}             & $W^{1,p}(\mathbb{R}^n)$ with the Sobolev norm (\texttt{PiLp}) & \texttt{Sobolev.lean} \\
   \texttt{weakGradientSubmoduleOn}  & $W^{1,p}(U)$ over the restricted measure            & \texttt{Sobolev.lean} \\
+  \texttt{W1p}                      & $W^{1,p}(U)$ as a bundled Banach-space type         & \texttt{Sobolev.lean} \\
+  \texttt{W1p.toLpCLM} / \texttt{.weakDerivCLM} & function-value \& weak-partial operators (bounded) & \texttt{Sobolev.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -1932,6 +1934,36 @@ with its invariance under a.e.-equality on $U$. Thus \textbf{$W^{1,p}(U)$ is a B
 every measurable $U$ and $1\le p<\infty$ --- the genuine, textbook Sobolev space on a general
 domain.
 
+\subsection{A bundled interface}
+
+For downstream use the space is packaged as a named type with the usual operators. We expose
+$W^{1,p}(U)$ as an abbreviation \texttt{W1p U hU p} for the underlying space of the weak-gradient
+subspace; it inherits the normed-space structure from the ambient product, and completeness is
+registered as a typeclass instance (for $1\le p$ and $p\ne\infty$, the latter recorded as a
+\texttt{Fact}), so $W^{1,p}(U)$ is usable as a Banach space without re-supplying the proof each
+time.
+
+The two natural maps out of the space are then bounded linear operators. The function-value map
+$u=(f,Df)\mapsto f$ and, for each coordinate $i$, the weak partial derivative $u\mapsto D_iu$ are
+each obtained by composing the continuous inclusion of the closed subspace into the ambient
+product with a coordinate projection; composites of continuous linear maps are continuous, so both
+are honest elements of the operator space $W^{1,p}(U)\to L^p(U)$. This realises the abstract weak
+gradient as a bounded operator, the form in which it is used in the rest of the theory.
+
+\begin{lstlisting}[caption={W^{1,p}(U) as a bundled Banach space with bounded operators (proved)}]
+abbrev W1p (U : Set Rn) (hU : MeasurableSet U) (p : ENNReal) [Fact (1 <= p)] : Type _ :=
+    weakGradientSubmoduleOn U hU (n := n) (p := p)
+
+instance instCompleteSpaceW1p {U : Set Rn} {hU : MeasurableSet U} {p : ENNReal}
+    [Fact (1 <= p)] [Fact (p != Top)] : CompleteSpace (W1p U hU p)
+
+def W1p.toLpCLM (U : Set Rn) (hU : MeasurableSet U) {p : ENNReal} [Fact (1 <= p)] :
+    W1p U hU p ->L[R] Lp R p (volume.restrict U)        -- (f, Df) |-> f
+
+def W1p.weakDerivCLM (U : Set Rn) (hU : MeasurableSet U) {p : ENNReal} [Fact (1 <= p)]
+    (i : Fin n) : W1p U hU p ->L[R] Lp R p (volume.restrict U)   -- (f, Df) |-> D_i f
+\end{lstlisting}
+
 \subsection{Mathlib foundations leveraged}
 
 Three Mathlib results --- which a preliminary survey expected to be missing --- made
@@ -1990,6 +2022,9 @@ explicitly in each lemma avoids it.
   \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict} & closedness over $\mathrm{vol}\restriction U$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{weakGradientSubmoduleOn} & $W^{1,p}(U)$ over the restricted measure & \textcolor{mathgreen}{\checkmark} \\
   \texttt{completeSpace\_weakGradientSubmoduleOn} & $W^{1,p}(U)$ is a Banach space & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{W1p} / \texttt{instCompleteSpaceW1p} & $W^{1,p}(U)$ as a bundled Banach-space type & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{W1p.toLpCLM} & function-value operator $W^{1,p}(U)\to L^p(U)$, bounded & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{W1p.weakDerivCLM} & weak partial $D_i : W^{1,p}(U)\to L^p(U)$, bounded & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}

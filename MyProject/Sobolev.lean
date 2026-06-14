@@ -892,11 +892,51 @@ theorem isClosed_weakGradientSubmoduleOn (U : Set ℝⁿ) (hU : MeasurableSet U)
   exact (isClosed_isWeakDerivInDir_graph_restrict hp_ne (EuclideanSpace.single i (1 : ℝ))).preimage
     (continuous_fst.prodMk ((continuous_apply i).comp continuous_snd))
 
-/-- **`W^{1,p}(U)` is a Banach space** (`1 ≤ p < ∞`) for any measurable `U`: a closed subspace of the
-complete space `Lᵖ(U) × (Fin n → Lᵖ(U))`. -/
+/-- **`W^{1,p}(U)` is a Banach space** (`1 ≤ p < ∞`) for any measurable `U`: a closed subspace
+of the complete space `Lᵖ(U) × (Fin n → Lᵖ(U))`. -/
 theorem completeSpace_weakGradientSubmoduleOn (U : Set ℝⁿ) (hU : MeasurableSet U) {p : ℝ≥0∞}
     [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
     CompleteSpace (weakGradientSubmoduleOn U hU (n := n) (p := p)) :=
   completeSpace_coe_iff_isComplete.mpr (isClosed_weakGradientSubmoduleOn U hU hp_ne).isComplete
+
+/-! ### `W^{1,p}(U)` as a bundled Banach space
+
+A usable interface: the Sobolev space as a named type, a `CompleteSpace` instance (so it is a
+Banach space for typeclass purposes), and the function value and weak partial derivatives as
+bounded (continuous) linear operators into `Lᵖ(U)`. -/
+
+/-- The Sobolev space `W^{1,p}(U)` as a type — the underlying Banach space of the weak-gradient
+submodule. Inherits its normed-space structure from `Lᵖ(U) × (Fin n → Lᵖ(U))`. -/
+abbrev W1p (U : Set ℝⁿ) (hU : MeasurableSet U) (p : ℝ≥0∞) [Fact (1 ≤ p)] : Type _ :=
+  weakGradientSubmoduleOn U hU (n := n) (p := p)
+
+/-- `W^{1,p}(U)` is a Banach space (`1 ≤ p < ∞`); registered as an instance for `p ≠ ∞`. -/
+instance instCompleteSpaceW1p {U : Set ℝⁿ} {hU : MeasurableSet U} {p : ℝ≥0∞}
+    [Fact (1 ≤ p)] [Fact (p ≠ ⊤)] : CompleteSpace (W1p U hU p) :=
+  completeSpace_weakGradientSubmoduleOn U hU Fact.out
+
+/-- The **function-value operator** `W^{1,p}(U) → Lᵖ(U)`, `(f, g) ↦ f`, as a bounded linear map. -/
+noncomputable def W1p.toLpCLM (U : Set ℝⁿ) (hU : MeasurableSet U) {p : ℝ≥0∞} [Fact (1 ≤ p)] :
+    W1p U hU p →L[ℝ] Lp ℝ p (volume.restrict U) :=
+  (ContinuousLinearMap.fst ℝ (Lp ℝ p (volume.restrict U)) (Fin n → Lp ℝ p (volume.restrict U))).comp
+    (weakGradientSubmoduleOn U hU).subtypeL
+
+/-- The **`i`-th weak partial derivative operator** `W^{1,p}(U) → Lᵖ(U)`, `(f, g) ↦ g i`, as a
+bounded linear map. -/
+noncomputable def W1p.weakDerivCLM (U : Set ℝⁿ) (hU : MeasurableSet U) {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (i : Fin n) : W1p U hU p →L[ℝ] Lp ℝ p (volume.restrict U) :=
+  (ContinuousLinearMap.proj i).comp
+    ((ContinuousLinearMap.snd ℝ (Lp ℝ p (volume.restrict U))
+      (Fin n → Lp ℝ p (volume.restrict U))).comp (weakGradientSubmoduleOn U hU).subtypeL)
+
+@[simp] lemma W1p.toLpCLM_apply {U : Set ℝⁿ} {hU : MeasurableSet U} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (u : W1p U hU p) :
+    W1p.toLpCLM U hU u =
+      (u : Lp ℝ p (volume.restrict U) × (Fin n → Lp ℝ p (volume.restrict U))).1 := rfl
+
+@[simp] lemma W1p.weakDerivCLM_apply {U : Set ℝⁿ} {hU : MeasurableSet U} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (i : Fin n) (u : W1p U hU p) :
+    W1p.weakDerivCLM U hU i u =
+      (u : Lp ℝ p (volume.restrict U) × (Fin n → Lp ℝ p (volume.restrict U))).2 i := rfl
 
 end Sobolev
