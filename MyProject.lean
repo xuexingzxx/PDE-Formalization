@@ -4,3 +4,4 @@ import MyProject.Laplace
 import MyProject.Heat
 import MyProject.Wave
 import MyProject.Sobolev
+import MyProject.Mollification
