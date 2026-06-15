@@ -426,4 +426,69 @@ lemma integrable_convolution_integrand_mul {η ξ w : ℝⁿ → ℝ}
   exact hconv.mul_bdd (hξ_cont.comp continuous_fst).aestronglyMeasurable
     (Eventually.of_forall fun p => hC p.1)
 
+/-- **The mollification `η ⋆ u` has weak derivative `η ⋆ v`** (in direction `e`) whenever `v`
+is the weak derivative of `u`. Proved directly from the definition by Fubini: pairing against a
+test function `ψ`, swap the order of integration, translate, and apply the weak-derivative
+identity of `u` against the translated test function `ψ(· + t)`. -/
+lemma isWeakDerivInDir_convolution {η : ℝⁿ → ℝ} (hη_cd : ContDiff ℝ ∞ η)
+    (hη_supp : HasCompactSupport η) {u v : ℝⁿ → ℝ} (hu : LocallyIntegrable u volume)
+    (hv : LocallyIntegrable v volume) (e : ℝⁿ) (hweak : IsWeakDerivInDir univ e u v) :
+    IsWeakDerivInDir univ e (η ⋆[lsmul ℝ ℝ, volume] u) (η ⋆[lsmul ℝ ℝ, volume] v) := by
+  have hη_cont : Continuous η := hη_cd.continuous
+  intro ψ hψ
+  have hDψ_cont : Continuous (fun x => fderiv ℝ ψ x e) := hψ.continuous_dirDeriv e
+  have hDψ_supp : HasCompactSupport (fun x => fderiv ℝ ψ x e) := hψ.hasCompactSupport_dirDeriv e
+  have hψ_cont : Continuous ψ := hψ.contDiff.continuous
+  -- for each `t`, the translated test function `ψ(· + t)`
+  have htest : ∀ t : ℝⁿ, IsTestFunction univ (fun x => ψ (x + t)) := by
+    intro t
+    refine ⟨hψ.contDiff.comp (contDiff_id.add contDiff_const), ?_, subset_univ _⟩
+    exact hψ.hasCompactSupport.comp_homeomorph (Homeomorph.addRight t)
+  -- the chain rule: `fderiv ℝ ψ (x + t) e = fderiv ℝ (ψ(· + t)) x e`
+  have hchain : ∀ t x : ℝⁿ, fderiv ℝ (fun y => ψ (y + t)) x e = fderiv ℝ ψ (x + t) e := by
+    intro t x
+    have hg : HasFDerivAt (fun y : ℝⁿ => y + t) (ContinuousLinearMap.id ℝ ℝⁿ) x := by
+      simpa using (hasFDerivAt_id x).add_const t
+    have hψd : HasFDerivAt ψ (fderiv ℝ ψ (x + t)) (x + t) :=
+      (hψ.contDiff.differentiable (by simp)).differentiableAt.hasFDerivAt
+    have hcomp : HasFDerivAt (fun y => ψ (y + t))
+        ((fderiv ℝ ψ (x + t)).comp (ContinuousLinearMap.id ℝ ℝⁿ)) x := hψd.comp x hg
+    rw [hcomp.fderiv]; simp
+  -- weak-derivative identity for `u` against `ψ(· + t)`, after translating
+  have hinner : ∀ t : ℝⁿ, (∫ x, u (x - t) * fderiv ℝ ψ x e ∂volume)
+      = -∫ x, v (x - t) * ψ x ∂volume := by
+    intro t
+    have hL : (∫ x, u (x - t) * fderiv ℝ ψ x e ∂volume)
+        = ∫ x, u x * fderiv ℝ (fun y => ψ (y + t)) x e ∂volume := by
+      rw [← integral_add_left_eq_self (fun x => u (x - t) * fderiv ℝ ψ x e) t]
+      refine integral_congr_ae (Eventually.of_forall fun x => ?_)
+      simp only [add_sub_cancel_left]
+      rw [hchain, add_comm t x]
+    have hR : (∫ x, v (x - t) * ψ x ∂volume) = ∫ x, v x * ψ (x + t) ∂volume := by
+      rw [← integral_add_left_eq_self (fun x => v (x - t) * ψ x) t]
+      refine integral_congr_ae (Eventually.of_forall fun x => ?_)
+      simp only [add_sub_cancel_left]
+      rw [add_comm t x]
+    rw [hL, hweak _ (htest t), hR]
+  -- pairing identity: `∫ (η⋆w)·ξ = ∫ₜ η(t) · ∫ₓ w(x−t)·ξ(x)` (convolution_def + Fubini)
+  have hpair : ∀ (w ξ : ℝⁿ → ℝ),
+      Integrable (fun p : ℝⁿ × ℝⁿ => η p.2 * w (p.1 - p.2) * ξ p.1) (volume.prod volume) →
+      (∫ x, (η ⋆[lsmul ℝ ℝ, volume] w) x * ξ x ∂volume)
+        = ∫ t, η t * (∫ x, w (x - t) * ξ x ∂volume) ∂volume := by
+    intro w ξ hF
+    calc ∫ x, (η ⋆[lsmul ℝ ℝ, volume] w) x * ξ x ∂volume
+        = ∫ x, ∫ t, η t * w (x - t) * ξ x ∂volume ∂volume := by
+          simp_rw [convolution_def, lsmul_apply, smul_eq_mul, ← integral_mul_const]
+      _ = ∫ t, ∫ x, η t * w (x - t) * ξ x ∂volume ∂volume := integral_integral_swap hF
+      _ = ∫ t, η t * (∫ x, w (x - t) * ξ x ∂volume) ∂volume := by
+          refine integral_congr_ae (Eventually.of_forall fun t => ?_)
+          simp only []
+          rw [show (fun x => η t * w (x - t) * ξ x) = fun x => η t * (w (x - t) * ξ x) from by
+            funext x; ring, integral_const_mul]
+  rw [hpair u (fun x => fderiv ℝ ψ x e)
+        (integrable_convolution_integrand_mul hη_cont hη_supp hDψ_cont hDψ_supp hu),
+      hpair v ψ
+        (integrable_convolution_integrand_mul hη_cont hη_supp hψ_cont hψ.hasCompactSupport hv)]
+  simp_rw [hinner, mul_neg, integral_neg]
+
 end Sobolev
