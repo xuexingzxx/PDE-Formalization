@@ -8,7 +8,8 @@ covering the four fundamental linear PDEs of Chapter 2:
 3. **Heat equation** — `u_t − Δu = 0`
 4. **Wave equation** — `u_tt − Δu = 0`
 
-and the analytic foundations of **Sobolev spaces** (Chapter 5): weak derivatives and `W^{1,p}`.
+and **Sobolev spaces** (Chapter 5): weak derivatives, `W^{1,p}` as a Banach space, and the
+**Meyers–Serrin density theorem** (`H = W`) via mollification.
 
 Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 
@@ -21,6 +22,7 @@ Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 | §2.3 Heat | `Heat.lean` | ✅ **complete, zero `sorry`** | heat kernel is positive, has unit mass, and solves the heat equation; for **bounded continuous** `g`, the convolution `∫ Φ(x−y,t) g(y) dy` **provably solves the IVP** — both the time-derivative and the spatial-Laplacian are moved under the integral (n-dim Gaussian moments + nested differentiation under the integral); plus the **weak maximum principle** on a parabolic cylinder and **uniqueness** on a bounded cylinder (§2.3.3–2.3.4) |
 | §2.4 Wave | `Wave.lean` | ✅ **complete, zero `sorry`** | traveling waves, d'Alembert (existence + `C²` regularity + initial conditions), energy conservation, uniqueness, finite propagation speed |
 | §5.2 Sobolev | `Sobolev.lean` | ✅ **foundations, zero `sorry`** | test functions `C_c^∞(U)`, weak directional derivatives, the classical⟹weak bridge (integration by parts), linearity, a.e.-invariance, the smooth product (Leibniz) rule, a.e. uniqueness (fundamental lemma of the calculus of variations), closedness under `L¹`-on-compacts **and `Lᵖ`** limits (via a Hölder bridge), the weak-derivative graph is **closed in `Lᵖ × Lᵖ`**, and hence **`W^{1,p}(ℝⁿ)` is a Banach space** — with the genuine Sobolev norm `(‖u‖ₚᵖ + Σᵢ‖∂ᵢu‖ₚᵖ)^{1/p}` (via `PiLp`) — and **`W^{1,p}(U)` is a Banach space for any measurable `U`** over the restricted measure `Lᵖ(U)`; bundled as a named type `W1p` with a `CompleteSpace` instance and the function-value and weak-partial-derivative maps `W^{1,p}(U) → Lᵖ(U)` as **bounded linear operators**; plus `W^{1,p}` membership, locality, and `C_c^∞ ⊆ W^{1,p}` |
+| §5.3 Mollification / Meyers–Serrin | `Mollification.lean` | ✅ **complete, zero `sorry`** | the full `Lᵖ`-mollification layer (which Mathlib lacks): **continuity of translation in `Lᵖ`** (`‖u(·+t)−u‖_p → 0`), a weighted **Jensen inequality** in `ℝ≥0∞` from Hölder, the key estimate `‖η⋆u − u‖_p^p ≤ ∫ η(y)‖u(·−y)−u‖_p^p`, hence **`η_δ ⋆ u → u` in `Lᵖ`**; the regularization identity **`(∂ₑη)⋆u = η⋆v`** and **the mollification `η⋆u` has weak derivative `η⋆v`** (via Fubini), culminating in **Meyers–Serrin (`H = W`)**: a smooth `w` and its weak derivative `w'` simultaneously approximate `u, v` in `Lᵖ` |
 
 `Calculus.lean` provides shared spacetime calculus utilities (`spatialGradient`,
 `timeDerivative`, `spatialLaplacian`, and a Leibniz-rule helper).
@@ -57,6 +59,7 @@ MyProject/
   Heat.lean        -- §2.3 heat equation
   Wave.lean        -- §2.4 wave equation
   Sobolev.lean     -- §5.2 Sobolev spaces (weak derivatives, W^{1,p})
+  Mollification.lean -- §5.3 mollification & Meyers–Serrin (H = W)
 MyProject.lean     -- imports all of the above
 pde_lean_project.tex  -- companion writeup with proof notes and status tables
 ```

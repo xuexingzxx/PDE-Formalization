@@ -2029,6 +2029,83 @@ explicitly in each lemma avoids it.
 \end{tabular}
 \end{center}
 
+\subsection{Mollification and the Meyers--Serrin theorem (§5.3)}
+
+This section builds the \emph{mollification} layer and uses it to prove the Meyers--Serrin
+theorem (`$H=W$'): smooth functions approximate Sobolev functions, together with their weak
+derivatives, in $L^p$.  Throughout, $\eta_\delta$ denotes a normalized bump function (smooth,
+nonnegative, $\int\eta_\delta = 1$, supported in the ball of radius $\delta$) and $\eta_\delta\star u$
+its convolution with $u$.  The development fills three gaps in Mathlib --- continuity of
+translation in $L^p$, a weighted Jensen inequality, and $L^p$-convergence of mollification ---
+none of which were available.
+
+\paragraph{Continuity of translation in $L^p$.}
+For $u\in L^p$ ($1\le p<\infty$), the translates $u(\cdot+t)$ depend continuously on $t$:
+$\|u(\cdot+t)-u\|_p \to 0$ as $t\to 0$.  The proof is the classical three-$\varepsilon$ argument.
+Given $\varepsilon$, approximate $u$ within $\varepsilon/3$ in $L^p$ by a continuous, compactly
+supported $g$ (these are dense).  Translation is an $L^p$-isometry, so $u(\cdot+t)$ and $g(\cdot+t)$
+also differ by at most $\varepsilon/3$.  Finally $g$ is uniformly continuous and supported in a fixed
+compact set once $\|t\|\le1$, so $\|g(\cdot+t)-g\|_p$ is at most $(\operatorname{vol} L)^{1/p}$ times
+the uniform modulus of continuity, which is below $\varepsilon/3$ for small $t$.  The triangle
+inequality combines the three bounds.
+
+\paragraph{$L^p$-convergence of mollification.}
+The key estimate is
+\[
+  \|\eta_\delta\star u - u\|_p^p \;\le\; \int \eta_\delta(y)\,\|u(\cdot - y) - u\|_p^p \, dy .
+\]
+Because $\int\eta_\delta = 1$, one writes $(\eta_\delta\star u)(x) - u(x) = \int \eta_\delta(y)\,(u(x-y)-u(x))\,dy$,
+applies the triangle inequality and then a \emph{weighted Jensen inequality} (the probability
+weight $\eta_\delta$, exponent $p\ge1$, proved here in $\mathbb{R}_{\ge0}^\infty$ from Hölder's
+inequality) to move the $p$-th power inside, and finally swaps the order of integration by Tonelli.
+Since the integrand on the right is supported where $\|y\|\le\delta$ and the inner norm tends to $0$
+as $y\to0$ by the previous paragraph, the right-hand side tends to $0$.  Hence
+$\eta_\delta\star u \to u$ in $L^p$ as $\delta\to0$.
+
+\paragraph{The mollified weak derivative.}
+If $v$ is the weak derivative of $u$ in direction $e$, then $\eta_\delta\star u$ is smooth and its
+(classical $=$ weak) derivative is $\eta_\delta\star v$.  Equivalently, $\eta_\delta\star u$ has weak
+derivative $\eta_\delta\star v$.  This is proved directly from the definition of the weak derivative:
+pairing $\eta_\delta\star u$ against a test function $\psi$ and unfolding the convolution gives a double
+integral; Fubini (justified by integrability of $\eta_\delta(t)\,u(x-t)\,\partial_e\psi(x)$, which has
+compact support in both variables) exchanges the order, and after a translation the inner integral is
+exactly the weak-derivative identity for $u$ tested against the translate $\psi(\cdot+t)$.  Carrying the
+resulting sign back through Fubini identifies the pairing as $-\int(\eta_\delta\star v)\,\psi$, which is
+the weak-derivative relation for $\eta_\delta\star u$.
+
+\paragraph{Meyers--Serrin ($H=W$).}
+Combining the three results: for $u\in L^p$ with weak derivative $v\in L^p$, the mollification
+$w=\eta_\delta\star u$ is smooth, has weak derivative $w'=\eta_\delta\star v$, and as $\delta\to0$ both
+$\|u-w\|_p\to0$ and $\|v-w'\|_p\to0$.  Choosing $\delta$ small enough makes both errors below any
+prescribed $\varepsilon$, so $(u,v)$ is approximated in $L^p\times L^p$ by a smooth function and its
+weak derivative.
+
+\begin{lstlisting}[caption={Mollification and Meyers--Serrin (proved, zero sorry)}]
+theorem tendsto_eLpNorm_translate_sub (hp : p != Top) (hu : MemLp u p volume) :
+    Tendsto (fun t => eLpNorm (fun x => u (x + t) - u x) p volume) (nhds 0) (nhds 0)
+
+theorem tendsto_eLpNorm_convolution_sub (hp : p != Top) (hu : MemLp u p volume)
+    (hphi : Tendsto (fun i => (phi i).rOut) l (nhds 0)) :   -- eta_delta * u -> u in L^p
+    Tendsto (fun i => eLpNorm (fun x => ((phi i).normed volume * u) x - u x) p volume) l (nhds 0)
+
+lemma isWeakDerivInDir_convolution (hη : ContDiff R inf eta) (hηsupp : HasCompactSupport eta)
+    (hu : LocallyIntegrable u) (hv : LocallyIntegrable v) (hweak : IsWeakDerivInDir univ e u v) :
+    IsWeakDerivInDir univ e (eta * u) (eta * v)        -- weak derivative passes through
+
+theorem exists_contDiff_isWeakDerivInDir_eLpNorm_le (hp : p != Top)
+    (hu : MemLp u p volume) (hv : MemLp v p volume) (hweak : IsWeakDerivInDir univ e u v)
+    (hε : 0 < eps) :
+    exists w w', ContDiff R inf w /\ IsWeakDerivInDir univ e w w'
+      /\ eLpNorm (u - w) p volume <= eps /\ eLpNorm (v - w') p volume <= eps
+\end{lstlisting}
+
+The convolution \emph{derivative} could alternatively be obtained from Mathlib's
+\texttt{HasCompactSupport.hasFDerivAt\_convolution\_left}; we avoided that route because the
+\texttt{precompR} continuous-linear-map convolution it produces makes the elaborator's
+instance search and \texttt{whnf} loop diverge over \texttt{EuclideanSpace} (a \texttt{PiLp}
+definitional-unfolding blow-up).  The direct Fubini argument above sidesteps the issue entirely,
+using only scalar integrals.
+
 \subsection{Future work}
 
 \begin{enumerate}
@@ -2039,6 +2116,9 @@ explicitly in each lemma avoids it.
     genuine Sobolev norm (\texttt{completeSpace\_sobolevSpace}) and for a general measurable domain
     $U$ over the restricted measure (\texttt{completeSpace\_weakGradientSubmoduleOn}); see the two
     subsections above.
+  \item \textbf{Meyers--Serrin} ($H=W$). \emph{Done} (one-direction core,
+    \texttt{exists\_contDiff\_isWeakDerivInDir\_eLpNorm\_le}); the multi-coordinate version follows by
+    using a single mollifier radius across all $n$ directions.
   \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
     language. Mathlib already proves the analytic core
     (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.
