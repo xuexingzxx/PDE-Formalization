@@ -2113,6 +2113,31 @@ instance search and \texttt{whnf} loop diverge over \texttt{EuclideanSpace} (a \
 definitional-unfolding blow-up).  The direct Fubini argument above sidesteps the issue entirely,
 using only scalar integrals.
 
+\subsection{Sobolev embedding (Gagliardo--Nirenberg--Sobolev)}
+
+For a continuously differentiable, compactly supported $u$ on $\mathbb{R}^n$ and $1\le p<n$, the
+$L^{p^*}$ norm is controlled by the $L^p$ norm of the gradient,
+\[
+  \|u\|_{p^*} \;\le\; C\,\|Du\|_p, \qquad \tfrac{1}{p^*} = \tfrac1p - \tfrac1n ,
+\]
+and more generally $\|u\|_q \le C\,\|Du\|_p$ for every $q$ in the Sobolev range
+$\tfrac1p-\tfrac1n\le\tfrac1q$.  This is Mathlib's Gagliardo--Nirenberg--Sobolev inequality
+specialized to the Euclidean ambient space (rewriting $\operatorname{finrank}\mathbb{R}^n = n$);
+since a $C^1$ function's weak derivative coincides with its Fréchet derivative
+(\texttt{isWeakDerivInDir\_of\_contDiff}), the right-hand side is exactly the $W^{1,p}$ gradient
+seminorm of $u$.
+
+\begin{lstlisting}[caption={Sobolev embedding inequality on Rn (proved, zero sorry)}]
+theorem exists_eLpNorm_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : HasCompactSupport u)
+    (hp : 1 <= p) (hn : 0 < n) (hp' : (p' : R)⁻¹ = (p : R)⁻¹ - (n : R)⁻¹) :
+    exists C : NNReal, eLpNorm u p' volume <= C * eLpNorm (fderiv R u) p volume
+
+theorem exists_eLpNorm_le_eLpNorm_fderiv_of_le (hu : ContDiff R 1 u) (h2u : u.support ⊆ s)
+    (hp : 1 <= p) (hpn : p < n) (hpq : (p : R)⁻¹ - (n : R)⁻¹ <= (q : R)⁻¹)
+    (hs : Bornology.IsBounded s) :
+    exists C : NNReal, eLpNorm u q volume <= C * eLpNorm (fderiv R u) p volume
+\end{lstlisting}
+
 \subsection{Future work}
 
 \begin{enumerate}
@@ -2127,11 +2152,12 @@ using only scalar integrals.
     (\texttt{exists\_contDiff\_forall\_isWeakDerivInDir}): a single mollifier radius approximates
     $u$ and all $n$ weak partials simultaneously in $L^p$, i.e.\ $C^\infty$ is dense in
     $W^{1,p}(\mathbb{R}^n)$.
-  \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
-    language. Mathlib already proves the analytic core
-    (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.
-  \item \textbf{Sobolev embedding} ($W^{1,p}\hookrightarrow L^{p^*}$), \textbf{Morrey},
-    \textbf{Rellich--Kondrachov}, and \textbf{trace} theorems.
+  \item \textbf{Gagliardo--Nirenberg--Sobolev / Sobolev embedding} ($W^{1,p}\hookrightarrow L^{p^*}$).
+    \emph{Done} for $C^1$ compactly supported functions
+    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv} and the full-range
+    \texttt{\_of\_le}); see the subsection above. Extending the embedding to \emph{all} of
+    $W^{1,p}$ (via the Meyers--Serrin density just proved, plus completeness of $L^{p^*}$) remains.
+  \item \textbf{Morrey}, \textbf{Rellich--Kondrachov}, and \textbf{trace} theorems.
 \end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════════════
