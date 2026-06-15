@@ -531,4 +531,48 @@ theorem exists_contDiff_isWeakDerivInDir_eLpNorm_le {u v : ℝⁿ → ℝ} {p : 
           funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
     exact hkv
 
+/-- **Meyers–Serrin (`H = W`), full multi-direction form.** If `u ∈ Lᵖ` has weak derivative
+`v i` in each of finitely many directions `e i` (`1 ≤ p < ∞`), then a single smooth mollification
+`w` simultaneously approximates `u` in `Lᵖ` and has weak derivatives `w' i` approximating each
+`v i` in `Lᵖ`. Taking `e i = eᵢ` (the coordinate directions) gives density of `C^∞` in
+`W^{1,p}(ℝⁿ)`. -/
+theorem exists_contDiff_forall_isWeakDerivInDir {u : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ}
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) (hu : MemLp u p volume)
+    (hv : ∀ i, MemLp (v i) p volume) (e : Fin n → ℝⁿ)
+    (hweak : ∀ i, IsWeakDerivInDir univ (e i) u (v i)) {ε : ℝ≥0∞} (hε : 0 < ε) :
+    ∃ (w : ℝⁿ → ℝ) (w' : Fin n → ℝⁿ → ℝ), ContDiff ℝ ∞ w ∧ eLpNorm (u - w) p volume ≤ ε ∧
+      ∀ i, IsWeakDerivInDir univ (e i) w (w' i) ∧ eLpNorm (v i - w' i) p volume ≤ ε := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hu_li : LocallyIntegrable u volume := hu.locallyIntegrable hp1
+  have hv_li : ∀ i, LocallyIntegrable (v i) volume := fun i => (hv i).locallyIntegrable hp1
+  set φ : ℕ → ContDiffBump (0 : ℝⁿ) := fun k =>
+    ⟨1 / (k + 2 : ℝ), 1 / (k + 1 : ℝ), by positivity,
+      one_div_lt_one_div_of_lt (by positivity) (by linarith)⟩ with hφdef
+  have hφ : Tendsto (fun k => (φ k).rOut) atTop (𝓝 0) := by
+    simpa [hφdef] using tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)
+  -- all `n + 1` mollification errors are eventually `≤ ε`
+  have hev : ∀ᶠ k in atTop,
+      (eLpNorm (fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u) x - u x) p volume ≤ ε) ∧
+      ∀ i, eLpNorm (fun x =>
+        ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i)) x - (v i) x) p volume ≤ ε := by
+    refine (ENNReal.tendsto_nhds_zero.mp (tendsto_eLpNorm_convolution_sub hp hu hφ) ε hε).and ?_
+    exact eventually_all.mpr fun i =>
+      ENNReal.tendsto_nhds_zero.mp (tendsto_eLpNorm_convolution_sub hp (hv i) hφ) ε hε
+  obtain ⟨k, hku, hkv⟩ := hev.exists
+  refine ⟨(φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u,
+          fun i => (φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i), ?_, ?_, ?_⟩
+  · exact (φ k).hasCompactSupport_normed.contDiff_convolution_left (lsmul ℝ ℝ)
+      (φ k).contDiff_normed hu_li
+  · rw [show u - ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u)
+        = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u) x - u x from by
+          funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
+    exact hku
+  · intro i
+    refine ⟨isWeakDerivInDir_convolution (φ k).contDiff_normed (φ k).hasCompactSupport_normed
+        hu_li (hv_li i) (e i) (hweak i), ?_⟩
+    rw [show v i - ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i))
+        = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i)) x - (v i) x from by
+          funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
+    exact hkv i
+
 end Sobolev
