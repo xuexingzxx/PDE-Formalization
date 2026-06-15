@@ -381,4 +381,49 @@ lemma convolution_deriv_eq {η : ℝⁿ → ℝ} (hη : ContDiff ℝ ∞ η) (h�
         show v t * φ t = η (x - t) * v t
         simp only [hφdef]; ring
 
+/-! ### Layer 3 (Route A): the regularization weak-derivative relation via Fubini -/
+
+/-- Integrability of the Fubini integrand `η(t)·w(x−t)·ξ(x)` over the product measure, for `η, ξ`
+continuous with compact support and `w` locally integrable.  Proved by truncating `w` to a ball
+(so `Integrable.convolution_integrand` applies) and multiplying by the bounded factor `ξ`. -/
+lemma integrable_convolution_integrand_mul {η ξ w : ℝⁿ → ℝ}
+    (hη_cont : Continuous η) (hη_supp : HasCompactSupport η)
+    (hξ_cont : Continuous ξ) (hξ_supp : HasCompactSupport ξ) (hw : LocallyIntegrable w volume) :
+    Integrable (fun p : ℝⁿ × ℝⁿ => η p.2 * w (p.1 - p.2) * ξ p.1) (volume.prod volume) := by
+  have hη_int : Integrable η volume := hη_cont.integrable_of_hasCompactSupport hη_supp
+  obtain ⟨Rξ, hRξ⟩ := (IsCompact.isBounded hξ_supp).subset_closedBall (0 : ℝⁿ)
+  obtain ⟨Rη, hRη⟩ := (IsCompact.isBounded hη_supp).subset_closedBall (0 : ℝⁿ)
+  set R : ℝ := Rξ + Rη with hRdef
+  have hw'_int : Integrable ((Metric.closedBall (0 : ℝⁿ) R).indicator w) volume :=
+    (integrable_indicator_iff measurableSet_closedBall).mpr
+      (hw.integrableOn_isCompact (isCompact_closedBall 0 R))
+  have hFeq : (fun p : ℝⁿ × ℝⁿ => η p.2 * w (p.1 - p.2) * ξ p.1)
+      = fun p => η p.2 * (Metric.closedBall (0 : ℝⁿ) R).indicator w (p.1 - p.2) * ξ p.1 := by
+    funext p
+    rcases eq_or_ne (η p.2) 0 with h | h
+    · simp [h]
+    rcases eq_or_ne (ξ p.1) 0 with h' | h'
+    · simp [h']
+    have hmem : p.1 - p.2 ∈ Metric.closedBall (0 : ℝⁿ) R := by
+      have h1 := hRξ (subset_tsupport _ h')
+      have h2 := hRη (subset_tsupport _ h)
+      rw [Metric.mem_closedBall, dist_zero_right] at h1 h2 ⊢
+      calc ‖p.1 - p.2‖ ≤ ‖p.1‖ + ‖p.2‖ := norm_sub_le _ _
+        _ ≤ R := add_le_add h1 h2
+    rw [Set.indicator_of_mem hmem]
+  rw [hFeq]
+  have hconv : Integrable
+      (fun p : ℝⁿ × ℝⁿ => η p.2 * (Metric.closedBall (0 : ℝⁿ) R).indicator w (p.1 - p.2))
+      (volume.prod volume) := by
+    have := hη_int.convolution_integrand (L := lsmul ℝ ℝ) hw'_int
+    simpa only [lsmul_apply, smul_eq_mul] using this
+  obtain ⟨C, hC⟩ := hξ_cont.bounded_above_of_compact_support hξ_supp
+  have hgrp : (fun p : ℝⁿ × ℝⁿ =>
+        η p.2 * (Metric.closedBall (0 : ℝⁿ) R).indicator w (p.1 - p.2) * ξ p.1)
+      = fun p => (η p.2 * (Metric.closedBall (0 : ℝⁿ) R).indicator w (p.1 - p.2)) * ξ p.1 := by
+    funext p; ring
+  rw [hgrp]
+  exact hconv.mul_bdd (hξ_cont.comp continuous_fst).aestronglyMeasurable
+    (Eventually.of_forall fun p => hC p.1)
+
 end Sobolev
