@@ -378,7 +378,7 @@ lemma convolution_deriv_eq {η : ℝⁿ → ℝ} (hη : ContDiff ℝ ∞ η) (h�
     _ = ∫ t, η (x - t) * v t ∂volume := by
         rw [neg_neg]
         refine integral_congr_ae (Eventually.of_forall fun t => ?_)
-        show v t * φ t = η (x - t) * v t
+        change v t * φ t = η (x - t) * v t
         simp only [hφdef]; ring
 
 /-! ### Layer 3 (Route A): the regularization weak-derivative relation via Fubini -/
