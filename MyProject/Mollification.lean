@@ -1,8 +1,9 @@
 import MyProject.Sobolev
 import Mathlib.MeasureTheory.Function.ContinuousMapDense
 import Mathlib.Analysis.Calculus.BumpFunction.Convolution
+import Mathlib.Analysis.FunctionalSpaces.SobolevInequality
 
-open MeasureTheory InnerProductSpace Set Topology Filter ContinuousLinearMap
+open MeasureTheory InnerProductSpace Set Topology Filter ContinuousLinearMap Module
 open scoped ContDiff ENNReal NNReal
 
 /-!
@@ -574,5 +575,30 @@ theorem exists_contDiff_forall_isWeakDerivInDir {u : ℝⁿ → ℝ} {v : Fin n 
         = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i)) x - (v i) x from by
           funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
     exact hkv i
+
+/-! ### Sobolev embedding (Gagliardo–Nirenberg–Sobolev) -/
+
+/-- **Gagliardo–Nirenberg–Sobolev embedding inequality** on `ℝⁿ`.  A continuously differentiable,
+compactly supported `u` lies in `L^{p'}` with `‖u‖_{p'} ≲ ‖Du‖_p`, where `p'` is the Sobolev
+conjugate `1/p' = 1/p − 1/n`.  A specialization of Mathlib's GNS inequality to the Euclidean
+ambient space; with `isWeakDerivInDir_of_contDiff` the right-hand side is the `W^{1,p}` gradient
+seminorm of `u`. -/
+theorem exists_eLpNorm_le_eLpNorm_fderiv {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u)
+    (h2u : HasCompactSupport u) {p p' : ℝ≥0} (hp : 1 ≤ p) (hn : 0 < n)
+    (hp' : (p' : ℝ)⁻¹ = (p : ℝ)⁻¹ - (n : ℝ)⁻¹) :
+    ∃ C : ℝ≥0, eLpNorm u p' volume ≤ C * eLpNorm (fderiv ℝ u) p volume :=
+  ⟨_, eLpNorm_le_eLpNorm_fderiv_of_eq volume hu h2u hp
+      (by rw [finrank_euclideanSpace_fin]; exact hn)
+      (by rw [finrank_euclideanSpace_fin]; exact hp')⟩
+
+/-- **Sobolev embedding into the full range** `L^q`, `1/p − 1/n ≤ 1/q` (so `q ≤ p*`).  For a
+continuously differentiable `u` supported in a bounded set, `‖u‖_q ≲ ‖Du‖_p` (`1 ≤ p < n`). -/
+theorem exists_eLpNorm_le_eLpNorm_fderiv_of_le {u : ℝⁿ → ℝ} {s : Set ℝⁿ} (hu : ContDiff ℝ 1 u)
+    (h2u : u.support ⊆ s) {p q : ℝ≥0} (hp : 1 ≤ p) (hpn : p < n)
+    (hpq : (p : ℝ)⁻¹ - (n : ℝ)⁻¹ ≤ (q : ℝ)⁻¹) (hs : Bornology.IsBounded s) :
+    ∃ C : ℝ≥0, eLpNorm u q volume ≤ C * eLpNorm (fderiv ℝ u) p volume :=
+  ⟨_, eLpNorm_le_eLpNorm_fderiv_of_le volume hu h2u hp
+      (by rw [finrank_euclideanSpace_fin]; exact_mod_cast hpn)
+      (by rw [finrank_euclideanSpace_fin]; exact hpq) hs⟩
 
 end Sobolev
