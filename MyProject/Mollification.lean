@@ -342,4 +342,43 @@ theorem tendsto_eLpNorm_convolution_sub {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [F
     _ ≤ (ε ^ p.toReal) ^ (1 / p.toReal) := ENNReal.rpow_le_rpow hfin (by positivity)
     _ = ε := by rw [← ENNReal.rpow_mul, mul_one_div, div_self hP0.ne', ENNReal.rpow_one]
 
+/-! ### Layer 3: the regularization (commutation) identity -/
+
+/-- **The derivative passes through the convolution onto the weak derivative.** If `v` is the
+weak derivative of `u` in direction `e`, then for a smooth, compactly supported mollifier `η`,
+`(∂ₑη) ⋆ u = η ⋆ v`.  Proved by applying the weak-derivative identity to the reflected test
+function `z ↦ η(x − z)` (whose directional derivative is `−(∂ₑη)(x − z)`). -/
+lemma convolution_deriv_eq {η : ℝⁿ → ℝ} (hη : ContDiff ℝ ∞ η) (hηsupp : HasCompactSupport η)
+    {u v : ℝⁿ → ℝ} (e : ℝⁿ) (hweak : IsWeakDerivInDir univ e u v) (x : ℝⁿ) :
+    ((fun z => fderiv ℝ η z e) ⋆[lsmul ℝ ℝ, volume] u) x
+      = (η ⋆[lsmul ℝ ℝ, volume] v) x := by
+  set φ : ℝⁿ → ℝ := fun z => η (x - z) with hφdef
+  have hφ_cd : ContDiff ℝ ∞ φ := hη.comp (contDiff_const.sub contDiff_id)
+  have hφ_cs : HasCompactSupport φ := hηsupp.comp_homeomorph (Homeomorph.subLeft x)
+  have hφ_test : IsTestFunction univ φ := ⟨hφ_cd, hφ_cs, subset_univ _⟩
+  have hchain : ∀ z, fderiv ℝ φ z e = - fderiv ℝ η (x - z) e := by
+    intro z
+    have hg : HasFDerivAt (fun z : ℝⁿ => x - z) (-ContinuousLinearMap.id ℝ ℝⁿ) z :=
+      (hasFDerivAt_id z).const_sub x
+    have hηd : HasFDerivAt η (fderiv ℝ η (x - z)) (x - z) :=
+      (hη.differentiable (by simp)).differentiableAt.hasFDerivAt
+    have hcomp : HasFDerivAt φ ((fderiv ℝ η (x - z)).comp (-ContinuousLinearMap.id ℝ ℝⁿ)) z :=
+      hηd.comp z hg
+    rw [hcomp.fderiv]
+    simp
+  rw [convolution_eq_swap, convolution_eq_swap]
+  simp only [lsmul_apply, smul_eq_mul]
+  have hw := hweak φ hφ_test
+  calc ∫ t, fderiv ℝ η (x - t) e * u t ∂volume
+      = ∫ t, u t * fderiv ℝ η (x - t) e ∂volume :=
+        integral_congr_ae (Eventually.of_forall fun t => mul_comm _ _)
+    _ = -∫ t, u t * fderiv ℝ φ t e ∂volume := by
+        simp_rw [hchain, mul_neg, integral_neg, neg_neg]
+    _ = - -∫ t, v t * φ t ∂volume := by rw [hw]
+    _ = ∫ t, η (x - t) * v t ∂volume := by
+        rw [neg_neg]
+        refine integral_congr_ae (Eventually.of_forall fun t => ?_)
+        show v t * φ t = η (x - t) * v t
+        simp only [hφdef]; ring
+
 end Sobolev
