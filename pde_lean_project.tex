@@ -2097,6 +2097,13 @@ theorem exists_contDiff_isWeakDerivInDir_eLpNorm_le (hp : p != Top)
     (hε : 0 < eps) :
     exists w w', ContDiff R inf w /\ IsWeakDerivInDir univ e w w'
       /\ eLpNorm (u - w) p volume <= eps /\ eLpNorm (v - w') p volume <= eps
+
+-- full multi-direction form: one smooth w approximates u and ALL n weak partials at once
+theorem exists_contDiff_forall_isWeakDerivInDir (hp : p != Top) (hu : MemLp u p volume)
+    (hv : forall i, MemLp (v i) p volume) (e : Fin n -> Rn)
+    (hweak : forall i, IsWeakDerivInDir univ (e i) u (v i)) (hε : 0 < eps) :
+    exists w w', ContDiff R inf w /\ eLpNorm (u - w) p volume <= eps
+      /\ forall i, IsWeakDerivInDir univ (e i) w (w' i) /\ eLpNorm (v i - w' i) p volume <= eps
 \end{lstlisting}
 
 The convolution \emph{derivative} could alternatively be obtained from Mathlib's
@@ -2116,9 +2123,10 @@ using only scalar integrals.
     genuine Sobolev norm (\texttt{completeSpace\_sobolevSpace}) and for a general measurable domain
     $U$ over the restricted measure (\texttt{completeSpace\_weakGradientSubmoduleOn}); see the two
     subsections above.
-  \item \textbf{Meyers--Serrin} ($H=W$). \emph{Done} (one-direction core,
-    \texttt{exists\_contDiff\_isWeakDerivInDir\_eLpNorm\_le}); the multi-coordinate version follows by
-    using a single mollifier radius across all $n$ directions.
+  \item \textbf{Meyers--Serrin} ($H=W$). \emph{Done}, including the full multi-coordinate form
+    (\texttt{exists\_contDiff\_forall\_isWeakDerivInDir}): a single mollifier radius approximates
+    $u$ and all $n$ weak partials simultaneously in $L^p$, i.e.\ $C^\infty$ is dense in
+    $W^{1,p}(\mathbb{R}^n)$.
   \item \textbf{Gagliardo--Nirenberg--Sobolev inequality} restated in the $W^{1,p}$
     language. Mathlib already proves the analytic core
     (\texttt{MeasureTheory.eLpNorm\_le\_eLpNorm\_fderiv}), so this is mostly a wrapper.
