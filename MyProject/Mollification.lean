@@ -491,4 +491,44 @@ lemma isWeakDerivInDir_convolution {η : ℝⁿ → ℝ} (hη_cd : ContDiff ℝ 
         (integrable_convolution_integrand_mul hη_cont hη_supp hψ_cont hψ.hasCompactSupport hv)]
   simp_rw [hinner, mul_neg, integral_neg]
 
+/-! ### Layer 4: the Meyers–Serrin density theorem -/
+
+/-- **Meyers–Serrin (`H = W`), one-direction core.** If `v` is the weak derivative of `u` in
+direction `e` and both lie in `Lᵖ` (`1 ≤ p < ∞`), then `u` and `v` are *simultaneously*
+approximated in `Lᵖ` by a smooth function `w` together with its weak derivative `w'`: take
+`w = η_δ ⋆ u` for a bump `η_δ` of small enough radius, which is `C^∞`, has weak derivative
+`η_δ ⋆ v`, and converges to `u` (resp. `v`) in `Lᵖ`. -/
+theorem exists_contDiff_isWeakDerivInDir_eLpNorm_le {u v : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hp : p ≠ ⊤) (hu : MemLp u p volume) (hv : MemLp v p volume) (e : ℝⁿ)
+    (hweak : IsWeakDerivInDir univ e u v) {ε : ℝ≥0∞} (hε : 0 < ε) :
+    ∃ w w' : ℝⁿ → ℝ, ContDiff ℝ ∞ w ∧ IsWeakDerivInDir univ e w w' ∧
+      eLpNorm (u - w) p volume ≤ ε ∧ eLpNorm (v - w') p volume ≤ ε := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hu_li : LocallyIntegrable u volume := hu.locallyIntegrable hp1
+  have hv_li : LocallyIntegrable v volume := hv.locallyIntegrable hp1
+  -- a sequence of bump functions whose outer radius shrinks to `0`
+  set φ : ℕ → ContDiffBump (0 : ℝⁿ) := fun k =>
+    ⟨1 / (k + 2 : ℝ), 1 / (k + 1 : ℝ), by positivity,
+      one_div_lt_one_div_of_lt (by positivity) (by linarith)⟩ with hφdef
+  have hφ : Tendsto (fun k => (φ k).rOut) atTop (𝓝 0) := by
+    simpa [hφdef] using tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)
+  have hcu := tendsto_eLpNorm_convolution_sub hp hu hφ
+  have hcv := tendsto_eLpNorm_convolution_sub hp hv hφ
+  rw [ENNReal.tendsto_nhds_zero] at hcu hcv
+  obtain ⟨k, hku, hkv⟩ := ((hcu ε hε).and (hcv ε hε)).exists
+  refine ⟨(φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u,
+          (φ k).normed volume ⋆[lsmul ℝ ℝ, volume] v, ?_, ?_, ?_, ?_⟩
+  · exact (φ k).hasCompactSupport_normed.contDiff_convolution_left (lsmul ℝ ℝ)
+      (φ k).contDiff_normed hu_li
+  · exact isWeakDerivInDir_convolution (φ k).contDiff_normed (φ k).hasCompactSupport_normed
+      hu_li hv_li e hweak
+  · rw [show u - ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u)
+        = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u) x - u x from by
+          funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
+    exact hku
+  · rw [show v - ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] v)
+        = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] v) x - v x from by
+          funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
+    exact hkv
+
 end Sobolev
