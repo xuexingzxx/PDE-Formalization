@@ -17,9 +17,10 @@ derivatives** and the spaces `W^{k,p}`.
   order `≤ k` along the coordinate directions, each in `Lᵖ(U)`.
 
 Key results: the classical ⟹ weak bridge `isWeakDerivList_of_contDiff` (the iterated classical
-derivative of a smooth function is its iterated weak derivative) and
+derivative of a smooth function is its iterated weak derivative),
 `memWkp_of_contDiff_hasCompactSupport` (smooth compactly supported functions lie in every
-`W^{k,p}`).
+`W^{k,p}`), homogeneity of the iterated weak derivative `IsWeakDerivList.const_smul`, and the
+identification `memW1p_iff_memWkp_one` of the first-order space with the order-`1` higher space.
 -/
 
 variable {n : ℕ}
@@ -87,5 +88,39 @@ theorem memWkp_of_contDiff_hasCompactSupport {U : Set ℝⁿ} {k : ℕ} {p : ℝ
   refine ⟨hmem hu hcu, fun l _ => ⟨dirDerivList (l.map fun i => EuclideanSpace.single i 1) u,
     isWeakDerivList_of_contDiff hu _, hmem (contDiff_dirDerivList hu _) ?_⟩⟩
   exact hasCompactSupport_dirDerivList hcu _
+
+/-- **Homogeneity of the iterated weak derivative.** If `v` is the iterated weak derivative of `u`
+along `es`, then `c • v` is the iterated weak derivative of `c • u` along `es`. -/
+theorem IsWeakDerivList.const_smul {U : Set ℝⁿ} {u v : ℝⁿ → ℝ} (c : ℝ) (es : List ℝⁿ)
+    (h : IsWeakDerivList U es u v) :
+    IsWeakDerivList U es (fun x => c * u x) (fun x => c * v x) := by
+  induction es generalizing u v with
+  | nil =>
+    simp only [IsWeakDerivList] at h ⊢
+    subst h; rfl
+  | cons e es ih =>
+    obtain ⟨w, hw, hl⟩ := h
+    exact ⟨fun x => c * w x, hw.const_smul c, ih hl⟩
+
+/-- **`W^{1,p}` is exactly `W^{1,p}` viewed as the order-`1` higher Sobolev space.** A function lies
+in the first-order space `MemW1p U p` iff it lies in `MemWkp U 1 p`: a length-`≤ 1` list of
+directions is either empty (recovering `u ∈ Lᵖ`) or a single coordinate (recovering a
+single-direction weak derivative). -/
+theorem memW1p_iff_memWkp_one {U : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → ℝ} :
+    MemW1p U p u ↔ MemWkp U 1 p u := by
+  constructor
+  · intro h
+    refine ⟨h.memLp, ?_⟩
+    intro l hl
+    rcases l with _ | ⟨i, _ | ⟨j, t⟩⟩
+    · exact ⟨u, rfl, h.memLp⟩
+    · obtain ⟨v, hv, hvLp⟩ := h.exists_weakDeriv i
+      exact ⟨v, ⟨v, hv, rfl⟩, hvLp⟩
+    · simp at hl
+  · intro h
+    refine ⟨h.1, fun i => ?_⟩
+    obtain ⟨v, hwl, hvLp⟩ := h.2 [i] (by simp)
+    obtain ⟨w, hw, heq⟩ := hwl
+    exact ⟨w, hw, heq ▸ hvLp⟩
 
 end Sobolev
