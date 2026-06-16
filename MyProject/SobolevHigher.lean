@@ -123,4 +123,97 @@ theorem memW1p_iff_memWkp_one {U : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → 
     obtain ⟨w, hw, heq⟩ := hwl
     exact ⟨w, hw, heq ▸ hvLp⟩
 
+/-! ### The Sobolev space `W^{k,p}(ℝⁿ)` as a Banach space
+
+Mirroring the `W^{1,p}` construction in `Sobolev.lean`, we realise `W^{k,p}(ℝⁿ)` carrying its
+genuine Sobolev norm as a closed subspace of `PiLp p (DerivIdx → Lᵖ)`.  The index `DerivIdx n k`
+runs over all direction-sequences of length `≤ k`; the component at a sequence `l` is the iterated
+weak derivative `D^l u`, and the defining relation says the component at `i :: t` is the weak
+`∂ᵢ`-derivative of the component at `t`.  Each such relation is a single-direction weak-derivative
+graph, closed by the cornerstone `isClosed_isWeakDerivInDir_graph`, so the intersection over all
+`(i, t)` is closed and the space is complete.  The `PiLp` norm is then the genuine `ℓᵖ` Sobolev
+norm `(∑_{|l|≤k} ‖D^l u‖ₚᵖ)^{1/p}` (summed over direction-sequences, i.e.\ mixed partials with
+multiplicity — an equivalent Sobolev norm). -/
+
+/-- Index type for the higher-order Sobolev norm: direction-sequences of length `≤ k`. -/
+abbrev DerivIdx (n k : ℕ) := {l : List (Fin n) // l.length ≤ k}
+
+instance (k : ℕ) : Finite (DerivIdx n k) :=
+  Finite.of_surjective
+    (fun p : Σ j : Fin (k + 1), List.Vector (Fin n) j =>
+      (⟨p.2.val, by have := p.1.isLt; rw [p.2.2]; omega⟩ : DerivIdx n k))
+    (fun l => ⟨⟨⟨l.val.length, by have := l.2; omega⟩, ⟨l.val, rfl⟩⟩, rfl⟩)
+
+noncomputable instance (k : ℕ) : Fintype (DerivIdx n k) := Fintype.ofFinite _
+
+/-- Tail index: drop the head direction (the length bound is automatic). -/
+def DerivIdx.tail {k : ℕ} (i : Fin n) (t : List (Fin n)) (h : (i :: t).length ≤ k) :
+    DerivIdx n k := ⟨t, by have h' := h; simp only [List.length_cons] at h'; omega⟩
+
+/-- **`W^{k,p}(ℝⁿ)` with the genuine Sobolev norm**, as a submodule of `PiLp p (DerivIdx → Lᵖ)`:
+the component at a direction-sequence `l` is `D^l u`, and the defining relation is that the
+component at `i :: t` is the weak `∂ᵢ`-derivative of the component at `t`.  Subspace axioms follow
+from linearity of the weak derivative together with `congr_ae`. -/
+def wkpSpace (k : ℕ) {p : ℝ≥0∞} [Fact (1 ≤ p)] :
+    Submodule ℝ (PiLp p (fun _ : DerivIdx n k => Lp ℝ p (volume : Measure ℝⁿ))) where
+  carrier := {x | ∀ (i : Fin n) (t : List (Fin n)) (h : (i :: t).length ≤ k),
+    IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ))
+      ⇑(x (DerivIdx.tail i t h)) ⇑(x ⟨i :: t, h⟩)}
+  zero_mem' := by
+    intro i t h
+    have h0 : IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ))
+        (fun _ : ℝⁿ => (0 : ℝ)) (fun _ => 0) := by intro φ _; simp
+    exact h0.congr_ae (Lp.coeFn_zero ..).symm (Lp.coeFn_zero ..).symm
+  add_mem' := by
+    intro a b ha hb i t h
+    have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+    have key := IsWeakDerivInDir.add
+      ((Lp.memLp (a (DerivIdx.tail i t h))).locallyIntegrable hp1)
+      ((Lp.memLp (b (DerivIdx.tail i t h))).locallyIntegrable hp1)
+      ((Lp.memLp (a ⟨i :: t, h⟩)).locallyIntegrable hp1)
+      ((Lp.memLp (b ⟨i :: t, h⟩)).locallyIntegrable hp1)
+      (ha i t h) (hb i t h)
+    exact key.congr_ae (Lp.coeFn_add _ _).symm (Lp.coeFn_add _ _).symm
+  smul_mem' := by
+    intro c a ha i t h
+    exact ((ha i t h).const_smul c).congr_ae (Lp.coeFn_smul c _).symm (Lp.coeFn_smul c _).symm
+
+/-- The norm on `wkpSpace` is the genuine **Sobolev norm** `(∑_{|l|≤k} ‖D^l u‖ₚᵖ)^{1/p}` — the
+`ℓᵖ` norm over all derivative components. -/
+lemma norm_eq_wkp (k : ℕ) {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤)
+    (x : PiLp p (fun _ : DerivIdx n k => Lp ℝ p (volume : Measure ℝⁿ))) :
+    ‖x‖ = (∑ l, ‖x l‖ ^ p.toReal) ^ (1 / p.toReal) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hpos : (0 : ℝ) < p.toReal := ENNReal.toReal_pos (zero_lt_one.trans_le hp1).ne' hp_ne
+  exact PiLp.norm_eq_sum hpos x
+
+/-- `W^{k,p}(ℝⁿ)` is closed in `PiLp p (DerivIdx → Lᵖ)`: the intersection over `(i, t)` of the
+single-direction weak-derivative graphs, pulled back along the continuous projection
+`x ↦ (x ⟨t⟩, x ⟨i :: t⟩)`. -/
+theorem isClosed_wkpSpace (k : ℕ) {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    IsClosed (wkpSpace (n := n) k (p := p) :
+      Set (PiLp p (fun _ : DerivIdx n k => Lp ℝ p (volume : Measure ℝⁿ)))) := by
+  have hset : (wkpSpace (n := n) k (p := p) :
+        Set (PiLp p (fun _ : DerivIdx n k => Lp ℝ p (volume : Measure ℝⁿ))))
+      = ⋂ (i : Fin n), ⋂ (t : List (Fin n)), ⋂ (h : (i :: t).length ≤ k),
+          (fun x : PiLp p (fun _ : DerivIdx n k => Lp ℝ p (volume : Measure ℝⁿ)) =>
+            (x (DerivIdx.tail i t h), x ⟨i :: t, h⟩)) ⁻¹'
+          {ab : Lp ℝ p (volume : Measure ℝⁿ) × Lp ℝ p (volume : Measure ℝⁿ) |
+            IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ)) ⇑ab.1 ⇑ab.2} := by
+    ext x
+    simp only [SetLike.mem_coe, Set.mem_iInter, Set.mem_preimage, Set.mem_setOf_eq]
+    rfl
+  rw [hset]
+  refine isClosed_iInter fun i => isClosed_iInter fun t => isClosed_iInter fun h => ?_
+  have hc : Continuous
+      (fun x : PiLp p (fun _ : DerivIdx n k => Lp ℝ p (volume : Measure ℝⁿ)) =>
+        (x (DerivIdx.tail i t h), x ⟨i :: t, h⟩)) := by fun_prop
+  exact (isClosed_isWeakDerivInDir_graph hp_ne (EuclideanSpace.single i (1 : ℝ))).preimage hc
+
+/-- **`W^{k,p}(ℝⁿ)` with the Sobolev norm is a Banach space** (`1 ≤ p < ∞`): `wkpSpace k` is a
+closed subspace of the complete space `PiLp p (DerivIdx → Lᵖ)`. -/
+theorem completeSpace_wkpSpace (k : ℕ) {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
+    CompleteSpace (wkpSpace (n := n) k (p := p)) :=
+  completeSpace_coe_iff_isComplete.mpr (isClosed_wkpSpace k hp_ne).isComplete
+
 end Sobolev

@@ -2167,7 +2167,11 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
     \texttt{memWkp\_of\_contDiff\_hasCompactSupport}, homogeneity
     \texttt{IsWeakDerivList.const\_smul}, and \texttt{memW1p\_iff\_memWkp\_one}.  The
     $W^{k,p}$-\emph{norm} $\|u\|_{W^{k,p}}=\bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$
-    and symmetry of mixed weak partials remain.
+    is also \emph{done}: \texttt{wkpSpace k} realises $W^{k,p}(\mathbb{R}^n)$ as a closed submodule
+    of $\mathrm{PiLp}\,p$ over the finite index of derivative sequences of length $\le k$, with the
+    genuine $\ell^p$ Sobolev norm (\texttt{norm\_eq\_wkp}) and completeness
+    (\texttt{completeSpace\_wkpSpace}), mirroring the $W^{1,p}$ Banach construction.  Symmetry of
+    mixed weak partials remains.
   \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}, both for $\mathbb{R}^n$ with the
     genuine Sobolev norm (\texttt{completeSpace\_sobolevSpace}) and for a general measurable domain
     $U$ over the restricted measure (\texttt{completeSpace\_weakGradientSubmoduleOn}); see the two
