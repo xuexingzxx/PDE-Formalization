@@ -123,6 +123,77 @@ theorem memW1p_iff_memWkp_one {U : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → 
     obtain ⟨w, hw, heq⟩ := hwl
     exact ⟨w, hw, heq ▸ hvLp⟩
 
+/-! ### Symmetry of mixed weak partial derivatives -/
+
+/-- Classical Clairaut for a smooth function, directional form: `∂_{e₁}∂_{e₂}φ = ∂_{e₂}∂_{e₁}φ`.
+A specialization of Mathlib's symmetric-second-derivative theorem `ContDiffAt.isSymmSndFDerivAt`. -/
+lemma fderiv_dirDeriv_comm {φ : ℝⁿ → ℝ} (hφ : ContDiff ℝ ∞ φ) (e₁ e₂ : ℝⁿ) (x : ℝⁿ) :
+    fderiv ℝ (fun y => fderiv ℝ φ y e₂) x e₁ = fderiv ℝ (fun y => fderiv ℝ φ y e₁) x e₂ := by
+  have hd : DifferentiableAt ℝ (fderiv ℝ φ) x := by
+    have h1 : ContDiff ℝ ∞ (fderiv ℝ φ) := hφ.fderiv_right (by norm_num)
+    exact (h1.differentiable (by norm_num)).differentiableAt
+  have key : ∀ a b : ℝⁿ, fderiv ℝ (fun y => fderiv ℝ φ y a) x b
+      = fderiv ℝ (fderiv ℝ φ) x b a := by
+    intro a b
+    rw [fderiv_clm_apply hd (differentiableAt_const a)]
+    simp [ContinuousLinearMap.flip_apply]
+  have hsymm : IsSymmSndFDerivAt ℝ φ x :=
+    hφ.contDiffAt.isSymmSndFDerivAt
+      (by simp only [minSmoothness_of_isRCLikeNormedField]; exact WithTop.coe_le_coe.mpr le_top)
+  rw [key e₂ e₁, key e₁ e₂]
+  exact hsymm e₁ e₂
+
+/-- **Symmetry of mixed weak partial derivatives (a.e.).** Suppose, on all of `ℝⁿ`, `w₁` is the
+weak `e₁`-derivative of `u` and `z` the weak `e₂`-derivative of `w₁`; and symmetrically `w₂` is the
+weak `e₂`-derivative of `u` and `z'` the weak `e₁`-derivative of `w₂`. Then the two mixed second
+derivatives agree almost everywhere: `z = z'`. Proved by moving both derivatives onto a test
+function (using the weak-derivative identity twice), where classical Clairaut
+`fderiv_dirDeriv_comm` applies, then the fundamental lemma of the calculus of variations
+(via the a.e.-uniqueness route of `isWeakDerivInDir_ae_unique`). -/
+theorem isWeakDerivInDir_comm {u w₁ w₂ z z' : ℝⁿ → ℝ} {e₁ e₂ : ℝⁿ}
+    (hz : LocallyIntegrable z volume) (hz' : LocallyIntegrable z' volume)
+    (h1a : IsWeakDerivInDir univ e₁ u w₁) (h1b : IsWeakDerivInDir univ e₂ w₁ z)
+    (h2a : IsWeakDerivInDir univ e₂ u w₂) (h2b : IsWeakDerivInDir univ e₁ w₂ z') :
+    ∀ᵐ x ∂volume, z x = z' x := by
+  have key : ∀ g : ℝⁿ → ℝ, ContDiff ℝ ∞ g → HasCompactSupport g → tsupport g ⊆ univ →
+      ∫ x, g x • (z x - z' x) = 0 := by
+    intro g hg hgc hgsub
+    have hg_test : IsTestFunction univ g := ⟨hg, hgc, hgsub⟩
+    have hψ₂ : IsTestFunction univ (fun x => fderiv ℝ g x e₂) :=
+      ⟨(hg.fderiv_right (by norm_num)).clm_apply contDiff_const,
+        hg_test.hasCompactSupport_dirDeriv e₂, subset_univ _⟩
+    have hψ₁ : IsTestFunction univ (fun x => fderiv ℝ g x e₁) :=
+      ⟨(hg.fderiv_right (by norm_num)).clm_apply contDiff_const,
+        hg_test.hasCompactSupport_dirDeriv e₁, subset_univ _⟩
+    have ez : ∫ x, z x * g x = ∫ x, u x * fderiv ℝ (fun y => fderiv ℝ g y e₂) x e₁ := by
+      have hb := h1b g hg_test
+      have ha := h1a (fun x => fderiv ℝ g x e₂) hψ₂
+      dsimp only [] at ha
+      linarith [hb, ha]
+    have ez' : ∫ x, z' x * g x = ∫ x, u x * fderiv ℝ (fun y => fderiv ℝ g y e₁) x e₂ := by
+      have hb := h2b g hg_test
+      have ha := h2a (fun x => fderiv ℝ g x e₁) hψ₁
+      dsimp only [] at ha
+      linarith [hb, ha]
+    have hcomm : ∫ x, u x * fderiv ℝ (fun y => fderiv ℝ g y e₂) x e₁
+        = ∫ x, u x * fderiv ℝ (fun y => fderiv ℝ g y e₁) x e₂ :=
+      integral_congr_ae (ae_of_all _ fun x => by
+        dsimp only []; rw [fderiv_dirDeriv_comm hg e₁ e₂ x])
+    have hvv : ∫ x, z x * g x = ∫ x, z' x * g x := ez.trans (hcomm.trans ez'.symm)
+    have hint1 : Integrable (fun x => g x * z x) volume :=
+      hz.integrable_smul_left_of_hasCompactSupport hg_test.continuous hg_test.hasCompactSupport
+    have hint2 : Integrable (fun x => g x * z' x) volume :=
+      hz'.integrable_smul_left_of_hasCompactSupport hg_test.continuous hg_test.hasCompactSupport
+    calc ∫ x, g x • (z x - z' x)
+        = ∫ x, (g x * z x - g x * z' x) := by simp_rw [smul_eq_mul, mul_sub]
+      _ = (∫ x, g x * z x) - ∫ x, g x * z' x := integral_sub hint1 hint2
+      _ = (∫ x, z x * g x) - ∫ x, z' x * g x := by simp_rw [mul_comm]
+      _ = 0 := by rw [hvv]; ring
+  have hae := isOpen_univ.ae_eq_zero_of_integral_contDiff_smul_eq_zero
+    (f := fun x => z x - z' x) ((hz.sub hz').locallyIntegrableOn univ) key
+  filter_upwards [hae] with x hx
+  exact sub_eq_zero.mp (hx (mem_univ x))
+
 /-! ### The Sobolev space `W^{k,p}(ℝⁿ)` as a Banach space
 
 Mirroring the `W^{1,p}` construction in `Sobolev.lean`, we realise `W^{k,p}(ℝⁿ)` carrying its

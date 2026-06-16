@@ -2170,8 +2170,11 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
     is also \emph{done}: \texttt{wkpSpace k} realises $W^{k,p}(\mathbb{R}^n)$ as a closed submodule
     of $\mathrm{PiLp}\,p$ over the finite index of derivative sequences of length $\le k$, with the
     genuine $\ell^p$ Sobolev norm (\texttt{norm\_eq\_wkp}) and completeness
-    (\texttt{completeSpace\_wkpSpace}), mirroring the $W^{1,p}$ Banach construction.  Symmetry of
-    mixed weak partials remains.
+    (\texttt{completeSpace\_wkpSpace}), mirroring the $W^{1,p}$ Banach construction.  \emph{Symmetry
+    of mixed weak partials} is also \emph{done}: \texttt{isWeakDerivInDir\_comm} shows the two mixed
+    second weak derivatives $\partial_{e_2}\partial_{e_1}u$ and $\partial_{e_1}\partial_{e_2}u$
+    agree a.e., via classical Clairaut on a test function (\texttt{fderiv\_dirDeriv\_comm}, from
+    Mathlib's symmetric second derivative) and the fundamental lemma.
   \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}, both for $\mathbb{R}^n$ with the
     genuine Sobolev norm (\texttt{completeSpace\_sobolevSpace}) and for a general measurable domain
     $U$ over the restricted measure (\texttt{completeSpace\_weakGradientSubmoduleOn}); see the two
