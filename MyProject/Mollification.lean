@@ -601,4 +601,18 @@ theorem exists_eLpNorm_le_eLpNorm_fderiv_of_le {u : ℝⁿ → ℝ} {s : Set ℝ
       (by rw [finrank_euclideanSpace_fin]; exact_mod_cast hpn)
       (by rw [finrank_euclideanSpace_fin]; exact hpq) hs⟩
 
+/-! ### Poincaré's inequality -/
+
+/-- **Poincaré's inequality** for `W₀^{1,p}` (Evans §5.6, Theorem 1, with `q = p`). For a
+continuously differentiable `u` supported in a bounded set `s` and `1 ≤ p < n`, the `Lᵖ` norm of `u`
+is controlled by the `Lᵖ` norm of its gradient: `‖u‖_p ≤ C ‖Du‖_p`. This is the case `q = p` of the
+Sobolev–Poincaré estimate `exists_eLpNorm_le_eLpNorm_fderiv_of_le` (the full subcritical range
+`1 ≤ q ≤ p*`); the subcritical condition `1/p − 1/n ≤ 1/q` holds trivially for `q = p`, since
+`1/n ≥ 0`. -/
+theorem exists_eLpNorm_self_le_eLpNorm_fderiv {u : ℝⁿ → ℝ} {s : Set ℝⁿ} (hu : ContDiff ℝ 1 u)
+    (h2u : u.support ⊆ s) {p : ℝ≥0} (hp : 1 ≤ p) (hpn : p < n) (hs : Bornology.IsBounded s) :
+    ∃ C : ℝ≥0, eLpNorm u p volume ≤ C * eLpNorm (fderiv ℝ u) p volume :=
+  exists_eLpNorm_le_eLpNorm_fderiv_of_le hu h2u hp hpn
+    (sub_le_self (p : ℝ)⁻¹ (by positivity)) hs
+
 end Sobolev
