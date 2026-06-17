@@ -37,6 +37,7 @@ local notation "ℝⁿ" => EuclideanSpace ℝ (Fin n)
 
 namespace Sobolev
 
+
 /-- **Fundamental theorem of calculus along the segment** from `x` to `x + h`:
 `u(x+h) - u(x) = ∫₀¹ Du(x + t·h)[h] dt`.  The map `t ↦ u(x + t·h)` has derivative
 `Du(x + t·h)[h]` (chain rule), and its directional derivative is continuous, so the FTC applies. -/
@@ -160,5 +161,22 @@ theorem eLpNorm_translate_sub_le_fderiv {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 
   rwa [← ENNReal.rpow_mul, ← ENNReal.rpow_mul, mul_one_div, div_self hP0.ne',
     ENNReal.rpow_one, ENNReal.rpow_one] at this
 
-end Sobolev
+/-- **Uniform `Lᵖ`-equicontinuity from a common gradient bound** — the Fréchet–Kolmogorov
+equicontinuity hypothesis. If a `C¹` function has gradient `Lᵖ`-norm at most `M`, its `Lᵖ`
+translation modulus is `≤ ‖h‖·M`; the bound is *uniform* over any family of functions sharing the
+gradient bound `M`. -/
+theorem eLpNorm_translate_sub_le_of_gradient_le {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u)
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) {M : ℝ≥0∞}
+    (hM : eLpNorm (fun x => fderiv ℝ u x) p volume ≤ M) (h : ℝⁿ) :
+    eLpNorm (fun x => u (x + h) - u x) p volume ≤ ‖h‖ₑ * M :=
+  (eLpNorm_translate_sub_le_fderiv hu hp h).trans (by gcongr)
 
+/-- The equicontinuity modulus `‖h‖·M` vanishes as `h → 0` (for finite `M`): a family with a common
+gradient `Lᵖ`-bound `M` is therefore uniformly `Lᵖ`-translation-equicontinuous. -/
+theorem tendsto_enorm_mul_nhds_zero {M : ℝ≥0∞} (hM : M ≠ ⊤) :
+    Filter.Tendsto (fun h : ℝⁿ => ‖h‖ₑ * M) (𝓝 0) (𝓝 0) := by
+  have h0 : Filter.Tendsto (fun h : ℝⁿ => ‖h‖ₑ) (𝓝 0) (𝓝 0) := by
+    simpa using (continuous_enorm.tendsto (0 : ℝⁿ))
+  simpa using ENNReal.Tendsto.mul_const h0 (Or.inr hM)
+
+end Sobolev
