@@ -2174,7 +2174,12 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
     of mixed weak partials} is also \emph{done}: \texttt{isWeakDerivInDir\_comm} shows the two mixed
     second weak derivatives $\partial_{e_2}\partial_{e_1}u$ and $\partial_{e_1}\partial_{e_2}u$
     agree a.e., via classical Clairaut on a test function (\texttt{fderiv\_dirDeriv\_comm}, from
-    Mathlib's symmetric second derivative) and the fundamental lemma.
+    Mathlib's symmetric second derivative) and the fundamental lemma.  Finally, the \textbf{Hilbert
+    space} $H^k(\mathbb{R}^n)=W^{k,2}(\mathbb{R}^n)$: at $p=2$ the ambient $\mathrm{PiLp}\,2$ is a
+    Hilbert space, so \texttt{wkpSpace k} inherits an inner product and is complete; the inner
+    product and energy norm are $\langle u,v\rangle=\sum_{|l|\le k}\int D^l u\,D^l v$
+    (\texttt{inner\_wkpSpace}) and $\|u\|^2=\sum_{|l|\le k}\int |D^l u|^2$
+    (\texttt{norm\_sq\_wkpSpace}).
   \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}, both for $\mathbb{R}^n$ with the
     genuine Sobolev norm (\texttt{completeSpace\_sobolevSpace}) and for a general measurable domain
     $U$ over the restricted measure (\texttt{completeSpace\_weakGradientSubmoduleOn}); see the two

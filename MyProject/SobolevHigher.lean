@@ -1,7 +1,7 @@
 import MyProject.Sobolev
 
 open MeasureTheory InnerProductSpace Set Topology
-open scoped ContDiff ENNReal
+open scoped ContDiff ENNReal RealInnerProductSpace
 
 /-!
 # Higher-order Sobolev spaces (Evans PDE, §5.2)
@@ -286,5 +286,36 @@ closed subspace of the complete space `PiLp p (DerivIdx → Lᵖ)`. -/
 theorem completeSpace_wkpSpace (k : ℕ) {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp_ne : p ≠ ⊤) :
     CompleteSpace (wkpSpace (n := n) k (p := p)) :=
   completeSpace_coe_iff_isComplete.mpr (isClosed_wkpSpace k hp_ne).isComplete
+
+/-! ### The Hilbert space `H^k(ℝⁿ) = W^{k,2}(ℝⁿ)`
+
+For the exponent `p = 2`, `Lᵖ` is a Hilbert space and so is the ambient `PiLp 2 (DerivIdx → L²)`;
+`wkpSpace k` then inherits an `InnerProductSpace ℝ` structure (automatic for a submodule) and is
+complete by `completeSpace_wkpSpace`, so `H^k(ℝⁿ) = W^{k,2}(ℝⁿ)` is a **Hilbert space**. Its inner
+product and norm are the expected `H^k` ones, summed over the derivative components. -/
+
+/-- The `H^k` inner product is the sum over derivative components of the `L²` inner products:
+`⟪u, v⟫_{H^k} = ∑_{|l|≤k} ∫ D^l u · D^l v`. -/
+lemma inner_wkpSpace {k : ℕ} (u v : wkpSpace (n := n) k (p := 2)) :
+    ⟪u, v⟫ = ∑ l, ∫ x, (u : PiLp 2 (fun _ : DerivIdx n k => Lp ℝ 2 (volume : Measure ℝⁿ))) l x
+        * (v : PiLp 2 (fun _ : DerivIdx n k => Lp ℝ 2 (volume : Measure ℝⁿ))) l x := by
+  have h1 : ⟪u, v⟫ = ⟪(u : PiLp 2 (fun _ : DerivIdx n k => Lp ℝ 2 (volume : Measure ℝⁿ))),
+      (v : PiLp 2 (fun _ : DerivIdx n k => Lp ℝ 2 (volume : Measure ℝⁿ)))⟫ := rfl
+  rw [h1, PiLp.inner_apply]
+  refine Finset.sum_congr rfl fun l _ => ?_
+  rw [MeasureTheory.L2.inner_def]
+  refine integral_congr_ae (ae_of_all _ fun a => ?_)
+  dsimp only []
+  rw [real_inner_comm]; rfl
+
+/-- The squared `H^k` norm is the sum over derivative components of the squared `L²` norms:
+`‖u‖² = ∑_{|l|≤k} ∫ |D^l u|²`. -/
+lemma norm_sq_wkpSpace {k : ℕ} (u : wkpSpace (n := n) k (p := 2)) :
+    ‖u‖ ^ 2 = ∑ l, ∫ x, (u : PiLp 2 (fun _ : DerivIdx n k => Lp ℝ 2 (volume : Measure ℝⁿ))) l x
+        ^ 2 := by
+  rw [← real_inner_self_eq_norm_sq, inner_wkpSpace]
+  refine Finset.sum_congr rfl fun l _ => ?_
+  refine integral_congr_ae (ae_of_all _ fun x => ?_)
+  dsimp only []; ring
 
 end Sobolev
