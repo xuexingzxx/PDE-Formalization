@@ -8,3 +8,4 @@ import MyProject.LpJensen
 import MyProject.Mollification
 import MyProject.SobolevHigher
 import MyProject.Rellich
+import MyProject.FrechetKolmogorov
