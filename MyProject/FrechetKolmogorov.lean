@@ -3,6 +3,7 @@ import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.MeasureTheory.Function.LocallyIntegrable
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 /-!
@@ -115,5 +116,34 @@ lemma enorm_convolutionIntegral_le {η u : ℝⁿ → ℝ} (hη : Continuous η)
         lintegral_enorm_mul_reflect_le hη hu hPQ x
     _ = eLpNorm η (ENNReal.ofReal Q) volume * eLpNorm u (ENNReal.ofReal P) volume := by
         rw [heQ, heP]
+
+/-- **Equicontinuity modulus of the mollification.** The increment of the convolution between two
+points `x, x'` is controlled by the `L^Q` norm of the difference of the (reflected) translates of
+`η` times `‖u‖_P`: `‖(η⋆u)(x) − (η⋆u)(x')‖ ≤ ‖η(x−·) − η(x'−·)‖_Q · ‖u‖_P`.  As `x' → x` the
+`η`-factor tends to `0` (`L^Q`-continuity of translation), giving equicontinuity — the second
+Arzelà–Ascoli input. -/
+lemma enorm_convolutionIntegral_sub_le {η u : ℝⁿ → ℝ} (hη : Continuous η)
+    (hηcs : HasCompactSupport η) {P Q : ℝ} (hPQ : P.HolderConjugate Q)
+    (hu : MemLp u (ENNReal.ofReal P) volume) (x x' : ℝⁿ) :
+    ‖(∫ y, η (x - y) * u y ∂volume) - (∫ y, η (x' - y) * u y ∂volume)‖ₑ
+      ≤ eLpNorm (fun y => η (x - y) - η (x' - y)) (ENNReal.ofReal Q) volume
+        * eLpNorm u (ENNReal.ofReal P) volume := by
+  have hP1 : (1 : ℝ≥0∞) ≤ ENNReal.ofReal P := by
+    rw [← ENNReal.ofReal_one]; exact ENNReal.ofReal_le_ofReal hPQ.lt.le
+  have hu_li : LocallyIntegrable u volume := hu.locallyIntegrable hP1
+  have hcont : ∀ z : ℝⁿ, Continuous (fun y => η (z - y)) :=
+    fun z => hη.comp (continuous_const.sub continuous_id)
+  have hcs : ∀ z : ℝⁿ, HasCompactSupport (fun y : ℝⁿ => η (z - y)) :=
+    fun z => hηcs.comp_homeomorph (Homeomorph.subLeft z)
+  have hint : ∀ z : ℝⁿ, Integrable (fun y => η (z - y) * u y) volume :=
+    fun z => hu_li.integrable_smul_left_of_hasCompactSupport (hcont z) (hcs z)
+  have hsub : (∫ y, η (x - y) * u y ∂volume) - (∫ y, η (x' - y) * u y ∂volume)
+      = ∫ y, (η (x - y) - η (x' - y)) * u y ∂volume := by
+    rw [← integral_sub (hint x) (hint x')]
+    refine integral_congr_ae (Filter.Eventually.of_forall fun y => ?_)
+    ring
+  rw [hsub]
+  exact enorm_integral_mul_le ((hcont x).sub (hcont x')).aestronglyMeasurable
+    hu.aestronglyMeasurable hPQ
 
 end Sobolev
