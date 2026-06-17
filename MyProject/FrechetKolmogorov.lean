@@ -42,6 +42,16 @@ lemma lintegral_comp_sub_left {F : ℝⁿ → ℝ≥0∞} (hF : Measurable F) (x
   rw [hfun] at hcomp
   exact hcomp.lintegral_comp hF
 
+/-- **Reflection invariance of the `Lᵖ` seminorm**: `‖η(x − ·)‖_p = ‖η‖_p`. -/
+lemma eLpNorm_comp_sub_left {η : ℝⁿ → ℝ} (hη : AEStronglyMeasurable η volume) (p : ℝ≥0∞)
+    (x : ℝⁿ) : eLpNorm (fun y => η (x - y)) p volume = eLpNorm η p volume := by
+  have hmp : MeasurePreserving (fun y : ℝⁿ => x - y) volume volume := by
+    have hcomp := measurePreserving_neg_euclidean.comp (measurePreserving_sub_right volume x)
+    have hfun : (fun y : ℝⁿ => -y) ∘ (fun y => y - x) = fun y => x - y := by
+      funext y; simp [neg_sub]
+    rwa [hfun] at hcomp
+  exact eLpNorm_comp_measurePreserving hη hmp
+
 /-- **Hölder bound for the convolution integrand** — the analytic core of Young's `L∞` estimate.
 For conjugate real exponents `P, Q`, the `L¹` mass of `y ↦ η(x−y)·u(y)` is bounded by the
 (`x`-independent, by reflection invariance) `L^Q`-content of `η` times the `L^P`-content of `u`. -/
@@ -58,6 +68,29 @@ lemma lintegral_enorm_mul_reflect_le {η u : ℝⁿ → ℝ} (hη : Continuous �
       ((ENNReal.continuous_rpow_const.comp hη.enorm).measurable) x
   rw [href] at hol
   exact hol
+
+/-- **Hölder bound for an integral product** (general form): `‖∫ g·u‖ ≤ ‖g‖_Q · ‖u‖_P` for
+conjugate exponents `P, Q`.  The reusable tool behind both Young's inequality and the
+equicontinuity modulus of mollification. -/
+lemma enorm_integral_mul_le {g u : ℝⁿ → ℝ} (hg : AEStronglyMeasurable g volume)
+    (hu : AEStronglyMeasurable u volume) {P Q : ℝ} (hPQ : P.HolderConjugate Q) :
+    ‖(∫ y, g y * u y ∂volume)‖ₑ
+      ≤ eLpNorm g (ENNReal.ofReal Q) volume * eLpNorm u (ENNReal.ofReal P) volume := by
+  have hQ0 : 0 < Q := hPQ.symm.pos
+  have hP0 : 0 < P := hPQ.pos
+  have heQ : eLpNorm g (ENNReal.ofReal Q) volume = (∫⁻ y, ‖g y‖ₑ ^ Q ∂volume) ^ (1 / Q) := by
+    rw [eLpNorm_eq_lintegral_rpow_enorm_toReal (ENNReal.ofReal_pos.mpr hQ0).ne'
+      ENNReal.ofReal_ne_top, ENNReal.toReal_ofReal hQ0.le]
+  have heP : eLpNorm u (ENNReal.ofReal P) volume = (∫⁻ y, ‖u y‖ₑ ^ P ∂volume) ^ (1 / P) := by
+    rw [eLpNorm_eq_lintegral_rpow_enorm_toReal (ENNReal.ofReal_pos.mpr hP0).ne'
+      ENNReal.ofReal_ne_top, ENNReal.toReal_ofReal hP0.le]
+  calc ‖(∫ y, g y * u y ∂volume)‖ₑ
+      ≤ ∫⁻ y, ‖g y * u y‖ₑ ∂volume := enorm_integral_le_lintegral_enorm _
+    _ = ∫⁻ y, ‖g y‖ₑ * ‖u y‖ₑ ∂volume := by simp_rw [enorm_mul]
+    _ ≤ (∫⁻ y, ‖g y‖ₑ ^ Q ∂volume) ^ (1 / Q) * (∫⁻ y, ‖u y‖ₑ ^ P ∂volume) ^ (1 / P) :=
+        ENNReal.lintegral_mul_le_Lp_mul_Lq volume hPQ.symm hg.enorm hu.enorm
+    _ = eLpNorm g (ENNReal.ofReal Q) volume * eLpNorm u (ENNReal.ofReal P) volume := by
+        rw [heQ, heP]
 
 /-- **Young's inequality, `L∞` endpoint** (for the convolution integral). For conjugate exponents
 `P, Q`, the convolution value is bounded by the product of the `L^Q` norm of `η` and the `L^P` norm
