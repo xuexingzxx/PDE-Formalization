@@ -4,6 +4,7 @@ import MyProject.Laplace
 import MyProject.Heat
 import MyProject.Wave
 import MyProject.Sobolev
+import MyProject.LpJensen
 import MyProject.Mollification
 import MyProject.SobolevHigher
 import MyProject.Rellich
