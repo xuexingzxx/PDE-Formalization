@@ -2198,7 +2198,15 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
     (\texttt{exists\_eLpNorm\_self\_le\_eLpNorm\_fderiv}); see the subsection above.  The
     Poincar\'e--Wirtinger (mean-zero) form $\|u-(u)_U\|_p\le C\|Du\|_p$ requires the
     Rellich--Kondrachov compactness and remains.
-  \item \textbf{Morrey}, \textbf{Rellich--Kondrachov}, and \textbf{trace} theorems.
+  \item \textbf{Rellich--Kondrachov} (§5.7). \emph{In progress} (\texttt{Rellich.lean}): the
+    \textbf{translation estimate} $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$
+    (\texttt{eLpNorm\_translate\_sub\_le\_fderiv}), the equicontinuity input to Fréchet--Kolmogorov,
+    is proved from the segment FTC $u(x+h)-u(x)=\int_0^1 Du(x+t\,h)[h]\,dt$
+    (\texttt{sub\_eq\_integral\_fderiv\_segment}) by weighted Jensen, Tonelli, and
+    translation-invariance.  The remaining ingredient is the Fréchet--Kolmogorov
+    $L^p$-precompactness criterion, which Mathlib does not yet provide (it would be built by
+    mollification + Arzelà--Ascoli + total boundedness).
+  \item \textbf{Morrey} and \textbf{trace} theorems.
 \end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════════════
