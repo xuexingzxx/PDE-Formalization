@@ -2,6 +2,7 @@ import MyProject.LpJensen
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
+import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 /-!
@@ -57,5 +58,29 @@ lemma lintegral_enorm_mul_reflect_le {η u : ℝⁿ → ℝ} (hη : Continuous �
       ((ENNReal.continuous_rpow_const.comp hη.enorm).measurable) x
   rw [href] at hol
   exact hol
+
+/-- **Young's inequality, `L∞` endpoint** (for the convolution integral). For conjugate exponents
+`P, Q`, the convolution value is bounded by the product of the `L^Q` norm of `η` and the `L^P` norm
+of `u`, uniformly in `x`: `‖∫ η(x−y)·u(y) dy‖ ≤ ‖η‖_Q · ‖u‖_P`.  This is the **uniform boundedness**
+input to the Arzelà–Ascoli step of Fréchet–Kolmogorov. -/
+lemma enorm_convolutionIntegral_le {η u : ℝⁿ → ℝ} (hη : Continuous η)
+    (hu : AEStronglyMeasurable u volume) {P Q : ℝ} (hPQ : P.HolderConjugate Q) (x : ℝⁿ) :
+    ‖(∫ y, η (x - y) * u y ∂volume)‖ₑ
+      ≤ eLpNorm η (ENNReal.ofReal Q) volume * eLpNorm u (ENNReal.ofReal P) volume := by
+  have hQ0 : 0 < Q := hPQ.symm.pos
+  have hP0 : 0 < P := hPQ.pos
+  have heQ : eLpNorm η (ENNReal.ofReal Q) volume = (∫⁻ y, ‖η y‖ₑ ^ Q ∂volume) ^ (1 / Q) := by
+    rw [eLpNorm_eq_lintegral_rpow_enorm_toReal (ENNReal.ofReal_pos.mpr hQ0).ne'
+      ENNReal.ofReal_ne_top, ENNReal.toReal_ofReal hQ0.le]
+  have heP : eLpNorm u (ENNReal.ofReal P) volume = (∫⁻ y, ‖u y‖ₑ ^ P ∂volume) ^ (1 / P) := by
+    rw [eLpNorm_eq_lintegral_rpow_enorm_toReal (ENNReal.ofReal_pos.mpr hP0).ne'
+      ENNReal.ofReal_ne_top, ENNReal.toReal_ofReal hP0.le]
+  calc ‖∫ y, η (x - y) * u y ∂volume‖ₑ
+      ≤ ∫⁻ y, ‖η (x - y) * u y‖ₑ ∂volume := enorm_integral_le_lintegral_enorm _
+    _ = ∫⁻ y, ‖η (x - y)‖ₑ * ‖u y‖ₑ ∂volume := by simp_rw [enorm_mul]
+    _ ≤ (∫⁻ y, ‖η y‖ₑ ^ Q ∂volume) ^ (1 / Q) * (∫⁻ y, ‖u y‖ₑ ^ P ∂volume) ^ (1 / P) :=
+        lintegral_enorm_mul_reflect_le hη hu hPQ x
+    _ = eLpNorm η (ENNReal.ofReal Q) volume * eLpNorm u (ENNReal.ofReal P) volume := by
+        rw [heQ, heP]
 
 end Sobolev
