@@ -146,4 +146,55 @@ lemma enorm_convolutionIntegral_sub_le {η u : ℝⁿ → ℝ} (hη : Continuous
   exact enorm_integral_mul_le ((hcont x).sub (hcont x')).aestronglyMeasurable
     hu.aestronglyMeasurable hPQ
 
+/-- **The mollification `x ↦ ∫ η(x−y)·u(y) dy` is continuous** for `η` continuous with compact
+support and `u` locally integrable.  Continuity is local, so we use dominated convergence at each
+point `x₀` with a bound supported on a fixed ball: for `x` near `x₀`, the integrand vanishes unless
+`y` lies in a compact ball (since `η` has compact support), where `‖η(x−y)·u(y)‖ ≤ M·‖u(y)‖`.  This
+packages the mollified family as continuous functions — the codomain for Arzelà–Ascoli. -/
+lemma continuous_convolutionIntegral {η u : ℝⁿ → ℝ} (hη : Continuous η)
+    (hηcs : HasCompactSupport η) (hu : LocallyIntegrable u volume) :
+    Continuous (fun x => ∫ y, η (x - y) * u y ∂volume) := by
+  obtain ⟨M, hM⟩ := hη.bounded_above_of_compact_support hηcs
+  have hM0 : 0 ≤ M := (norm_nonneg _).trans (hM 0)
+  obtain ⟨Rη, hRη⟩ := hηcs.isBounded.subset_closedBall (0 : ℝⁿ)
+  rw [continuous_iff_continuousAt]
+  intro x₀
+  set R : ℝ := ‖x₀‖ + 1 + Rη with hRdef
+  set K : Set ℝⁿ := Metric.closedBall 0 R with hKdef
+  have hmeas : ∀ x : ℝⁿ, AEStronglyMeasurable (fun y => η (x - y) * u y) volume := fun x =>
+    ((hη.comp (continuous_const.sub continuous_id)).aestronglyMeasurable).mul
+      hu.aestronglyMeasurable
+  refine continuousAt_of_dominated (bound := K.indicator (fun y => M * ‖u y‖))
+    (Filter.Eventually.of_forall hmeas) ?_ ?_ ?_
+  · -- domination, for `x` in the unit ball around `x₀`
+    filter_upwards [Metric.ball_mem_nhds x₀ one_pos] with x hx
+    filter_upwards with y
+    rcases eq_or_ne (η (x - y)) 0 with h0 | h0
+    · rw [h0, zero_mul, norm_zero]
+      exact Set.indicator_nonneg (fun z _ => mul_nonneg hM0 (norm_nonneg _)) y
+    · have hyK : y ∈ K := by
+        by_contra hy
+        rw [hKdef, Metric.mem_closedBall, dist_zero_right, not_le] at hy
+        have hxx : ‖x‖ < ‖x₀‖ + 1 := by
+          have := mem_ball_iff_norm.mp (by simpa [dist_eq_norm] using hx)
+          calc ‖x‖ = ‖x - x₀ + x₀‖ := by rw [sub_add_cancel]
+            _ ≤ ‖x - x₀‖ + ‖x₀‖ := norm_add_le _ _
+            _ < 1 + ‖x₀‖ := by gcongr
+            _ = ‖x₀‖ + 1 := by ring
+        have hxy : Rη < ‖x - y‖ := by
+          have : ‖y‖ - ‖x‖ ≤ ‖x - y‖ := by
+            rw [← norm_neg (x - y)]; simpa [neg_sub] using norm_sub_norm_le y x
+          rw [hRdef] at hy; linarith
+        exact h0 (image_eq_zero_of_notMem_tsupport (fun hmem =>
+          absurd (hRη hmem) (by rw [Metric.mem_closedBall, dist_zero_right, not_le]; exact hxy)))
+      rw [Set.indicator_of_mem hyK, norm_mul]
+      gcongr
+      exact hM _
+  · -- the bound is integrable
+    rw [integrable_indicator_iff measurableSet_closedBall]
+    exact ((hu.integrableOn_isCompact (isCompact_closedBall 0 R)).norm.const_mul M)
+  · -- continuity in `x` for each fixed `y`
+    filter_upwards with y
+    exact ((hη.comp (continuous_id.sub continuous_const)).mul continuous_const).continuousAt
+
 end Sobolev
