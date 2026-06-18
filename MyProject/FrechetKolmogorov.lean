@@ -303,4 +303,25 @@ lemma isCompact_closure_toLp_image_of_equicontinuous_of_bound {K : Type*} [Topol
   refine himg.of_isClosed_subset isClosed_closure ?_
   exact closure_minimal (Set.image_mono subset_closure) himg.isClosed
 
+/-- **The abstract ε/3 argument.**  In a pseudometric space, a set `S` that is, for every `ε > 0`,
+contained in the `ε`-neighbourhood of *some* totally bounded set `T` (`∀ x ∈ S, ∃ y ∈ T,
+dist x y < ε`) is itself totally bounded.  This is the glue of the Fréchet–Kolmogorov proof: the
+original `Lᵖ` family is approximated to within `ε` by a mollified family `T` which is totally
+bounded (compact closure, from `isCompact_closure_toLp_image_of_equicontinuous_of_bound`), hence
+the original family is totally bounded — i.e. relatively compact in the complete space `Lᵖ`. -/
+lemma totallyBounded_of_forall_approx {α : Type*} [PseudoMetricSpace α] {S : Set α}
+    (h : ∀ ε > 0, ∃ T : Set α, TotallyBounded T ∧ ∀ x ∈ S, ∃ y ∈ T, dist x y < ε) :
+    TotallyBounded S := by
+  rw [Metric.totallyBounded_iff]
+  intro ε hε
+  obtain ⟨T, hT, happrox⟩ := h (ε / 2) (by positivity)
+  obtain ⟨t, htfin, htsub⟩ := (Metric.totallyBounded_iff.mp hT) (ε / 2) (by positivity)
+  refine ⟨t, htfin, fun x hx => ?_⟩
+  obtain ⟨y, hyT, hxy⟩ := happrox x hx
+  obtain ⟨z, hzt, hyz⟩ := Set.mem_iUnion₂.mp (htsub hyT)
+  refine Set.mem_iUnion₂.mpr ⟨z, hzt, Metric.mem_ball.mpr ?_⟩
+  calc dist x z ≤ dist x y + dist y z := dist_triangle x y z
+    _ < ε / 2 + ε / 2 := add_lt_add hxy (Metric.mem_ball.mp hyz)
+    _ = ε := by ring
+
 end Sobolev
