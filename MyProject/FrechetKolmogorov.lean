@@ -197,4 +197,17 @@ lemma continuous_convolutionIntegral {η u : ℝⁿ → ℝ} (hη : Continuous �
     filter_upwards with y
     exact ((hη.comp (continuous_id.sub continuous_const)).mul continuous_const).continuousAt
 
+/-- **The `C⁰ → Lᵖ` embedding bound on a finite-measure domain.**  If `‖f x − g x‖ ≤ C` for
+a.e. `x` in `s`, then the `Lᵖ`-distance of `f` and `g` over `s` is at most `(vol s)^{1/p}·C`.
+Equivalently, the inclusion `C(K) ↪ Lᵖ(K)` is `(vol K)^{1/p}`-Lipschitz on a bounded domain `K`.
+This is the bridge that transfers sup-norm precompactness (Arzelà–Ascoli) to `Lᵖ`-precompactness
+(Fréchet–Kolmogorov): a uniformly small sup-distance forces a uniformly small `Lᵖ`-distance, so a
+totally bounded family in `C(K)` is totally bounded in `Lᵖ(K)`. -/
+lemma eLpNorm_sub_restrict_le_of_ae_bound {f g : ℝⁿ → ℝ} {s : Set ℝⁿ} {C : ℝ} {p : ℝ≥0∞}
+    (hfg : ∀ᵐ x ∂(volume.restrict s), ‖f x - g x‖ ≤ C) :
+    eLpNorm (fun x => f x - g x) p (volume.restrict s)
+      ≤ volume s ^ p.toReal⁻¹ * ENNReal.ofReal C := by
+  have h := eLpNorm_le_of_ae_bound (μ := (volume.restrict s)) (p := p) hfg
+  rwa [Measure.restrict_apply_univ] at h
+
 end Sobolev
