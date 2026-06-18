@@ -6,6 +6,7 @@ import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Function.LocallyIntegrable
 import Mathlib.MeasureTheory.Function.LpSpace.ContinuousFunctions
 import Mathlib.Topology.UniformSpace.Ascoli
+import Mathlib.Topology.UniformSpace.CompactConvergence
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 /-!
@@ -240,5 +241,66 @@ lemma isCompact_toLp_image_of_equicontinuous {K : Type*} [TopologicalSpace K] [C
     IsCompact (ContinuousMap.toLp (E := ℝ) p μ ℝ '' S) :=
   (ArzelaAscoli.isCompact_of_equicontinuous S hS1 hS2).image
     (ContinuousMap.toLp (E := ℝ) p μ ℝ).continuous
+
+/-- **Pointwise relative compactness from a uniform sup-bound.**  If every function in a family
+`S ⊆ C(K,ℝ)` is bounded by a common constant `M` (`‖f x‖ ≤ M` for all `f ∈ S`, `x`), then the
+closure of the set of underlying functions is compact in the topology of pointwise convergence:
+all functions take values in the fixed compact box `∏ₓ [−M, M]`, which is compact by Tychonoff,
+so the closure of `toFun '' S` is a closed subset of a compact set.  This supplies the pointwise
+relative-compactness hypothesis (`hS1`) of the abstract Rellich criterion from the uniform
+boundedness output of Young's inequality. -/
+lemma isCompact_closure_toFun_image_of_bound {K : Type*} [TopologicalSpace K]
+    {S : Set C(K, ℝ)} {M : ℝ} (hM : ∀ f ∈ S, ∀ x, ‖f x‖ ≤ M) :
+    IsCompact (closure (ContinuousMap.toFun '' S)) := by
+  set B : Set (K → ℝ) := Set.pi Set.univ (fun _ : K => Set.Icc (-M) M) with hBdef
+  have hBcompact : IsCompact B := isCompact_univ_pi (fun _ => isCompact_Icc)
+  have hBclosed : IsClosed B := isClosed_set_pi (fun _ _ => isClosed_Icc)
+  have hsub : ContinuousMap.toFun '' S ⊆ B := by
+    rintro f ⟨g, hg, rfl⟩ x -
+    have hgx : |g x| ≤ M := by simpa [Real.norm_eq_abs] using hM g hg x
+    exact Set.mem_Icc.mpr (abs_le.mp hgx)
+  exact hBcompact.of_isClosed_subset isClosed_closure (closure_minimal hsub hBclosed)
+
+/-- **Relative compactness in `C(K,ℝ)` (Arzelà–Ascoli, precompact form).**  An equicontinuous,
+uniformly bounded family `S ⊆ C(K,ℝ)` on a compact space `K` has **compact closure** in `C(K,ℝ)`.
+Unlike `isCompact_toLp_image_of_equicontinuous` (which needs `S` itself pointwise-compact), this
+concludes precompactness of `S` directly: it applies Mathlib's relative-compactness Arzelà–Ascoli
+(`ArzelaAscoli.isCompact_closure_of_isClosedEmbedding`) through the closed embedding
+`C(K,ℝ) ↪ (K →ᵤ[compacts] ℝ)` — closed because its range is `{Continuous}`, closed in the
+uniform-on-compacts topology (`UniformOnFun.isClosed_setOf_continuous`). -/
+lemma isCompact_closure_of_equicontinuous_of_bound {K : Type*} [TopologicalSpace K]
+    [CompactSpace K] {S : Set C(K, ℝ)} {M : ℝ}
+    (hbound : ∀ f ∈ S, ∀ x, ‖f x‖ ≤ M) (heqc : Equicontinuous ((↑) : S → K → ℝ)) :
+    IsCompact (closure S) := by
+  have hemb : Topology.IsClosedEmbedding
+      (UniformOnFun.ofFun {L : Set K | IsCompact L} ∘ ((↑) : C(K, ℝ) → (K → ℝ))) := by
+    have hce : Topology.IsClosedEmbedding (ContinuousMap.toUniformOnFunIsCompact : C(K, ℝ) → _) := by
+      refine ⟨ContinuousMap.isUniformEmbedding_toUniformOnFunIsCompact.isEmbedding, ?_⟩
+      rw [ContinuousMap.range_toUniformOnFunIsCompact]
+      exact UniformOnFun.isClosed_setOf_continuous CompactlyCoherentSpace.isCoherentWith
+    exact hce
+  refine ArzelaAscoli.isCompact_closure_of_isClosedEmbedding
+    (𝔖 := {L : Set K | IsCompact L}) (fun L hL => hL) hemb
+    (fun L _ => heqc.equicontinuousOn L) (fun L _ x _ => ?_)
+  exact ⟨Set.Icc (-M) M, isCompact_Icc, fun f hf =>
+    Set.mem_Icc.mpr (abs_le.mp (by simpa [Real.norm_eq_abs] using hbound f hf x))⟩
+
+/-- **Concrete `Lᵖ`-precompactness criterion (Fréchet–Kolmogorov / Rellich, precompact form).**
+An equicontinuous, uniformly bounded family `S ⊆ C(K,ℝ)` on a compact finite-measure space `K` has
+**compact closure in `Lᵖ`**.  Combines the relative-compactness Arzelà–Ascoli
+(`isCompact_closure_of_equicontinuous_of_bound`) with the continuous-linear inclusion
+`ContinuousMap.toLp`: the `C⁰`-closure of `S` is compact, its image under `toLp` is compact, and the
+`Lᵖ`-closure of `toLp '' S` is a closed subset of that image.  This is the precompactness form of
+the Rellich–Kondrachov compactness theorem. -/
+lemma isCompact_closure_toLp_image_of_equicontinuous_of_bound {K : Type*} [TopologicalSpace K]
+    [CompactSpace K] [MeasurableSpace K] [BorelSpace K] {μ : Measure K} [IsFiniteMeasure μ]
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] {S : Set C(K, ℝ)} {M : ℝ}
+    (hbound : ∀ f ∈ S, ∀ x, ‖f x‖ ≤ M) (heqc : Equicontinuous ((↑) : S → K → ℝ)) :
+    IsCompact (closure (ContinuousMap.toLp (E := ℝ) p μ ℝ '' S)) := by
+  have hSc : IsCompact (closure S) := isCompact_closure_of_equicontinuous_of_bound hbound heqc
+  have himg : IsCompact (ContinuousMap.toLp (E := ℝ) p μ ℝ '' closure S) :=
+    hSc.image (ContinuousMap.toLp (E := ℝ) p μ ℝ).continuous
+  refine himg.of_isClosed_subset isClosed_closure ?_
+  exact closure_minimal (Set.image_mono subset_closure) himg.isClosed
 
 end Sobolev
