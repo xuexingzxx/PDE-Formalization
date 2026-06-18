@@ -5,6 +5,7 @@ import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Function.LocallyIntegrable
 import Mathlib.MeasureTheory.Function.LpSpace.ContinuousFunctions
+import Mathlib.Topology.UniformSpace.Ascoli
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 /-!
@@ -223,5 +224,21 @@ lemma isCompact_toLp_image {K : Type*} [TopologicalSpace K] [CompactSpace K]
     {S : Set C(K, ℝ)} (hS : IsCompact S) :
     IsCompact (ContinuousMap.toLp (E := ℝ) p μ ℝ '' S) :=
   hS.image (ContinuousMap.toLp (E := ℝ) p μ ℝ).continuous
+
+/-- **Abstract Fréchet–Kolmogorov / Rellich compactness criterion.**  Arzelà–Ascoli composed with
+the `C⁰→Lᵖ` transfer (`isCompact_toLp_image`): an **equicontinuous** family `S ⊆ C(K,ℝ)` on a
+compact finite-measure space `K`, whose set of underlying functions is compact for pointwise
+convergence (`hS1` — pointwise relative compactness, supplied in practice by a uniform bound), is
+**precompact in `Lᵖ`**.  This is the topological heart of Rellich–Kondrachov: the two analytic
+hypotheses of Fréchet–Kolmogorov (uniform boundedness + uniform equicontinuity) yield
+`Lᵖ`-precompactness. -/
+lemma isCompact_toLp_image_of_equicontinuous {K : Type*} [TopologicalSpace K] [CompactSpace K]
+    [MeasurableSpace K] [BorelSpace K] {μ : Measure K} [IsFiniteMeasure μ]
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (S : Set C(K, ℝ))
+    (hS1 : IsCompact (ContinuousMap.toFun '' S))
+    (hS2 : Equicontinuous ((↑) : S → K → ℝ)) :
+    IsCompact (ContinuousMap.toLp (E := ℝ) p μ ℝ '' S) :=
+  (ArzelaAscoli.isCompact_of_equicontinuous S hS1 hS2).image
+    (ContinuousMap.toLp (E := ℝ) p μ ℝ).continuous
 
 end Sobolev
