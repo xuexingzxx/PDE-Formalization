@@ -4,6 +4,7 @@ import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Function.LocallyIntegrable
+import Mathlib.MeasureTheory.Function.LpSpace.ContinuousFunctions
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 /-!
@@ -209,5 +210,18 @@ lemma eLpNorm_sub_restrict_le_of_ae_bound {f g : ℝⁿ → ℝ} {s : Set ℝⁿ
       ≤ volume s ^ p.toReal⁻¹ * ENNReal.ofReal C := by
   have h := eLpNorm_le_of_ae_bound (μ := (volume.restrict s)) (p := p) hfg
   rwa [Measure.restrict_apply_univ] at h
+
+/-- **The `C⁰ → Lᵖ` precompactness transfer.**  On a compact space `K` with a finite measure `μ`,
+the inclusion `C(K,ℝ) ↪ Lᵖ(K,μ)` (`ContinuousMap.toLp`, a *continuous linear* map) sends a compact
+family of continuous functions to a compact family in `Lᵖ` — since the continuous image of a
+compact set is compact.  Composed with Arzelà–Ascoli (which produces the compact family in `C(K)`
+from uniform boundedness + equicontinuity), this is the topological core of Rellich–Kondrachov:
+it converts `C⁰`-precompactness into `Lᵖ`-precompactness. -/
+lemma isCompact_toLp_image {K : Type*} [TopologicalSpace K] [CompactSpace K]
+    [MeasurableSpace K] [BorelSpace K]
+    {μ : Measure K} [IsFiniteMeasure μ] {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    {S : Set C(K, ℝ)} (hS : IsCompact S) :
+    IsCompact (ContinuousMap.toLp (E := ℝ) p μ ℝ '' S) :=
+  hS.image (ContinuousMap.toLp (E := ℝ) p μ ℝ).continuous
 
 end Sobolev
