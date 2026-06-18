@@ -9,6 +9,7 @@ import Mathlib.MeasureTheory.Function.LpSpace.ContinuousFunctions
 import Mathlib.MeasureTheory.Function.LpSpace.Indicator
 import Mathlib.Topology.UniformSpace.Ascoli
 import Mathlib.Topology.UniformSpace.CompactConvergence
+import Mathlib.Topology.MetricSpace.Equicontinuity
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 /-!
@@ -176,6 +177,56 @@ lemma enorm_convolutionIntegral_sub_le {η u : ℝⁿ → ℝ} (hη : Continuous
   rw [hsub]
   exact enorm_integral_mul_le ((hcont x).sub (hcont x')).aestronglyMeasurable
     hu.aestronglyMeasurable hPQ
+
+/-- **Equicontinuity of a uniformly `L^P`-bounded mollified family.**  For `η` continuous with
+compact support and a family `u : ι → ℝⁿ → ℝ` with `‖u i‖_P ≤ B` for all `i`, the convolutions
+`x ↦ ∫ η(x−y)·u i(y) dy` are **equicontinuous**.  The shared local continuity modulus is
+`‖η(x₀−·) − η(x−·)‖_Q · B`, which tends to `0` by `tendsto_eLpNorm_reflect_translate_sub`; the
+increment bound is the equicontinuity modulus `enorm_convolutionIntegral_sub_le`.  This discharges
+the equicontinuity hypothesis (`heqc`) of the Rellich precompactness criterion. -/
+lemma equicontinuous_convolutionIntegral {ι : Type*} {η : ℝⁿ → ℝ} (hη : Continuous η)
+    (hηcs : HasCompactSupport η) {P Q : ℝ} (hPQ : P.HolderConjugate Q)
+    {u : ι → ℝⁿ → ℝ} (hu : ∀ i, MemLp (u i) (ENNReal.ofReal P) volume)
+    {B : ℝ} (hB : ∀ i, (eLpNorm (u i) (ENNReal.ofReal P) volume).toReal ≤ B) :
+    Equicontinuous (fun (i : ι) (x : ℝⁿ) => ∫ y, η (x - y) * u i y ∂volume) := by
+  intro x₀
+  set Qe : ℝ≥0∞ := ENNReal.ofReal Q with hQe
+  set Pe : ℝ≥0∞ := ENNReal.ofReal P with hPe
+  -- the shared local modulus
+  have hmod : Tendsto (fun x => eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume)
+      (𝓝 x₀) (𝓝 0) := by
+    refine (tendsto_eLpNorm_reflect_translate_sub hη hηcs Qe x₀).congr (fun x => ?_)
+    rw [← eLpNorm_neg (f := fun y => η (x - y) - η (x₀ - y))]
+    congr 1; funext y; rw [Pi.neg_apply, neg_sub]
+  have b_lim : Tendsto (fun x => (eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume).toReal * B)
+      (𝓝 x₀) (𝓝 0) := by
+    have h0 := (ENNReal.tendsto_toReal (by simp : (0 : ℝ≥0∞) ≠ ⊤)).comp hmod
+    simpa using h0.mul_const B
+  refine Metric.equicontinuousAt_of_continuity_modulus _ b_lim _
+    (Filter.Eventually.of_forall (fun x i => ?_))
+  -- increment bound at `x` for the `i`-th function
+  have hbound := enorm_convolutionIntegral_sub_le hη hηcs hPQ (hu i) x₀ x
+  have hcont_diff : Continuous (fun y => η (x₀ - y) - η (x - y)) :=
+    (hη.comp (continuous_const.sub continuous_id)).sub
+      (hη.comp (continuous_const.sub continuous_id))
+  have hcs_diff : HasCompactSupport (fun y => η (x₀ - y) - η (x - y)) :=
+    (hηcs.comp_homeomorph (Homeomorph.subLeft x₀)).sub
+      (hηcs.comp_homeomorph (Homeomorph.subLeft x))
+  have hfin_E : eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume ≠ ⊤ :=
+    (hcont_diff.memLp_of_hasCompactSupport hcs_diff).eLpNorm_lt_top.ne
+  have hfin_u : eLpNorm (u i) Pe volume ≠ ⊤ := (hu i).eLpNorm_lt_top.ne
+  have hRHS_fin : eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume
+      * eLpNorm (u i) Pe volume ≠ ⊤ :=
+    ENNReal.mul_ne_top hfin_E hfin_u
+  calc dist (∫ y, η (x₀ - y) * u i y ∂volume) (∫ y, η (x - y) * u i y ∂volume)
+      = (‖(∫ y, η (x₀ - y) * u i y ∂volume) - (∫ y, η (x - y) * u i y ∂volume)‖ₑ).toReal := by
+        rw [dist_eq_norm, enorm_eq_nnnorm, ENNReal.coe_toReal, coe_nnnorm]
+    _ ≤ (eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume * eLpNorm (u i) Pe volume).toReal :=
+        ENNReal.toReal_mono hRHS_fin hbound
+    _ = (eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume).toReal
+          * (eLpNorm (u i) Pe volume).toReal := ENNReal.toReal_mul
+    _ ≤ (eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume).toReal * B := by
+        gcongr; exact hB i
 
 /-- **The mollification `x ↦ ∫ η(x−y)·u(y) dy` is continuous** for `η` continuous with compact
 support and `u` locally integrable.  Continuity is local, so we use dominated convergence at each
