@@ -228,6 +228,30 @@ lemma equicontinuous_convolutionIntegral {ι : Type*} {η : ℝⁿ → ℝ} (hη
     _ ≤ (eLpNorm (fun y => η (x₀ - y) - η (x - y)) Qe volume).toReal * B := by
         gcongr; exact hB i
 
+/-- **Uniform sup-bound of a uniformly `L^P`-bounded mollified family** (real form of Young's
+`L∞` endpoint).  For `η` continuous with compact support and `‖u i‖_P ≤ B`, every convolution is
+bounded by `‖η‖_Q · B`, uniformly in `i` and `x`.  This discharges the uniform-boundedness
+hypothesis (`hbound`) of the Rellich precompactness criterion. -/
+lemma norm_convolutionIntegral_le_of_bound {ι : Type*} {η : ℝⁿ → ℝ} (hη : Continuous η)
+    (hηcs : HasCompactSupport η) {P Q : ℝ} (hPQ : P.HolderConjugate Q)
+    {u : ι → ℝⁿ → ℝ} (hu : ∀ i, MemLp (u i) (ENNReal.ofReal P) volume)
+    {B : ℝ} (hB : ∀ i, (eLpNorm (u i) (ENNReal.ofReal P) volume).toReal ≤ B) (i : ι) (x : ℝⁿ) :
+    ‖∫ y, η (x - y) * u i y ∂volume‖
+      ≤ (eLpNorm η (ENNReal.ofReal Q) volume).toReal * B := by
+  have hbound := enorm_convolutionIntegral_le hη (hu i).aestronglyMeasurable hPQ x
+  have hfin_η : eLpNorm η (ENNReal.ofReal Q) volume ≠ ⊤ :=
+    (hη.memLp_of_hasCompactSupport hηcs).eLpNorm_lt_top.ne
+  have hfin_u : eLpNorm (u i) (ENNReal.ofReal P) volume ≠ ⊤ := (hu i).eLpNorm_lt_top.ne
+  have hRHS_fin := ENNReal.mul_ne_top hfin_η hfin_u
+  calc ‖∫ y, η (x - y) * u i y ∂volume‖
+      = (‖∫ y, η (x - y) * u i y ∂volume‖ₑ).toReal := by
+        rw [enorm_eq_nnnorm, ENNReal.coe_toReal, coe_nnnorm]
+    _ ≤ (eLpNorm η (ENNReal.ofReal Q) volume * eLpNorm (u i) (ENNReal.ofReal P) volume).toReal :=
+        ENNReal.toReal_mono hRHS_fin hbound
+    _ = (eLpNorm η (ENNReal.ofReal Q) volume).toReal
+          * (eLpNorm (u i) (ENNReal.ofReal P) volume).toReal := ENNReal.toReal_mul
+    _ ≤ (eLpNorm η (ENNReal.ofReal Q) volume).toReal * B := by gcongr; exact hB i
+
 /-- **The mollification `x ↦ ∫ η(x−y)·u(y) dy` is continuous** for `η` continuous with compact
 support and `u` locally integrable.  Continuity is local, so we use dominated convergence at each
 point `x₀` with a bound supported on a fixed ball: for `x` near `x₀`, the integrand vanishes unless
