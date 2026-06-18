@@ -1,10 +1,12 @@
 import MyProject.LpJensen
+import MyProject.Translation
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Function.LocallyIntegrable
 import Mathlib.MeasureTheory.Function.LpSpace.ContinuousFunctions
+import Mathlib.MeasureTheory.Function.LpSpace.Indicator
 import Mathlib.Topology.UniformSpace.Ascoli
 import Mathlib.Topology.UniformSpace.CompactConvergence
 import Mathlib.Analysis.InnerProductSpace.PiL2
@@ -18,7 +20,7 @@ measure-preserving (negation has `|det| = 1`).  Mathlib provides no `IsNegInvari
 derive negation-invariance from `map_addHaar_smul` (`-y = (-1)·y`, and `|(-1)ⁿ|⁻¹ = 1`).
 -/
 
-open MeasureTheory Module
+open MeasureTheory Module Topology Filter
 open scoped ENNReal
 
 variable {n : ℕ}
@@ -55,6 +57,32 @@ lemma eLpNorm_comp_sub_left {η : ℝⁿ → ℝ} (hη : AEStronglyMeasurable η
       funext y; simp [neg_sub]
     rwa [hfun] at hcomp
   exact eLpNorm_comp_measurePreserving hη hmp
+
+/-- **`L^Q`-continuity of the reflected translate of `η`.**  For `η` continuous with compact
+support, `eLpNorm (η(x−·) − η(x₀−·)) Q → 0` as `x → x₀`.  By the reflection invariance
+`eLpNorm_comp_sub_left`, the increment equals `eLpNorm (η(·+ (x−x₀)) − η) Q`, a genuine translation
+modulus of `η`, which tends to `0` by `Lᵖ`-continuity of translation
+(`tendsto_eLpNorm_translate_sub_continuous`).  This is the `x`-dependence that makes the mollified
+family equicontinuous (uniformly in a bounded family of `u`'s). -/
+lemma tendsto_eLpNorm_reflect_translate_sub {η : ℝⁿ → ℝ} (hη : Continuous η)
+    (hηcs : HasCompactSupport η) (Q : ℝ≥0∞) (x₀ : ℝⁿ) :
+    Tendsto (fun x => eLpNorm (fun y => η (x - y) - η (x₀ - y)) Q volume) (𝓝 x₀) (𝓝 0) := by
+  have hrw : (fun x => eLpNorm (fun y => η (x - y) - η (x₀ - y)) Q volume)
+      = (fun x => eLpNorm (fun w => η (w + (x - x₀)) - η w) Q volume) := by
+    funext x
+    have hg_meas : AEStronglyMeasurable (fun w => η (w + (x - x₀)) - η w) volume :=
+      ((hη.comp (continuous_id.add continuous_const)).sub hη).aestronglyMeasurable
+    have hfun : (fun y => η (x - y) - η (x₀ - y))
+        = (fun y => (fun w => η (w + (x - x₀)) - η w) (x₀ - y)) := by
+      funext y
+      dsimp only
+      rw [show x - y = (x₀ - y) + (x - x₀) from by abel]
+    rw [hfun, eLpNorm_comp_sub_left hg_meas Q x₀]
+  rw [hrw]
+  have hcont : Continuous (fun x : ℝⁿ => x - x₀) := continuous_id.sub continuous_const
+  have h_sub : Tendsto (fun x : ℝⁿ => x - x₀) (𝓝 x₀) (𝓝 0) := by
+    simpa using hcont.tendsto x₀
+  exact (tendsto_eLpNorm_translate_sub_continuous hη hηcs).comp h_sub
 
 /-- **Hölder bound for the convolution integrand** — the analytic core of Young's `L∞` estimate.
 For conjugate real exponents `P, Q`, the `L¹` mass of `y ↦ η(x−y)·u(y)` is bounded by the
@@ -274,7 +302,8 @@ lemma isCompact_closure_of_equicontinuous_of_bound {K : Type*} [TopologicalSpace
     IsCompact (closure S) := by
   have hemb : Topology.IsClosedEmbedding
       (UniformOnFun.ofFun {L : Set K | IsCompact L} ∘ ((↑) : C(K, ℝ) → (K → ℝ))) := by
-    have hce : Topology.IsClosedEmbedding (ContinuousMap.toUniformOnFunIsCompact : C(K, ℝ) → _) := by
+    have hce : Topology.IsClosedEmbedding
+        (ContinuousMap.toUniformOnFunIsCompact : C(K, ℝ) → _) := by
       refine ⟨ContinuousMap.isUniformEmbedding_toUniformOnFunIsCompact.isEmbedding, ?_⟩
       rw [ContinuousMap.range_toUniformOnFunIsCompact]
       exact UniformOnFun.isClosed_setOf_continuous CompactlyCoherentSpace.isCoherentWith
