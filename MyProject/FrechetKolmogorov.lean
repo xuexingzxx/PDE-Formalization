@@ -456,4 +456,15 @@ lemma totallyBounded_of_forall_approx {α : Type*} [PseudoMetricSpace α] {S : S
     _ < ε / 2 + ε / 2 := add_lt_add hxy (Metric.mem_ball.mp hyz)
     _ = ε := by ring
 
+/-- **An isometry from a complete space reflects compact closure.**  If `e` is an isometry out of a
+complete (pseudo)metric space and `e '' A` has compact closure, then so does `A`.  This transfers
+`Lᵖ`-precompactness across the measure-preserving isometry `Lᵖ(K, restrict) ↪ Lᵖ(↥K, comap)`,
+moving precompactness from the subtype `Lᵖ` to the restricted-measure `Lᵖ`. -/
+lemma isCompact_closure_of_isometry {E F : Type*} [PseudoMetricSpace E] [PseudoMetricSpace F]
+    [CompleteSpace E] {e : E → F} (he : Isometry e) {A : Set E}
+    (hA : IsCompact (closure (e '' A))) : IsCompact (closure A) := by
+  have htb : TotallyBounded (e '' A) := hA.totallyBounded.subset subset_closure
+  have htbA : TotallyBounded A := (totallyBounded_image_iff he.isUniformInducing).mp htb
+  exact TotallyBounded.isCompact_of_isClosed (TotallyBounded.closure htbA) isClosed_closure
+
 end Sobolev
