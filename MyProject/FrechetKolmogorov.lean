@@ -407,6 +407,34 @@ lemma isCompact_closure_toLp_image_of_equicontinuous_of_bound {K : Type*} [Topol
   refine himg.of_isClosed_subset isClosed_closure ?_
   exact closure_minimal (Set.image_mono subset_closure) himg.isClosed
 
+/-- **`Lᵖ`-precompactness of a pulled-back equicontinuous bounded family.**  Let `K` be a compact
+finite-measure space and `e : K → ℝⁿ` continuous (in practice `K = ↥(closedBall)` and `e` the
+inclusion).  Given a family `G : ι → ℝⁿ → ℝ` of continuous functions that is **uniformly bounded**
+(`‖G i x‖ ≤ M`) and **equicontinuous**, the pulled-back family `x ↦ G i (e x)`, bundled in
+`C(K,ℝ)`, is **precompact in `Lᵖ(K)`**.  Bundling + transferring the two criterion hypotheses
+(boundedness is pointwise; equicontinuity is preserved by precomposing the domain with the
+continuous `e`) and applying `isCompact_closure_toLp_image_of_equicontinuous_of_bound`. -/
+lemma isCompact_closure_toLp_comp {K : Type*} [TopologicalSpace K] [CompactSpace K]
+    [MeasurableSpace K] [BorelSpace K] {μ : Measure K} [IsFiniteMeasure μ]
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] {ι : Type*} {G : ι → ℝⁿ → ℝ}
+    (hGcont : ∀ i, Continuous (G i)) {M : ℝ} (hGbd : ∀ i x, ‖G i x‖ ≤ M)
+    (hGeqc : Equicontinuous G) {e : K → ℝⁿ} (he : Continuous e) :
+    IsCompact (closure (ContinuousMap.toLp (E := ℝ) p μ ℝ ''
+      Set.range (fun i => (⟨G i ∘ e, (hGcont i).comp he⟩ : C(K, ℝ))))) := by
+  set F : ι → C(K, ℝ) := fun i => ⟨G i ∘ e, (hGcont i).comp he⟩ with hF
+  refine isCompact_closure_toLp_image_of_equicontinuous_of_bound (S := Set.range F) (M := M) ?_ ?_
+  · rintro f ⟨i, rfl⟩ x
+    exact hGbd i (e x)
+  · have heqc' : Equicontinuous (fun i => G i ∘ e) :=
+      fun x₀ U hU => he.continuousAt.eventually (hGeqc (e x₀) U hU)
+    have hcoe : ((↑) : ↥(Set.range F) → K → ℝ)
+        = (fun i => (F i : K → ℝ)) ∘ (fun f : ↥(Set.range F) => f.2.choose) := by
+      funext f
+      simp only [Function.comp_apply]
+      rw [f.2.choose_spec]
+    rw [hcoe]
+    exact heqc'.comp _
+
 /-- **The abstract ε/3 argument.**  In a pseudometric space, a set `S` that is, for every `ε > 0`,
 contained in the `ε`-neighbourhood of *some* totally bounded set `T` (`∀ x ∈ S, ∃ y ∈ T,
 dist x y < ε`) is itself totally bounded.  This is the glue of the Fréchet–Kolmogorov proof: the
