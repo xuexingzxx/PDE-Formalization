@@ -179,6 +179,48 @@ lemma eLpNorm_convolution_sub_rpow_le {η : ℝⁿ → ℝ} (hη_cont : Continuo
           eLpNorm_eq_lintegral_rpow_enorm_toReal hp0 hp, ← ENNReal.rpow_mul, one_div,
           inv_mul_cancel₀ hP0.ne', ENNReal.rpow_one]
 
+/-- **Uniform mollification bound** (the approximation step of Fréchet–Kolmogorov).  If the `Lᵖ`
+translation modulus of `u` is `≤ ε` at every `y` where the (normalized, nonnegative, compactly
+supported) mollifier `η` is nonzero, then `‖η⋆u − u‖_p ≤ ε`.  Since `ε` does not depend on `u`,
+this is **uniform** over any family sharing the modulus bound.  Reduces to the key estimate:
+`‖η⋆u−u‖_p^p ≤ ∫η(y)‖u(·−y)−u‖_p^p ≤ ε^p ∫η = ε^p`. -/
+lemma eLpNorm_convolution_sub_le_of_modulus {η : ℝⁿ → ℝ} (hη_cont : Continuous η)
+    (hη_supp : HasCompactSupport η) (hη_nonneg : ∀ y, 0 ≤ η y) (hη_int : ∫ y, η y = 1)
+    {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) (hu : MemLp u p volume) {ε : ℝ≥0∞}
+    (hmod : ∀ y, η y ≠ 0 → eLpNorm (fun x => u (x - y) - u x) p volume ≤ ε) :
+    eLpNorm (fun x => (η ⋆[lsmul ℝ ℝ, volume] u) x - u x) p volume ≤ ε := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hp0 : p ≠ 0 := fun h => by simp [h] at hp1
+  have hP0 : 0 < p.toReal := by
+    have h1 : (1 : ℝ) ≤ p.toReal := by
+      rw [show (1 : ℝ) = (1 : ℝ≥0∞).toReal from ENNReal.toReal_one.symm]
+      exact ENNReal.toReal_mono hp hp1
+    linarith
+  have hη_intble : Integrable η volume := hη_cont.integrable_of_hasCompactSupport hη_supp
+  have hw1 : ∫⁻ y, ENNReal.ofReal (η y) ∂volume = 1 := by
+    rw [← ofReal_integral_eq_lintegral_ofReal hη_intble (Eventually.of_forall hη_nonneg), hη_int,
+      ENNReal.ofReal_one]
+  have hwmeas : Measurable (fun y => ENNReal.ofReal (η y)) :=
+    ENNReal.measurable_ofReal.comp hη_cont.measurable
+  have key := eLpNorm_convolution_sub_rpow_le hη_cont hη_supp hη_nonneg hη_int hp hu
+  have hbd : ∫⁻ y, ENNReal.ofReal (η y)
+        * (eLpNorm (fun x => u (x - y) - u x) p volume) ^ p.toReal ∂volume ≤ ε ^ p.toReal := by
+    calc ∫⁻ y, ENNReal.ofReal (η y)
+          * (eLpNorm (fun x => u (x - y) - u x) p volume) ^ p.toReal ∂volume
+        ≤ ∫⁻ y, ENNReal.ofReal (η y) * ε ^ p.toReal ∂volume := by
+          refine lintegral_mono fun y => ?_
+          rcases eq_or_ne (η y) 0 with h | h
+          · simp [h]
+          · exact mul_le_mul' le_rfl (ENNReal.rpow_le_rpow (hmod y h) hP0.le)
+      _ = (∫⁻ y, ENNReal.ofReal (η y) ∂volume) * ε ^ p.toReal := by
+          rw [lintegral_mul_const _ hwmeas]
+      _ = ε ^ p.toReal := by rw [hw1, one_mul]
+  have hpow : (eLpNorm (fun x => (η ⋆[lsmul ℝ ℝ, volume] u) x - u x) p volume)
+      ^ p.toReal ≤ ε ^ p.toReal := key.trans hbd
+  have hroot := ENNReal.rpow_le_rpow hpow (by positivity : (0 : ℝ) ≤ 1 / p.toReal)
+  rwa [← ENNReal.rpow_mul, ← ENNReal.rpow_mul, mul_one_div, div_self hP0.ne',
+    ENNReal.rpow_one, ENNReal.rpow_one] at hroot
+
 /-- **Mollification converges in `Lᵖ`** (`1 ≤ p < ∞`): for a sequence of normalized bump
 mollifiers whose outer radius tends to `0`, the mollifications `η ⋆ u` converge to `u` in `Lᵖ`.
 Combines the key estimate with the `Lᵖ`-continuity of translation. -/
