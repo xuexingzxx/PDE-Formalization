@@ -532,4 +532,27 @@ lemma isCompact_closure_toLp_restrict {ι : Type*} {K : Set ℝⁿ} (hK : IsComp
   rw [hid] at h2
   exact isCompact_closure_of_isometry e.isometry h2
 
+/-- **Per-`δ` precompactness of a mollified family.**  For a continuous, compactly supported
+mollifier `η` and a uniformly `L^P`-bounded family `u`, the convolutions `x ↦ ∫ η(x−y)·u i(y) dy`
+have **compact closure in `Lᵖ(K, restrict)`** on any compact `K` (given they are `Lᵖ` there).
+Specialises `isCompact_closure_toLp_restrict` to the convolution family, discharging continuity,
+the uniform bound, and equicontinuity via the convolution dischargers. -/
+lemma isCompact_closure_toLp_restrict_convolution {ι : Type*} {K : Set ℝⁿ} (hK : IsCompact K)
+    {η : ℝⁿ → ℝ} (hη : Continuous η) (hηcs : HasCompactSupport η)
+    {P Q : ℝ} (hPQ : P.HolderConjugate Q) {u : ι → ℝⁿ → ℝ}
+    (hu : ∀ i, MemLp (u i) (ENNReal.ofReal P) volume)
+    {B : ℝ} (hB : ∀ i, (eLpNorm (u i) (ENNReal.ofReal P) volume).toReal ≤ B)
+    {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hmem : ∀ i, MemLp (fun x => ∫ y, η (x - y) * u i y ∂volume) p (volume.restrict K)) :
+    IsCompact (closure (Set.range (fun i =>
+      (hmem i).toLp (fun x => ∫ y, η (x - y) * u i y ∂volume)))) := by
+  have hP1 : (1 : ℝ≥0∞) ≤ ENNReal.ofReal P := by
+    rw [← ENNReal.ofReal_one]; exact ENNReal.ofReal_le_ofReal hPQ.lt.le
+  exact isCompact_closure_toLp_restrict hK
+    (G := fun i x => ∫ y, η (x - y) * u i y ∂volume)
+    (fun i => continuous_convolutionIntegral hη hηcs ((hu i).locallyIntegrable hP1))
+    (M := (eLpNorm η (ENNReal.ofReal Q) volume).toReal * B)
+    (fun i x => norm_convolutionIntegral_le_of_bound hη hηcs hPQ hu hB i x)
+    (equicontinuous_convolutionIntegral hη hηcs hPQ hu hB) hmem
+
 end Sobolev
