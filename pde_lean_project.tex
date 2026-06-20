@@ -429,9 +429,17 @@ The following were initially defined but later found to be redundant:
   Harmonic function predicate
     & (currently defined manually as \texttt{IsHarmonic})
     & Could be added to Mathlib \\
-  Weak derivative $D^\alpha u$               & Sobolev spaces & \\
-  Sobolev space $W^{k,p}(\Omega)$            & Evans Ch.~5 & \\
-  Sobolev norm $\|\cdot\|_{W^{k,p}}$         & Evans Ch.~5 & \\
+  Weak derivative $D^\alpha u$               & Sobolev spaces
+    & \emph{Resolved}: \texttt{IsWeakDerivInDir} / iterated \texttt{IsWeakDerivList}
+      (\texttt{Sobolev/Basic.lean}, \texttt{Sobolev/Higher.lean}) \\
+  Sobolev space $W^{k,p}(\Omega)$            & Evans Ch.~5
+    & \emph{Resolved}: \texttt{MemWkp}, Banach space \texttt{wkpSpace} (\texttt{Sobolev/Higher.lean}) \\
+  Sobolev norm $\|\cdot\|_{W^{k,p}}$         & Evans Ch.~5
+    & \emph{Resolved}: $\ell^p$ Sobolev norm via \texttt{PiLp} (\texttt{norm\_eq\_wkp}) \\
+  Fréchet--Kolmogorov $L^p$-precompactness   & Rellich--Kondrachov (§5.7)
+    & \emph{Resolved}: full criterion in \texttt{Sobolev/FrechetKolmogorov.lean} +
+      \texttt{Sobolev/RellichKondrachov.lean}
+      (\texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous}, \texttt{rellich\_kondrachov}) \\
   Trace operator $u|_{\partial\Omega}$       & boundary value problems & \\
   \bottomrule
 \end{tabular}
@@ -2198,14 +2206,37 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
     (\texttt{exists\_eLpNorm\_self\_le\_eLpNorm\_fderiv}); see the subsection above.  The
     Poincar\'e--Wirtinger (mean-zero) form $\|u-(u)_U\|_p\le C\|Du\|_p$ requires the
     Rellich--Kondrachov compactness and remains.
-  \item \textbf{Rellich--Kondrachov} (§5.7). \emph{In progress} (\texttt{Rellich.lean}): the
-    \textbf{translation estimate} $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$
-    (\texttt{eLpNorm\_translate\_sub\_le\_fderiv}), the equicontinuity input to Fréchet--Kolmogorov,
-    is proved from the segment FTC $u(x+h)-u(x)=\int_0^1 Du(x+t\,h)[h]\,dt$
-    (\texttt{sub\_eq\_integral\_fderiv\_segment}) by weighted Jensen, Tonelli, and
-    translation-invariance.  The remaining ingredient is the Fréchet--Kolmogorov
-    $L^p$-precompactness criterion, which Mathlib does not yet provide (it would be built by
-    mollification + Arzelà--Ascoli + total boundedness).
+  \item \textbf{Rellich--Kondrachov} (§5.7). \emph{Done} (sufficient direction), formalized end to
+    end across \texttt{Sobolev/Rellich.lean}, \texttt{Sobolev/FrechetKolmogorov.lean} and
+    \texttt{Sobolev/RellichKondrachov.lean}.  The named theorem \texttt{rellich\_kondrachov}: a
+    family of $C^1$ functions with a uniform $L^p$ gradient bound $\|Du_i\|_p\le M$ (and a uniform
+    $L^P$ bound) is \emph{totally bounded in} $L^p(K)$ on a compact $K$ --- the compactness behind
+    $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$.  It is built from three pieces, none of which
+    Mathlib provides:
+    \begin{itemize}
+      \item the \textbf{translation/gradient estimate} $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$
+        (\texttt{eLpNorm\_translate\_sub\_le\_fderiv}, from the segment FTC
+        \texttt{sub\_eq\_integral\_fderiv\_segment} by weighted Jensen, Tonelli and
+        translation-invariance; packaged as \texttt{eLpNorm\_translate\_sub\_le\_of\_gradient\_le}
+        with vanishing modulus \texttt{tendsto\_enorm\_mul\_nhds\_zero}), which supplies the uniform
+        equicontinuity;
+      \item the \textbf{Fréchet--Kolmogorov $L^p$-precompactness criterion}: the closed-embedding
+        Arzelà--Ascoli step (range $\{\text{Continuous}\}$ closed in the uniform-on-compacts
+        topology) into Mathlib's relative-compactness Arzelà--Ascoli, the continuous-linear
+        $C(K)\to L^p$ transfer, the measure-preserving isometry
+        $L^p(\hat K,\mathrm{comap})\cong L^p(K,\mathrm{restrict})$
+        (\texttt{continuousMap\_toLp\_comap\_eq\_compMeasurePreserving},
+        \texttt{isCompact\_closure\_of\_isometry}), the convolution dischargers, the per-$\delta$
+        precompactness \texttt{isCompact\_closure\_toLp\_restrict\_convolution}, the
+        $\varepsilon/3$ glue \texttt{totallyBounded\_of\_forall\_approx}, and the mollifiable-form
+        criterion \texttt{totallyBounded\_toLp\_restrict\_of\_mollifiable};
+      \item the \textbf{uniform mollification bound} \texttt{eLpNorm\_convolution\_sub\_le\_of\_modulus}
+        (integral form via the convolution bridge \texttt{convolution\_eq\_integral\_sub}).
+    \end{itemize}
+    These assemble into the \emph{self-contained} criterion
+    \texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous} (discharging mollifiability with an
+    explicit normalised \texttt{ContDiffBump}), whence \texttt{rellich\_kondrachov}.  The
+    \emph{necessary} direction of Fréchet--Kolmogorov is not formalized.
   \item \textbf{Morrey} and \textbf{trace} theorems.
 \end{enumerate}
 
