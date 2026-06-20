@@ -555,4 +555,47 @@ lemma isCompact_closure_toLp_restrict_convolution {ι : Type*} {K : Set ℝⁿ} 
     (fun i x => norm_convolutionIntegral_le_of_bound hη hηcs hPQ hu hB i x)
     (equicontinuous_convolutionIntegral hη hηcs hPQ hu hB) hmem
 
+/-- **Fréchet–Kolmogorov (sufficient direction), mollifiable form.**  A uniformly `L^P`-bounded
+family `u` on `ℝⁿ` whose `Lᵖ(K)`-restrictions can, for every `ε`, be approximated to within `ε` by
+the mollification with a single continuous compactly supported `η` (the convolutions being `Lᵖ` on
+`K`), is **totally bounded in `Lᵖ(K, restrict)`**.  Proof: the ε/3 argument
+(`totallyBounded_of_forall_approx`) — for each `ε` the mollified family is precompact
+(`isCompact_closure_toLp_restrict_convolution`) and within `ε` of the originals (the
+`dist`/`eLpNorm` bound from the approximation hypothesis).  In the Rellich application the
+approximation hypothesis is supplied by the uniform mollification bound
+(`Mollification.eLpNorm_convolution_sub_le_of_modulus`) together with the gradient/translation
+equicontinuity estimate. -/
+theorem totallyBounded_toLp_restrict_of_mollifiable {ι : Type*} {K : Set ℝⁿ} (hK : IsCompact K)
+    {P Q : ℝ} (hPQ : P.HolderConjugate Q) {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    {u : ι → ℝⁿ → ℝ} (hu : ∀ i, MemLp (u i) (ENNReal.ofReal P) volume)
+    (huK : ∀ i, MemLp (u i) p (volume.restrict K))
+    {B : ℝ} (hB : ∀ i, (eLpNorm (u i) (ENNReal.ofReal P) volume).toReal ≤ B)
+    (hmoll : ∀ ε : ℝ, 0 < ε → ∃ η : ℝⁿ → ℝ, Continuous η ∧ HasCompactSupport η ∧
+      (∀ i, MemLp (fun x => ∫ y, η (x - y) * u i y ∂volume) p (volume.restrict K)) ∧
+      (∀ i, eLpNorm (fun x => (∫ y, η (x - y) * u i y ∂volume) - u i x) p (volume.restrict K)
+        ≤ ENNReal.ofReal ε)) :
+    TotallyBounded (Set.range (fun i => (huK i).toLp (u i))) := by
+  refine totallyBounded_of_forall_approx fun ε hε => ?_
+  obtain ⟨η, hηc, hηcs, hmem, happrox⟩ := hmoll (ε / 2) (by positivity)
+  refine ⟨Set.range (fun i => (hmem i).toLp (fun x => ∫ y, η (x - y) * u i y ∂volume)),
+    (isCompact_closure_toLp_restrict_convolution hK hηc hηcs hPQ hu hB hmem).totallyBounded.subset
+      subset_closure, ?_⟩
+  rintro f ⟨i, rfl⟩
+  refine ⟨(hmem i).toLp (fun x => ∫ y, η (x - y) * u i y ∂volume), ⟨i, rfl⟩, ?_⟩
+  have hdist : dist ((huK i).toLp (u i))
+        ((hmem i).toLp (fun x => ∫ y, η (x - y) * u i y ∂volume))
+      = (eLpNorm (fun x => u i x - ∫ y, η (x - y) * u i y ∂volume) p
+          (volume.restrict K)).toReal := by
+    rw [Lp.dist_def]
+    exact congrArg ENNReal.toReal (eLpNorm_congr_ae ((huK i).coeFn_toLp.sub (hmem i).coeFn_toLp))
+  rw [hdist]
+  have hsign : eLpNorm (fun x => u i x - ∫ y, η (x - y) * u i y ∂volume) p (volume.restrict K)
+      = eLpNorm (fun x => (∫ y, η (x - y) * u i y ∂volume) - u i x) p (volume.restrict K) := by
+    rw [← eLpNorm_neg]; congr 1; funext x; rw [Pi.neg_apply, neg_sub]
+  rw [hsign]
+  calc (eLpNorm (fun x => (∫ y, η (x - y) * u i y ∂volume) - u i x) p (volume.restrict K)).toReal
+      ≤ (ENNReal.ofReal (ε / 2)).toReal := ENNReal.toReal_mono ENNReal.ofReal_ne_top (happrox i)
+    _ = ε / 2 := ENNReal.toReal_ofReal (by positivity)
+    _ < ε := by linarith
+
 end Sobolev
