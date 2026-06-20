@@ -467,4 +467,39 @@ lemma isCompact_closure_of_isometry {E F : Type*} [PseudoMetricSpace E] [PseudoM
   have htbA : TotallyBounded A := (totallyBounded_image_iff he.isUniformInducing).mp htb
   exact TotallyBounded.isCompact_of_isClosed (TotallyBounded.closure htbA) isClosed_closure
 
+/-- `Subtype.val : ↥K → ℝⁿ` is measure-preserving from the comap of `volume` to the restricted
+measure `volume.restrict K` (for measurable `K`). -/
+lemma measurePreserving_subtypeVal {K : Set ℝⁿ} (hK : MeasurableSet K) :
+    MeasurePreserving (Subtype.val : ↥K → ℝⁿ)
+      (Measure.comap Subtype.val volume) (volume.restrict K) :=
+  ⟨measurable_subtype_coe, map_comap_subtype_coe hK volume⟩
+
+/-- **Identification of the two `Lᵖ(↥K)` representatives.**  For a continuous `g : ℝⁿ → ℝ` that is
+`Lᵖ` on the restricted measure, the `ContinuousMap.toLp` of its restriction (an element of
+`Lᵖ(↥K, comap)`) coincides with the image of `g.toLp` (in `Lᵖ(K, restrict)`) under the
+measure-preserving isometry `Lp.compMeasurePreservingₗᵢ`.  Both are a.e. `g ∘ val`. -/
+lemma continuousMap_toLp_comap_eq_compMeasurePreserving {K : Set ℝⁿ} (hK : MeasurableSet K)
+    [CompactSpace ↥K] [IsFiniteMeasure (Measure.comap (Subtype.val : ↥K → ℝⁿ) volume)]
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] {g : ℝⁿ → ℝ} (hg : Continuous g)
+    (hgK : MemLp g p (volume.restrict K)) :
+    ContinuousMap.toLp (E := ℝ) p (Measure.comap Subtype.val volume) ℝ
+        ⟨fun x : ↥K => g x, hg.comp continuous_subtype_val⟩
+      = Lp.compMeasurePreservingₗᵢ (E := ℝ) (𝕜 := ℝ) (Subtype.val : ↥K → ℝⁿ)
+          (measurePreserving_subtypeVal hK) (hgK.toLp g) := by
+  have h1 : ⇑(ContinuousMap.toLp (E := ℝ) p (Measure.comap Subtype.val volume) ℝ
+        (⟨fun x : ↥K => g x, hg.comp continuous_subtype_val⟩ : C(↥K, ℝ)))
+      =ᵐ[Measure.comap Subtype.val volume] (fun x : ↥K => g x) :=
+    ContinuousMap.coeFn_toLp (𝕜 := ℝ) (p := p) (μ := Measure.comap Subtype.val volume)
+      (⟨fun x : ↥K => g x, hg.comp continuous_subtype_val⟩ : C(↥K, ℝ))
+  have h2 : ⇑(Lp.compMeasurePreservingₗᵢ (E := ℝ) (𝕜 := ℝ) (Subtype.val : ↥K → ℝⁿ)
+        (measurePreserving_subtypeVal hK) (hgK.toLp g))
+      =ᵐ[Measure.comap Subtype.val volume] ((hgK.toLp g) ∘ (Subtype.val : ↥K → ℝⁿ)) :=
+    Lp.coeFn_compMeasurePreserving (hgK.toLp g) (measurePreserving_subtypeVal hK)
+  have h3 : ((hgK.toLp g) ∘ (Subtype.val : ↥K → ℝⁿ)) =ᵐ[Measure.comap Subtype.val volume]
+      (fun x : ↥K => g x) :=
+    (measurePreserving_subtypeVal hK).quasiMeasurePreserving.ae_eq_comp hgK.coeFn_toLp
+  refine Lp.ext ?_
+  filter_upwards [h1, h2, h3] with x hx1 hx2 hx3
+  rw [hx1, hx2, hx3]
+
 end Sobolev
