@@ -1,5 +1,6 @@
 import MyProject.FrechetKolmogorov
 import MyProject.Mollification
+import MyProject.Rellich
 
 /-!
 # Fréchet–Kolmogorov / Rellich–Kondrachov: the self-contained criterion (Evans §5.7)
@@ -60,5 +61,29 @@ theorem totallyBounded_toLp_restrict_of_equicontinuous {ι : Type*} {K : Set ℝ
     refine le_trans (eLpNorm_restrict_le _ _ _ _) ?_
     exact eLpNorm_integral_convolution_sub_le_of_modulus hηcont hηcs φ.nonneg_normed
       φ.integral_normed hp (hup i) (fun y hy => hmod i y (hsupp y hy))
+
+/-- **Rellich–Kondrachov (sufficient direction).**  A family of `C¹` functions with a **uniform
+`Lᵖ` gradient bound** `‖Du i‖_p ≤ M` (and a uniform `L^P` bound) is **totally bounded in
+`Lᵖ(K, restrict)`** on any compact `K`.  This is the compactness behind the embedding
+`W^{1,p}(U) ↪↪ Lᵖ(U)`: the uniform equicontinuity required by Fréchet–Kolmogorov is supplied by the
+translation/gradient estimate `eLpNorm_translate_sub_le_of_gradient_le` (whose modulus `‖h‖·M → 0`
+is `tendsto_enorm_mul_nhds_zero`), and the criterion
+`totallyBounded_toLp_restrict_of_equicontinuous` closes the argument. -/
+theorem rellich_kondrachov {ι : Type*} {K : Set ℝⁿ} (hK : IsCompact K)
+    {P Q : ℝ} (hPQ : P.HolderConjugate Q) {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    {u : ι → ℝⁿ → ℝ} (hcont : ∀ i, ContDiff ℝ 1 (u i))
+    (hu : ∀ i, MemLp (u i) (ENNReal.ofReal P) volume) (hup : ∀ i, MemLp (u i) p volume)
+    (huK : ∀ i, MemLp (u i) p (volume.restrict K))
+    {B : ℝ} (hB : ∀ i, (eLpNorm (u i) (ENNReal.ofReal P) volume).toReal ≤ B)
+    {M : ℝ≥0∞} (hM : M ≠ ⊤) (hgrad : ∀ i, eLpNorm (fun x => fderiv ℝ (u i) x) p volume ≤ M) :
+    TotallyBounded (Set.range (fun i => (huK i).toLp (u i))) := by
+  refine totallyBounded_toLp_restrict_of_equicontinuous hK hPQ hp hu hup huK hB (fun ε hε => ?_)
+  obtain ⟨δ, hδ, hδball⟩ := Metric.eventually_nhds_iff_ball.mp
+    (ENNReal.tendsto_nhds_zero.mp (tendsto_enorm_mul_nhds_zero (n := n) hM) (ENNReal.ofReal ε)
+      (ENNReal.ofReal_pos.mpr hε))
+  refine ⟨δ, hδ, fun i y hy => ?_⟩
+  have htr := eLpNorm_translate_sub_le_of_gradient_le (hcont i) hp (hgrad i) (-y)
+  rw [enorm_neg] at htr
+  exact le_trans htr (hδball y (by rw [Metric.mem_ball, dist_zero_right]; exact hy))
 
 end Sobolev
