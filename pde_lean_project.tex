@@ -334,6 +334,11 @@ already exists in Mathlib}.
   \texttt{weakGradientSubmoduleOn}  & $W^{1,p}(U)$ over the restricted measure            & \texttt{Sobolev/Basic.lean} \\
   \texttt{W1p}                      & $W^{1,p}(U)$ as a bundled Banach-space type         & \texttt{Sobolev/Basic.lean} \\
   \texttt{W1p.toLpCLM} / \texttt{.weakDerivCLM} & function-value \& weak-partial operators (bounded) & \texttt{Sobolev/Basic.lean} \\
+  \texttt{dirDerivList}             & iterated directional derivative along a list of directions & \texttt{Sobolev/Higher.lean} \\
+  \texttt{IsWeakDerivList}          & iterated directional weak derivative (chained)      & \texttt{Sobolev/Higher.lean} \\
+  \texttt{MemWkp}                   & membership in $W^{k,p}(U)$ (all $D^\alpha u$, $|\alpha|\le k$) & \texttt{Sobolev/Higher.lean} \\
+  \texttt{DerivIdx}                 & finite index of derivative sequences of length $\le k$ & \texttt{Sobolev/Higher.lean} \\
+  \texttt{wkpSpace}                 & $W^{k,p}(\mathbb{R}^n)$ as a closed \texttt{PiLp}\,$p$ submodule & \texttt{Sobolev/Higher.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -367,6 +372,14 @@ rule in particular is a self-contained result that does not exist in Mathlib.
   \texttt{integrableOn\_norm\_rpow\_unitBall} & $\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$ & \texttt{Common/Calculus.lean} \\
   \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \texttt{Common/Calculus.lean} \\
   \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f\le 0$ at interior local max & \texttt{Common/Calculus.lean} \\
+  \texttt{rpow\_lintegral\_weighted\_le} & weighted Jensen in $\mathbb{R}_{\ge0}^{\infty}$ (from H\"older) & \texttt{Common/LpJensen.lean} \\
+  \texttt{eLpNorm\_le\_of\_support\_subset} & $L^p$ bound from a support inclusion & \texttt{Common/Translation.lean} \\
+  \texttt{tendsto\_eLpNorm\_translate\_sub\_continuous} & $\|u(\cdot+t)-u\|_p\to0$ (translation continuity) & \texttt{Common/Translation.lean} \\
+  \texttt{sub\_eq\_integral\_fderiv\_segment} & segment FTC $u(x+h)-u(x)=\int_0^1 Du\cdot h$ & \texttt{Sobolev/Rellich.lean} \\
+  \texttt{eLpNorm\_translate\_sub\_le\_fderiv} & $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$ & \texttt{Sobolev/Rellich.lean} \\
+  \texttt{convolution\_eq\_integral\_sub} & convolution bridge $\eta\star u=\int\eta(x-y)u(y)$ & \texttt{Sobolev/Mollification.lean} \\
+  \texttt{isCompact\_closure\_toLp\_image\dots} & closed-embedding Arzelà--Ascoli $L^p$-precompactness criterion & \texttt{Sobolev/FrechetKolmogorov.lean} \\
+  \texttt{totallyBounded\_of\_forall\_approx} & $\varepsilon/3$ total-boundedness glue & \texttt{Sobolev/FrechetKolmogorov.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -2165,78 +2178,87 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
     exists C : NNReal, eLpNorm u p volume <= C * eLpNorm (fderiv R u) p volume
 \end{lstlisting}
 
+\subsection{Higher-order Sobolev spaces $W^{k,p}$ and $H^k$ (§5.2, §5.6)}
+
+The single-direction weak derivative of §5.2 iterates to a full higher-order theory in
+\texttt{Sobolev/Higher.lean}: iterated directional weak derivatives \texttt{IsWeakDerivList}
+(chains of single-direction weak derivatives, with the classical model \texttt{dirDerivList}) and
+the classical~$\Rightarrow$~weak bridge \texttt{isWeakDerivList\_of\_contDiff}; the space
+\texttt{MemWkp}~$=W^{k,p}$ (all iterated coordinate weak derivatives of order $\le k$ lie in $L^p$)
+with \texttt{memWkp\_of\_contDiff\_hasCompactSupport} ($C^\infty_c\subseteq W^{k,p}$), homogeneity
+\texttt{IsWeakDerivList.const\_smul}, and the consistency \texttt{memW1p\_iff\_memWkp\_one}.  The
+$W^{k,p}$-\emph{norm} $\|u\|_{W^{k,p}}=\bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$
+is realised concretely: \texttt{wkpSpace k} presents $W^{k,p}(\mathbb{R}^n)$ as a closed submodule
+of $\mathrm{PiLp}\,p$ over the finite index \texttt{DerivIdx} of derivative sequences of length
+$\le k$, with the genuine $\ell^p$ Sobolev norm (\texttt{norm\_eq\_wkp}) and completeness
+(\texttt{completeSpace\_wkpSpace}) as a closed subspace, mirroring the $W^{1,p}$ Banach
+construction.  \emph{Symmetry of mixed weak partials} (Clairaut/Schwarz for weak derivatives) is
+\texttt{isWeakDerivInDir\_comm}: the two mixed second weak derivatives
+$\partial_{e_2}\partial_{e_1}u$ and $\partial_{e_1}\partial_{e_2}u$ agree a.e., via classical
+Clairaut on a test function (\texttt{fderiv\_dirDeriv\_comm}, from Mathlib's symmetric second
+derivative) and the fundamental lemma.  Finally the \textbf{Hilbert space}
+$H^k(\mathbb{R}^n)=W^{k,2}(\mathbb{R}^n)$: at $p=2$ the ambient $\mathrm{PiLp}\,2$ is a Hilbert
+space, so \texttt{wkpSpace k} inherits an inner product and is complete, with explicit inner
+product $\langle u,v\rangle=\sum_{|l|\le k}\int D^l u\,D^l v$ (\texttt{inner\_wkpSpace}) and energy
+norm $\|u\|^2=\sum_{|l|\le k}\int |D^l u|^2$ (\texttt{norm\_sq\_wkpSpace}).
+
+\subsection{Rellich--Kondrachov compactness (§5.7)}
+
+The \emph{sufficient direction} of Rellich--Kondrachov is formalized end to end across
+\texttt{Sobolev/Rellich.lean}, \texttt{Sobolev/FrechetKolmogorov.lean} and
+\texttt{Sobolev/RellichKondrachov.lean} --- this is the $L^p$-compactness criterion that Mathlib
+lacks.  The named theorem \texttt{rellich\_kondrachov}: a family of $C^1$ functions with a uniform
+$L^p$ gradient bound $\|Du_i\|_p\le M$ (and a uniform $L^p$ bound) is \emph{totally bounded in}
+$L^p(K)$ on a compact $K$ --- the compactness behind
+$W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$.  It is built from three pieces, none of which
+Mathlib provides:
+\begin{itemize}
+  \item the \textbf{translation/gradient estimate} $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$
+    (\texttt{eLpNorm\_translate\_sub\_le\_fderiv}, from the segment FTC
+    \texttt{sub\_eq\_integral\_fderiv\_segment} by weighted Jensen, Tonelli and
+    translation-invariance; packaged as \texttt{eLpNorm\_translate\_sub\_le\_of\_gradient\_le} with
+    vanishing modulus \texttt{tendsto\_enorm\_mul\_nhds\_zero}), which supplies the uniform
+    equicontinuity;
+  \item the \textbf{Fréchet--Kolmogorov $L^p$-precompactness criterion}: the closed-embedding
+    Arzelà--Ascoli step (range $\{\text{Continuous}\}$ closed in the uniform-on-compacts topology)
+    into Mathlib's relative-compactness Arzelà--Ascoli
+    (\texttt{isCompact\_closure\_toLp\_image\_of\_equicontinuous\_of\_bound}), the continuous-linear
+    $C(K)\to L^p$ transfer, the measure-preserving isometry
+    $L^p(\hat K,\mathrm{comap})\cong L^p(K,\mathrm{restrict})$
+    (\texttt{continuousMap\_toLp\_comap\_eq\_compMeasurePreserving},
+    \texttt{isCompact\_closure\_of\_isometry}), the convolution dischargers, the per-$\delta$
+    precompactness \texttt{isCompact\_closure\_toLp\_restrict\_convolution}, the $\varepsilon/3$ glue
+    \texttt{totallyBounded\_of\_forall\_approx}, and the mollifiable-form criterion
+    \texttt{totallyBounded\_toLp\_restrict\_of\_mollifiable};
+  \item the \textbf{uniform mollification bound}
+    \texttt{eLpNorm\_convolution\_sub\_le\_of\_modulus} (integral form via the convolution bridge
+    \texttt{convolution\_eq\_integral\_sub}).
+\end{itemize}
+These assemble into the \emph{self-contained} criterion
+\texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous} (discharging mollifiability with an
+explicit normalised \texttt{ContDiffBump}), whence \texttt{rellich\_kondrachov}.  The \emph{necessary}
+direction of Fréchet--Kolmogorov is not formalized.
+
 \subsection{Future work}
 
+The higher-order theory ($W^{k,p}$, $H^k$), completeness of $W^{1,p}$, the Meyers--Serrin density
+theorem, the Gagliardo--Nirenberg--Sobolev embedding and Poincar\'e inequality (for $C^1$ data),
+and the Rellich--Kondrachov compactness theorem are all \emph{done} and documented in the
+subsections above.  What remains:
+
 \begin{enumerate}
-  \item \textbf{Higher-order / multi-index} weak derivatives $D^\alpha$ and the full
-    $W^{k,p}$. \emph{Foundation done} (\texttt{Sobolev/Higher.lean}): iterated directional weak
-    derivatives \texttt{IsWeakDerivList} with the classical~$\Rightarrow$~weak bridge
-    \texttt{isWeakDerivList\_of\_contDiff}, the space \texttt{MemWkp}~$=W^{k,p}$ with
-    \texttt{memWkp\_of\_contDiff\_hasCompactSupport}, homogeneity
-    \texttt{IsWeakDerivList.const\_smul}, and \texttt{memW1p\_iff\_memWkp\_one}.  The
-    $W^{k,p}$-\emph{norm} $\|u\|_{W^{k,p}}=\bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$
-    is also \emph{done}: \texttt{wkpSpace k} realises $W^{k,p}(\mathbb{R}^n)$ as a closed submodule
-    of $\mathrm{PiLp}\,p$ over the finite index of derivative sequences of length $\le k$, with the
-    genuine $\ell^p$ Sobolev norm (\texttt{norm\_eq\_wkp}) and completeness
-    (\texttt{completeSpace\_wkpSpace}), mirroring the $W^{1,p}$ Banach construction.  \emph{Symmetry
-    of mixed weak partials} is also \emph{done}: \texttt{isWeakDerivInDir\_comm} shows the two mixed
-    second weak derivatives $\partial_{e_2}\partial_{e_1}u$ and $\partial_{e_1}\partial_{e_2}u$
-    agree a.e., via classical Clairaut on a test function (\texttt{fderiv\_dirDeriv\_comm}, from
-    Mathlib's symmetric second derivative) and the fundamental lemma.  Finally, the \textbf{Hilbert
-    space} $H^k(\mathbb{R}^n)=W^{k,2}(\mathbb{R}^n)$: at $p=2$ the ambient $\mathrm{PiLp}\,2$ is a
-    Hilbert space, so \texttt{wkpSpace k} inherits an inner product and is complete; the inner
-    product and energy norm are $\langle u,v\rangle=\sum_{|l|\le k}\int D^l u\,D^l v$
-    (\texttt{inner\_wkpSpace}) and $\|u\|^2=\sum_{|l|\le k}\int |D^l u|^2$
-    (\texttt{norm\_sq\_wkpSpace}).
-  \item \textbf{Completeness} of $W^{1,p}$ (Banach). \emph{Done}, both for $\mathbb{R}^n$ with the
-    genuine Sobolev norm (\texttt{completeSpace\_sobolevSpace}) and for a general measurable domain
-    $U$ over the restricted measure (\texttt{completeSpace\_weakGradientSubmoduleOn}); see the two
-    subsections above.
-  \item \textbf{Meyers--Serrin} ($H=W$). \emph{Done}, including the full multi-coordinate form
-    (\texttt{exists\_contDiff\_forall\_isWeakDerivInDir}): a single mollifier radius approximates
-    $u$ and all $n$ weak partials simultaneously in $L^p$, i.e.\ $C^\infty$ is dense in
-    $W^{1,p}(\mathbb{R}^n)$.
-  \item \textbf{Gagliardo--Nirenberg--Sobolev / Sobolev embedding} ($W^{1,p}\hookrightarrow L^{p^*}$).
-    \emph{Done} for $C^1$ compactly supported functions
-    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv} and the full-range
-    \texttt{\_of\_le}); see the subsection above. Extending the embedding to \emph{all} of
-    $W^{1,p}$ (via the Meyers--Serrin density just proved, plus completeness of $L^{p^*}$) remains.
-  \item \textbf{Poincar\'e's inequality} (§5.6). \emph{Done} for $C^1$ functions with bounded
-    support, $W^{1,p}_0$ form $\|u\|_p\le C\|Du\|_p$
-    (\texttt{exists\_eLpNorm\_self\_le\_eLpNorm\_fderiv}); see the subsection above.  The
-    Poincar\'e--Wirtinger (mean-zero) form $\|u-(u)_U\|_p\le C\|Du\|_p$ requires the
-    Rellich--Kondrachov compactness and remains.
-  \item \textbf{Rellich--Kondrachov} (§5.7). \emph{Done} (sufficient direction), formalized end to
-    end across \texttt{Sobolev/Rellich.lean}, \texttt{Sobolev/FrechetKolmogorov.lean} and
-    \texttt{Sobolev/RellichKondrachov.lean}.  The named theorem \texttt{rellich\_kondrachov}: a
-    family of $C^1$ functions with a uniform $L^p$ gradient bound $\|Du_i\|_p\le M$ (and a uniform
-    $L^P$ bound) is \emph{totally bounded in} $L^p(K)$ on a compact $K$ --- the compactness behind
-    $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$.  It is built from three pieces, none of which
-    Mathlib provides:
-    \begin{itemize}
-      \item the \textbf{translation/gradient estimate} $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$
-        (\texttt{eLpNorm\_translate\_sub\_le\_fderiv}, from the segment FTC
-        \texttt{sub\_eq\_integral\_fderiv\_segment} by weighted Jensen, Tonelli and
-        translation-invariance; packaged as \texttt{eLpNorm\_translate\_sub\_le\_of\_gradient\_le}
-        with vanishing modulus \texttt{tendsto\_enorm\_mul\_nhds\_zero}), which supplies the uniform
-        equicontinuity;
-      \item the \textbf{Fréchet--Kolmogorov $L^p$-precompactness criterion}: the closed-embedding
-        Arzelà--Ascoli step (range $\{\text{Continuous}\}$ closed in the uniform-on-compacts
-        topology) into Mathlib's relative-compactness Arzelà--Ascoli, the continuous-linear
-        $C(K)\to L^p$ transfer, the measure-preserving isometry
-        $L^p(\hat K,\mathrm{comap})\cong L^p(K,\mathrm{restrict})$
-        (\texttt{continuousMap\_toLp\_comap\_eq\_compMeasurePreserving},
-        \texttt{isCompact\_closure\_of\_isometry}), the convolution dischargers, the per-$\delta$
-        precompactness \texttt{isCompact\_closure\_toLp\_restrict\_convolution}, the
-        $\varepsilon/3$ glue \texttt{totallyBounded\_of\_forall\_approx}, and the mollifiable-form
-        criterion \texttt{totallyBounded\_toLp\_restrict\_of\_mollifiable};
-      \item the \textbf{uniform mollification bound} \texttt{eLpNorm\_convolution\_sub\_le\_of\_modulus}
-        (integral form via the convolution bridge \texttt{convolution\_eq\_integral\_sub}).
-    \end{itemize}
-    These assemble into the \emph{self-contained} criterion
-    \texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous} (discharging mollifiability with an
-    explicit normalised \texttt{ContDiffBump}), whence \texttt{rellich\_kondrachov}.  The
-    \emph{necessary} direction of Fréchet--Kolmogorov is not formalized.
+  \item \textbf{Sobolev embedding on all of $W^{1,p}$}: extend
+    $W^{1,p}\hookrightarrow L^{p^*}$ from the $C^1$ compactly supported case
+    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv} and the full-range \texttt{\_of\_le}) to the whole
+    space, via the Meyers--Serrin density already proved plus completeness of $L^{p^*}$.
+  \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
+    rests on the Rellich--Kondrachov compactness now available.
+  \item \textbf{Necessary direction of Fréchet--Kolmogorov}: a totally bounded family in $L^p$ is
+    uniformly $L^p$-equicontinuous and uniformly $p$-tight (the converse of the criterion proved
+    here).
+  \item \textbf{Bounded-domain Rellich--Kondrachov}: transfer the compact-$K$ statement to
+    $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$ on a bounded extension domain $U$ via a Sobolev
+    extension operator.
   \item \textbf{Morrey} and \textbf{trace} theorems.
 \end{enumerate}
 
