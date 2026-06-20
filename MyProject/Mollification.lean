@@ -221,6 +221,41 @@ lemma eLpNorm_convolution_sub_le_of_modulus {η : ℝⁿ → ℝ} (hη_cont : Co
   rwa [← ENNReal.rpow_mul, ← ENNReal.rpow_mul, mul_one_div, div_self hP0.ne',
     ENNReal.rpow_one, ENNReal.rpow_one] at hroot
 
+/-- **Convolution as the reflected integral**: `(η ⋆ u) x = ∫ η(x − y)·u(y) dy`.  Mathlib's
+convolution is `∫ η(t)·u(x − t) dt`; substituting the measure-preserving reflection `t ↦ x − t`
+gives the form used by the Fréchet–Kolmogorov dischargers. -/
+lemma convolution_eq_integral_sub {η u : ℝⁿ → ℝ} (x : ℝⁿ) :
+    (η ⋆[lsmul ℝ ℝ, volume] u) x = ∫ y, η (x - y) * u y ∂volume := by
+  have hmp : MeasurePreserving (fun y : ℝⁿ => x - y) volume volume := by
+    have hneg : MeasurePreserving (fun y : ℝⁿ => -y) volume volume := by
+      refine ⟨measurable_neg, ?_⟩
+      have h1 : (fun y : ℝⁿ => -y) = fun y => (-1 : ℝ) • y := by funext y; rw [neg_one_smul]
+      rw [h1, Measure.map_addHaar_smul volume (show (-1 : ℝ) ≠ 0 by norm_num)]; simp
+    have hcomp := hneg.comp (measurePreserving_sub_right volume x)
+    have hfun : (fun y : ℝⁿ => -y) ∘ (fun y => y - x) = fun y => x - y := by funext y; simp [neg_sub]
+    rwa [hfun] at hcomp
+  rw [convolution_def]
+  simp_rw [lsmul_apply, smul_eq_mul]
+  have he : MeasurableEmbedding (fun y : ℝⁿ => x - y) :=
+    (Homeomorph.subLeft x).measurableEmbedding
+  rw [← hmp.integral_comp he (fun z => η z * u (x - z))]
+  simp only [sub_sub_cancel]
+
+/-- **Uniform mollification bound, integral form** (matching the Fréchet–Kolmogorov dischargers).
+If the `Lᵖ` translation modulus of `u` is `≤ ε` wherever `η` is nonzero, then
+`‖(∫ η(·−y)·u(y) dy) − u‖_p ≤ ε`.  The bridge `convolution_eq_integral_sub` plus
+`eLpNorm_convolution_sub_le_of_modulus`. -/
+lemma eLpNorm_integral_convolution_sub_le_of_modulus {η : ℝⁿ → ℝ} (hη_cont : Continuous η)
+    (hη_supp : HasCompactSupport η) (hη_nonneg : ∀ y, 0 ≤ η y) (hη_int : ∫ y, η y = 1)
+    {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) (hu : MemLp u p volume) {ε : ℝ≥0∞}
+    (hmod : ∀ y, η y ≠ 0 → eLpNorm (fun x => u (x - y) - u x) p volume ≤ ε) :
+    eLpNorm (fun x => (∫ y, η (x - y) * u y ∂volume) - u x) p volume ≤ ε := by
+  have hbridge : (fun x => (∫ y, η (x - y) * u y ∂volume) - u x)
+      = (fun x => (η ⋆[lsmul ℝ ℝ, volume] u) x - u x) := by
+    funext x; rw [convolution_eq_integral_sub]
+  rw [hbridge]
+  exact eLpNorm_convolution_sub_le_of_modulus hη_cont hη_supp hη_nonneg hη_int hp hu hmod
+
 /-- **Mollification converges in `Lᵖ`** (`1 ≤ p < ∞`): for a sequence of normalized bump
 mollifiers whose outer radius tends to `0`, the mollifications `η ⋆ u` converge to `u` in `Lᵖ`.
 Combines the key estimate with the `Lᵖ`-continuity of translation. -/
