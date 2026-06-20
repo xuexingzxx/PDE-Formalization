@@ -263,31 +263,31 @@ already exists in Mathlib}.
   \midrule
   $\mathbb{R}^n$ & \texttt{EuclideanSpace ℝ (Fin n)} & all files \\
   $C^k$ functions & \texttt{ContDiff ℝ k} & all files \\
-  $C^k$ on a set & \texttt{ContDiffOn ℝ k} & \texttt{Laplace.lean} \\
-  Differentiability & \texttt{Differentiable ℝ} & \texttt{Transport.lean} \\
-  Differentiability at a point & \texttt{DifferentiableAt ℝ} & \texttt{Laplace.lean} \\
-  Fréchet derivative & \texttt{fderiv} & \texttt{Calculus.lean} \\
-  Gradient vector & \texttt{gradient} & \texttt{Calculus.lean} \\
-  Scalar derivative & \texttt{deriv} & \texttt{Calculus.lean} \\
-  Laplacian $\Delta$ & \texttt{Laplacian.laplacian} (\texttt{Δ}) & \texttt{Laplace.lean} \\
-  Inner product $\langle\cdot,\cdot\rangle$ & \texttt{inner} / \texttt{⟪·,·⟫\_ℝ} & \texttt{Transport.lean} \\
-  Inner product linear map & \texttt{innerSL ℝ} & \texttt{Laplace.lean} \\
-  Continuous linear map & \texttt{ContinuousLinearMap} (\texttt{→L[ℝ]}) & \texttt{Transport.lean} \\
-  $L^p$ space & \texttt{MeasureTheory.Lp} & \texttt{Sobolev.lean} \\
-  $\ell^p$ product space & \texttt{PiLp} / \texttt{WithLp} & \texttt{Sobolev.lean} \\
-  $L^p$ membership / (semi)norm & \texttt{MemLp} / \texttt{eLpNorm} & \texttt{Sobolev.lean} \\
-  Locally integrable & \texttt{LocallyIntegrable} & \texttt{Sobolev.lean} \\
-  Lebesgue integral & \texttt{MeasureTheory.integral} & \texttt{Transport.lean} \\
-  Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{Transport.lean} \\
-  Average integral & \texttt{MeasureTheory.average} (\texttt{average}) & \texttt{Laplace.lean} \\
-  Hausdorff measure & \texttt{Measure.hausdorffMeasure} & \texttt{Laplace.lean} \\
-  Volume of unit ball & \texttt{EuclideanSpace.volume\_ball} & \texttt{Laplace.lean} \\
-  Open / closed ball & \texttt{Metric.ball}, \texttt{Metric.closedBall} & \texttt{Laplace.lean} \\
-  Sphere & \texttt{Metric.sphere} & \texttt{Laplace.lean} \\
-  Frontier & \texttt{frontier} & \texttt{Laplace.lean} \\
-  Compact support & \texttt{HasCompactSupport} & \texttt{Laplace.lean} \\
-  Connected set & \texttt{IsConnected} & \texttt{Laplace.lean} \\
-  Bounded set & \texttt{Bornology.IsBounded} & \texttt{Laplace.lean} \\
+  $C^k$ on a set & \texttt{ContDiffOn ℝ k} & \texttt{PDE/Laplace.lean} \\
+  Differentiability & \texttt{Differentiable ℝ} & \texttt{PDE/Transport.lean} \\
+  Differentiability at a point & \texttt{DifferentiableAt ℝ} & \texttt{PDE/Laplace.lean} \\
+  Fréchet derivative & \texttt{fderiv} & \texttt{Common/Calculus.lean} \\
+  Gradient vector & \texttt{gradient} & \texttt{Common/Calculus.lean} \\
+  Scalar derivative & \texttt{deriv} & \texttt{Common/Calculus.lean} \\
+  Laplacian $\Delta$ & \texttt{Laplacian.laplacian} (\texttt{Δ}) & \texttt{PDE/Laplace.lean} \\
+  Inner product $\langle\cdot,\cdot\rangle$ & \texttt{inner} / \texttt{⟪·,·⟫\_ℝ} & \texttt{PDE/Transport.lean} \\
+  Inner product linear map & \texttt{innerSL ℝ} & \texttt{PDE/Laplace.lean} \\
+  Continuous linear map & \texttt{ContinuousLinearMap} (\texttt{→L[ℝ]}) & \texttt{PDE/Transport.lean} \\
+  $L^p$ space & \texttt{MeasureTheory.Lp} & \texttt{Sobolev/Basic.lean} \\
+  $\ell^p$ product space & \texttt{PiLp} / \texttt{WithLp} & \texttt{Sobolev/Basic.lean} \\
+  $L^p$ membership / (semi)norm & \texttt{MemLp} / \texttt{eLpNorm} & \texttt{Sobolev/Basic.lean} \\
+  Locally integrable & \texttt{LocallyIntegrable} & \texttt{Sobolev/Basic.lean} \\
+  Lebesgue integral & \texttt{MeasureTheory.integral} & \texttt{PDE/Transport.lean} \\
+  Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{PDE/Transport.lean} \\
+  Average integral & \texttt{MeasureTheory.average} (\texttt{average}) & \texttt{PDE/Laplace.lean} \\
+  Hausdorff measure & \texttt{Measure.hausdorffMeasure} & \texttt{PDE/Laplace.lean} \\
+  Volume of unit ball & \texttt{EuclideanSpace.volume\_ball} & \texttt{PDE/Laplace.lean} \\
+  Open / closed ball & \texttt{Metric.ball}, \texttt{Metric.closedBall} & \texttt{PDE/Laplace.lean} \\
+  Sphere & \texttt{Metric.sphere} & \texttt{PDE/Laplace.lean} \\
+  Frontier & \texttt{frontier} & \texttt{PDE/Laplace.lean} \\
+  Compact support & \texttt{HasCompactSupport} & \texttt{PDE/Laplace.lean} \\
+  Connected set & \texttt{IsConnected} & \texttt{PDE/Laplace.lean} \\
+  Bounded set & \texttt{Bornology.IsBounded} & \texttt{PDE/Laplace.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -299,41 +299,41 @@ already exists in Mathlib}.
   \toprule
   \textbf{Name} & \textbf{Description} & \textbf{File} \\
   \midrule
-  \texttt{spatialGradient}          & $Du(x,t)$: gradient of $x'\mapsto u(x',t)$ at $x$  & \texttt{Calculus.lean} \\
-  \texttt{timeDerivative}           & $u_t(x,t)$: derivative of $t'\mapsto u(x,t')$ at $t$ & \texttt{Calculus.lean} \\
-  \texttt{spatialLaplacian}         & $\Delta_x u(x,t)$ for spacetime functions           & \texttt{Calculus.lean} \\
-  \texttt{realInnerBiL} / \texttt{realInnerL} & real inner product as $\mathbb{R}$-bilinear CLM & \texttt{Calculus.lean} \\
-  \texttt{IsTransportSolution}      & predicate: $u_t + b \cdot Du = 0$                   & \texttt{Transport.lean} \\
-  \texttt{IsInhomTransportSolution} & predicate: $u_t + b \cdot Du = f$                   & \texttt{Transport.lean} \\
-  \texttt{charFlow}                 & characteristic flow $(x,t) \mapsto x - tb$          & \texttt{Transport.lean} \\
-  \texttt{evansFormula}             & solution $u(x,t) = g(x-tb)$                         & \texttt{Transport.lean} \\
-  \texttt{duhamelFormula}           & Duhamel solution with integral term                 & \texttt{Transport.lean} \\
-  \texttt{IsHarmonic}               & predicate: $\Delta u = 0$ on $U$                    & \texttt{Laplace.lean} \\
-  \texttt{IsPoissonSolution}        & predicate: $-\Delta u = f$ on $U$                   & \texttt{Laplace.lean} \\
-  \texttt{fundamentalSolution}      & $\Phi(x)$, all dimensions                           & \texttt{Laplace.lean} \\
-  \texttt{newtonianPotential}       & $\int \Phi(x-y) f(y)\,dy$                           & \texttt{Laplace.lean} \\
-  \texttt{sphereMean}               & average of $u$ over $\partial B(x,r)$               & \texttt{Laplace.lean} \\
-  \texttt{ballMean}                 & average of $u$ over $B(x,r)$                        & \texttt{Laplace.lean} \\
-  \texttt{IsHeatSolution}           & predicate: $u_t - \Delta u = 0$                     & \texttt{Heat.lean} \\
-  \texttt{IsInhomHeatSolution}      & predicate: $u_t - \Delta u = f$                     & \texttt{Heat.lean} \\
-  \texttt{heatKernel}               & fundamental solution $\Phi(x,t)$ (Gaussian)         & \texttt{Heat.lean} \\
-  \texttt{parabolicBoundary}        & parabolic boundary of $U\times[0,T]$                & \texttt{Heat.lean} \\
-  \texttt{heatSolution}             & convolution $\int \Phi(x-y,t)\,g(y)\,dy$            & \texttt{Heat.lean} \\
-  \texttt{timeDeriv} / \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension          & \texttt{Wave.lean} \\
-  \texttt{timeDeriv2} / \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension  & \texttt{Wave.lean} \\
-  \texttt{IsWaveSolution}           & predicate: $u_{tt} = u_{xx}$                        & \texttt{Wave.lean} \\
-  \texttt{dalembert}                & d'Alembert solution formula                         & \texttt{Wave.lean} \\
-  \texttt{energyDensity}            & $e = \tfrac12(u_t^2 + u_x^2)$                       & \texttt{Wave.lean} \\
-  \texttt{energyFlux}               & $p = u_t\,u_x$                                      & \texttt{Wave.lean} \\
-  \texttt{IsTestFunction}           & predicate: $\phi \in C^\infty_c(U)$                 & \texttt{Sobolev.lean} \\
-  \texttt{IsWeakDerivInDir}         & weak derivative in a direction $e$                  & \texttt{Sobolev.lean} \\
-  \texttt{MemW1p}                   & membership in $W^{1,p}(U)$                           & \texttt{Sobolev.lean} \\
-  \texttt{weakDerivSubmodule}       & single-direction $W^{1,p}$ as a submodule           & \texttt{Sobolev.lean} \\
-  \texttt{weakGradientSubmodule}    & $W^{1,p}(\mathbb{R}^n)$ in $L^p\!\times\!(L^p)^n$    & \texttt{Sobolev.lean} \\
-  \texttt{sobolevSpace}             & $W^{1,p}(\mathbb{R}^n)$ with the Sobolev norm (\texttt{PiLp}) & \texttt{Sobolev.lean} \\
-  \texttt{weakGradientSubmoduleOn}  & $W^{1,p}(U)$ over the restricted measure            & \texttt{Sobolev.lean} \\
-  \texttt{W1p}                      & $W^{1,p}(U)$ as a bundled Banach-space type         & \texttt{Sobolev.lean} \\
-  \texttt{W1p.toLpCLM} / \texttt{.weakDerivCLM} & function-value \& weak-partial operators (bounded) & \texttt{Sobolev.lean} \\
+  \texttt{spatialGradient}          & $Du(x,t)$: gradient of $x'\mapsto u(x',t)$ at $x$  & \texttt{Common/Calculus.lean} \\
+  \texttt{timeDerivative}           & $u_t(x,t)$: derivative of $t'\mapsto u(x,t')$ at $t$ & \texttt{Common/Calculus.lean} \\
+  \texttt{spatialLaplacian}         & $\Delta_x u(x,t)$ for spacetime functions           & \texttt{Common/Calculus.lean} \\
+  \texttt{realInnerBiL} / \texttt{realInnerL} & real inner product as $\mathbb{R}$-bilinear CLM & \texttt{Common/Calculus.lean} \\
+  \texttt{IsTransportSolution}      & predicate: $u_t + b \cdot Du = 0$                   & \texttt{PDE/Transport.lean} \\
+  \texttt{IsInhomTransportSolution} & predicate: $u_t + b \cdot Du = f$                   & \texttt{PDE/Transport.lean} \\
+  \texttt{charFlow}                 & characteristic flow $(x,t) \mapsto x - tb$          & \texttt{PDE/Transport.lean} \\
+  \texttt{evansFormula}             & solution $u(x,t) = g(x-tb)$                         & \texttt{PDE/Transport.lean} \\
+  \texttt{duhamelFormula}           & Duhamel solution with integral term                 & \texttt{PDE/Transport.lean} \\
+  \texttt{IsHarmonic}               & predicate: $\Delta u = 0$ on $U$                    & \texttt{PDE/Laplace.lean} \\
+  \texttt{IsPoissonSolution}        & predicate: $-\Delta u = f$ on $U$                   & \texttt{PDE/Laplace.lean} \\
+  \texttt{fundamentalSolution}      & $\Phi(x)$, all dimensions                           & \texttt{PDE/Laplace.lean} \\
+  \texttt{newtonianPotential}       & $\int \Phi(x-y) f(y)\,dy$                           & \texttt{PDE/Laplace.lean} \\
+  \texttt{sphereMean}               & average of $u$ over $\partial B(x,r)$               & \texttt{PDE/Laplace.lean} \\
+  \texttt{ballMean}                 & average of $u$ over $B(x,r)$                        & \texttt{PDE/Laplace.lean} \\
+  \texttt{IsHeatSolution}           & predicate: $u_t - \Delta u = 0$                     & \texttt{PDE/Heat.lean} \\
+  \texttt{IsInhomHeatSolution}      & predicate: $u_t - \Delta u = f$                     & \texttt{PDE/Heat.lean} \\
+  \texttt{heatKernel}               & fundamental solution $\Phi(x,t)$ (Gaussian)         & \texttt{PDE/Heat.lean} \\
+  \texttt{parabolicBoundary}        & parabolic boundary of $U\times[0,T]$                & \texttt{PDE/Heat.lean} \\
+  \texttt{heatSolution}             & convolution $\int \Phi(x-y,t)\,g(y)\,dy$            & \texttt{PDE/Heat.lean} \\
+  \texttt{timeDeriv} / \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension          & \texttt{PDE/Wave.lean} \\
+  \texttt{timeDeriv2} / \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension  & \texttt{PDE/Wave.lean} \\
+  \texttt{IsWaveSolution}           & predicate: $u_{tt} = u_{xx}$                        & \texttt{PDE/Wave.lean} \\
+  \texttt{dalembert}                & d'Alembert solution formula                         & \texttt{PDE/Wave.lean} \\
+  \texttt{energyDensity}            & $e = \tfrac12(u_t^2 + u_x^2)$                       & \texttt{PDE/Wave.lean} \\
+  \texttt{energyFlux}               & $p = u_t\,u_x$                                      & \texttt{PDE/Wave.lean} \\
+  \texttt{IsTestFunction}           & predicate: $\phi \in C^\infty_c(U)$                 & \texttt{Sobolev/Basic.lean} \\
+  \texttt{IsWeakDerivInDir}         & weak derivative in a direction $e$                  & \texttt{Sobolev/Basic.lean} \\
+  \texttt{MemW1p}                   & membership in $W^{1,p}(U)$                           & \texttt{Sobolev/Basic.lean} \\
+  \texttt{weakDerivSubmodule}       & single-direction $W^{1,p}$ as a submodule           & \texttt{Sobolev/Basic.lean} \\
+  \texttt{weakGradientSubmodule}    & $W^{1,p}(\mathbb{R}^n)$ in $L^p\!\times\!(L^p)^n$    & \texttt{Sobolev/Basic.lean} \\
+  \texttt{sobolevSpace}             & $W^{1,p}(\mathbb{R}^n)$ with the Sobolev norm (\texttt{PiLp}) & \texttt{Sobolev/Basic.lean} \\
+  \texttt{weakGradientSubmoduleOn}  & $W^{1,p}(U)$ over the restricted measure            & \texttt{Sobolev/Basic.lean} \\
+  \texttt{W1p}                      & $W^{1,p}(U)$ as a bundled Banach-space type         & \texttt{Sobolev/Basic.lean} \\
+  \texttt{W1p.toLpCLM} / \texttt{.weakDerivCLM} & function-value \& weak-partial operators (bounded) & \texttt{Sobolev/Basic.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -342,7 +342,7 @@ already exists in Mathlib}.
 
 Beyond the definitions above, the project contributes a set of general-purpose, chapter- and
 dimension-agnostic \emph{lemmas} that fill gaps in Mathlib's analysis library. Several were
-hoisted into \texttt{Calculus.lean} so multiple chapters can share them; the combined Leibniz
+hoisted into \texttt{Common/Calculus.lean} so multiple chapters can share them; the combined Leibniz
 rule in particular is a self-contained result that does not exist in Mathlib.
 
 \begin{center}
@@ -350,23 +350,23 @@ rule in particular is a self-contained result that does not exist in Mathlib.
   \toprule
   \textbf{Name} & \textbf{Statement} & \textbf{File} \\
   \midrule
-  \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)\,ds$ has $0$ derivative & \texttt{Calculus.lean} \\
-  \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \texttt{Calculus.lean} \\
-  \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $0$th $n$-dim Gaussian moment & \texttt{Calculus.lean} \\
-  \texttt{integrable\_norm\_mul\_exp\dots} & $1$st $n$-dim Gaussian moment & \texttt{Calculus.lean} \\
-  \texttt{integrable\_norm\_sq\_mul\_exp\dots} & $2$nd $n$-dim Gaussian moment & \texttt{Calculus.lean} \\
-  \texttt{norm\_add\_sq\_le\_two} & $\|a+b\|^2 \le 2\|a\|^2 + 2\|b\|^2$ & \texttt{Calculus.lean} \\
-  \texttt{norm\_smul\_clm\_le} & $\|c\cdot L\| \le \|c\|\,\|L\|$ for CLMs & \texttt{Calculus.lean} \\
-  \texttt{norm\_comp\_apply\_le} & $\|(\text{apply}\,v)\circ S\| \le \|S\|\,\|v\|$ & \texttt{Calculus.lean} \\
-  \texttt{fderiv\_fderiv\_apply} & second-derivative eval-bridge & \texttt{Calculus.lean} \\
-  \texttt{laplacian\_integral\_eq} & $\Delta$ under the integral sign & \texttt{Calculus.lean} \\
-  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$ & \texttt{Calculus.lean} \\
-  \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \texttt{Calculus.lean} \\
-  \texttt{laplacian\_norm\_sq} & $\Delta(\|\cdot\|^2) = 2n$ (everywhere) & \texttt{Calculus.lean} \\
-  \texttt{integrableOn\_unitBall\_radial} & radial reduction of ball integrability & \texttt{Calculus.lean} \\
-  \texttt{integrableOn\_norm\_rpow\_unitBall} & $\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$ & \texttt{Calculus.lean} \\
-  \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \texttt{Calculus.lean} \\
-  \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f\le 0$ at interior local max & \texttt{Calculus.lean} \\
+  \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)\,ds$ has $0$ derivative & \texttt{Common/Calculus.lean} \\
+  \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \texttt{Common/Calculus.lean} \\
+  \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $0$th $n$-dim Gaussian moment & \texttt{Common/Calculus.lean} \\
+  \texttt{integrable\_norm\_mul\_exp\dots} & $1$st $n$-dim Gaussian moment & \texttt{Common/Calculus.lean} \\
+  \texttt{integrable\_norm\_sq\_mul\_exp\dots} & $2$nd $n$-dim Gaussian moment & \texttt{Common/Calculus.lean} \\
+  \texttt{norm\_add\_sq\_le\_two} & $\|a+b\|^2 \le 2\|a\|^2 + 2\|b\|^2$ & \texttt{Common/Calculus.lean} \\
+  \texttt{norm\_smul\_clm\_le} & $\|c\cdot L\| \le \|c\|\,\|L\|$ for CLMs & \texttt{Common/Calculus.lean} \\
+  \texttt{norm\_comp\_apply\_le} & $\|(\text{apply}\,v)\circ S\| \le \|S\|\,\|v\|$ & \texttt{Common/Calculus.lean} \\
+  \texttt{fderiv\_fderiv\_apply} & second-derivative eval-bridge & \texttt{Common/Calculus.lean} \\
+  \texttt{laplacian\_integral\_eq} & $\Delta$ under the integral sign & \texttt{Common/Calculus.lean} \\
+  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$ & \texttt{Common/Calculus.lean} \\
+  \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \texttt{Common/Calculus.lean} \\
+  \texttt{laplacian\_norm\_sq} & $\Delta(\|\cdot\|^2) = 2n$ (everywhere) & \texttt{Common/Calculus.lean} \\
+  \texttt{integrableOn\_unitBall\_radial} & radial reduction of ball integrability & \texttt{Common/Calculus.lean} \\
+  \texttt{integrableOn\_norm\_rpow\_unitBall} & $\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$ & \texttt{Common/Calculus.lean} \\
+  \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \texttt{Common/Calculus.lean} \\
+  \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f\le 0$ at interior local max & \texttt{Common/Calculus.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -466,7 +466,7 @@ is given initial data. By the method of characteristics, the unique $C^1$ soluti
 \subsubsection{Definitions}
 
 The PDE predicate uses \texttt{spatialGradient} and \texttt{timeDerivative}
-from \texttt{Calculus.lean}, matching Evans' notation directly:
+from \texttt{Common/Calculus.lean}, matching Evans' notation directly:
 
 \begin{lstlisting}[caption={PDE predicate}]
 def IsTransportSolution (b : Rn) (u : Rn x R -> R) : Prop :=
@@ -1055,7 +1055,7 @@ The initial value problem for the heat (diffusion) equation:
   u &= g \quad \text{on } \mathbb{R}^n \times \{t = 0\}.
 \end{align}
 Here $u_t$ is \texttt{timeDerivative} and $\Delta u$ is the spatial Laplacian
-\texttt{spatialLaplacian}, both from \texttt{Calculus.lean}.
+\texttt{spatialLaplacian}, both from \texttt{Common/Calculus.lean}.
 
 Unlike the Laplace chapter, the heat chapter avoids the three Mathlib blockers
 (Stokes on spheres, \texttt{hausdorffMeasure\_sphere}, $n$-dim polar coordinates):
@@ -1432,12 +1432,12 @@ finite propagation speed, and the symmetry of mixed partials: a complete formali
 Evans §2.4.1 and §2.4.3 in one space dimension.
 
 % ══════════════════════════════════════════════════════════════════════════════
-\section{Calculus Utilities: \texttt{Calculus.lean}}
+\section{Calculus Utilities: \texttt{Common/Calculus.lean}}
 % ══════════════════════════════════════════════════════════════════════════════
 
 \subsection{Motivation}
 
-\texttt{Calculus.lean} provides a shared library of spacetime calculus definitions
+\texttt{Common/Calculus.lean} provides a shared library of spacetime calculus definitions
 for functions $u : \mathbb{R}^n \times \mathbb{R} \to \mathbb{R}$, matching Evans'
 notation throughout the project.
 
@@ -1479,8 +1479,8 @@ so no differentiability hypothesis is needed in the definition itself.
 
 \subsubsection{Laplacian}
 
-The Laplacian $\Delta u$ is \textbf{not} redefined in \texttt{Calculus.lean}.
-Instead, \texttt{Laplace.lean} uses Mathlib's \texttt{Laplacian.laplacian} directly
+The Laplacian $\Delta u$ is \textbf{not} redefined in \texttt{Common/Calculus.lean}.
+Instead, \texttt{PDE/Laplace.lean} uses Mathlib's \texttt{Laplacian.laplacian} directly
 (opened as \texttt{Δ}). The \texttt{spatialLaplacian} wrapper is provided for
 spacetime functions:
 
@@ -1491,7 +1491,7 @@ noncomputable def spatialLaplacian (u : Rn x R -> R) (p : Rn x R) : R :=
 
 \subsection{Differentiation Under the Integral (Leibniz Rule)}
 
-\texttt{Calculus.lean} provides a fully proved \emph{combined} Leibniz rule for an integral
+\texttt{Common/Calculus.lean} provides a fully proved \emph{combined} Leibniz rule for an integral
 with a parameter-dependent integrand \emph{and} a variable upper limit:
 \[
   \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
@@ -1508,7 +1508,7 @@ Step~2 of \texttt{duhamelFormula\_solves}.
 
 \subsection{Shared Analysis Toolkit}
 
-\texttt{Calculus.lean} also collects the dimension- and chapter-agnostic analysis lemmas that
+\texttt{Common/Calculus.lean} also collects the dimension- and chapter-agnostic analysis lemmas that
 arose while differentiating convolutions and radial potentials, so Heat and Laplace share them
 rather than each carrying a private copy.
 
@@ -1576,7 +1576,7 @@ at an interior local max of a $C^2$ function).
 % ══════════════════════════════════════════════════════════════════════════════
 
 Sobolev spaces are the \textbf{main target} of the project: all of modern PDE
-theory is phrased in their language. This chapter (\texttt{Sobolev.lean}) lays the
+theory is phrased in their language. This chapter (\texttt{Sobolev/Basic.lean}) lays the
 analytic foundations --- test functions, weak derivatives, and the space
 $W^{1,p}$ --- and proves the core results connecting classical and weak calculus and
 establishing that $W^{1,p}$ is a Banach space. Every statement below is fully proved and
@@ -2169,7 +2169,7 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
 
 \begin{enumerate}
   \item \textbf{Higher-order / multi-index} weak derivatives $D^\alpha$ and the full
-    $W^{k,p}$. \emph{Foundation done} (\texttt{SobolevHigher.lean}): iterated directional weak
+    $W^{k,p}$. \emph{Foundation done} (\texttt{Sobolev/Higher.lean}): iterated directional weak
     derivatives \texttt{IsWeakDerivList} with the classical~$\Rightarrow$~weak bridge
     \texttt{isWeakDerivList\_of\_contDiff}, the space \texttt{MemWkp}~$=W^{k,p}$ with
     \texttt{memWkp\_of\_contDiff\_hasCompactSupport}, homogeneity
