@@ -502,4 +502,34 @@ lemma continuousMap_toLp_comap_eq_compMeasurePreserving {K : Set ℝⁿ} (hK : M
   filter_upwards [h1, h2, h3] with x hx1 hx2 hx3
   rw [hx1, hx2, hx3]
 
+/-- **Pulled-back family precompact in the restricted-measure `Lᵖ`.**  Combining ingredient 2 (on
+the compact subtype `↥K`) with the `toLp`-identification and the isometry transfer: a uniformly
+bounded, equicontinuous family `G : ι → ℝⁿ → ℝ` of continuous functions that is `Lᵖ` on a compact
+`K ⊆ ℝⁿ` has **compact closure in `Lᵖ(K, restrict)`** (the elements being `(G i).toLp`).  This is
+the per-`δ` precompactness of Fréchet–Kolmogorov in the `Lᵖ` space where the family lives. -/
+lemma isCompact_closure_toLp_restrict {ι : Type*} {K : Set ℝⁿ} (hK : IsCompact K)
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] {G : ι → ℝⁿ → ℝ} (hGcont : ∀ i, Continuous (G i))
+    {M : ℝ} (hGbd : ∀ i x, ‖G i x‖ ≤ M) (hGeqc : Equicontinuous G)
+    (hGmem : ∀ i, MemLp (G i) p (volume.restrict K)) :
+    IsCompact (closure (Set.range (fun i => (hGmem i).toLp (G i)))) := by
+  haveI : CompactSpace ↥K := isCompact_iff_compactSpace.mp hK
+  haveI : IsFiniteMeasure (Measure.comap (Subtype.val : ↥K → ℝⁿ) volume) := by
+    refine ⟨?_⟩
+    rw [comap_subtype_coe_apply hK.measurableSet]
+    simpa [Set.image_univ, Subtype.range_coe] using hK.measure_lt_top
+  set e := Lp.compMeasurePreservingₗᵢ (E := ℝ) (𝕜 := ℝ) (p := p) (Subtype.val : ↥K → ℝⁿ)
+    (measurePreserving_subtypeVal hK.measurableSet) with he_def
+  have h2 := isCompact_closure_toLp_comp (K := ↥K) (μ := Measure.comap Subtype.val volume) (p := p)
+    hGcont hGbd hGeqc (e := (Subtype.val : ↥K → ℝⁿ)) continuous_subtype_val
+  have hid : (ContinuousMap.toLp (E := ℝ) p (Measure.comap Subtype.val volume) ℝ ''
+        Set.range (fun i =>
+          (⟨G i ∘ Subtype.val, (hGcont i).comp continuous_subtype_val⟩ : C(↥K, ℝ))))
+      = e '' Set.range (fun i => (hGmem i).toLp (G i)) := by
+    rw [← Set.range_comp, ← Set.range_comp]
+    refine congrArg Set.range ?_
+    funext i
+    exact continuousMap_toLp_comap_eq_compMeasurePreserving hK.measurableSet (hGcont i) (hGmem i)
+  rw [hid] at h2
+  exact isCompact_closure_of_isometry e.isometry h2
+
 end Sobolev
