@@ -57,19 +57,22 @@ derivatives and the FTC.
 
 ```
 MyProject/
-  Calculus.lean    -- shared spacetime calculus (Du, u_t, Δu)
-  Transport.lean   -- §2.1 transport equation
-  Laplace.lean     -- §2.2 Laplace / Poisson
-  Heat.lean        -- §2.3 heat equation
-  Wave.lean        -- §2.4 wave equation
-  Sobolev.lean     -- §5.2 Sobolev spaces (weak derivatives, W^{1,p})
-  SobolevHigher.lean -- §5.2/§5.6 higher-order W^{k,p}, H^k Hilbert, mixed symmetry
-  LpJensen.lean    -- shared weighted Jensen inequality in ℝ≥0∞
-  Translation.lean -- shared Lᵖ-continuity of translation (continuous compact support)
-  Mollification.lean -- §5.3 mollification & Meyers–Serrin (H = W)
-  Rellich.lean     -- §5.7 translation/gradient equicontinuity estimates
-  FrechetKolmogorov.lean -- §5.7 Fréchet–Kolmogorov compactness machinery + criterion
-  RellichKondrachov.lean -- §5.7 self-contained FK criterion + named Rellich–Kondrachov theorem
-MyProject.lean     -- imports all of the above
+  Common/                  -- shared base + utilities (import-Mathlib base + Lᵖ helpers)
+    Calculus.lean          -- shared spacetime calculus (Du, u_t, Δu) + shared Lᵖ/measure lemmas
+    LpJensen.lean          -- weighted Jensen inequality in ℝ≥0∞
+    Translation.lean       -- Lᵖ-continuity of translation (continuous compact support)
+  PDE/                     -- Chapter 2: the four fundamental linear PDEs
+    Transport.lean         -- §2.1 transport equation
+    Laplace.lean           -- §2.2 Laplace / Poisson
+    Heat.lean              -- §2.3 heat equation
+    Wave.lean              -- §2.4 wave equation
+  Sobolev/                 -- Chapter 5: Sobolev spaces
+    Basic.lean             -- §5.2 Sobolev spaces (weak derivatives, W^{1,p})
+    Higher.lean            -- §5.2/§5.6 higher-order W^{k,p}, H^k Hilbert, mixed symmetry
+    Mollification.lean     -- §5.3 mollification & Meyers–Serrin (H = W)
+    Rellich.lean           -- §5.7 translation/gradient equicontinuity estimates
+    FrechetKolmogorov.lean -- §5.7 Fréchet–Kolmogorov compactness machinery + criterion
+    RellichKondrachov.lean -- §5.7 self-contained FK criterion + named Rellich–Kondrachov theorem
+MyProject.lean             -- imports all of the above
 pde_lean_project.tex  -- companion writeup with proof notes and status tables
 ```

@@ -1,6 +1,6 @@
-import MyProject.FrechetKolmogorov
-import MyProject.Mollification
-import MyProject.Rellich
+import MyProject.Sobolev.FrechetKolmogorov
+import MyProject.Sobolev.Mollification
+import MyProject.Sobolev.Rellich
 
 /-!
 # Fréchet–Kolmogorov / Rellich–Kondrachov: the self-contained criterion (Evans §5.7)

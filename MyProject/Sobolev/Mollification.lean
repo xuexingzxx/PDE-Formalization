@@ -1,6 +1,6 @@
-import MyProject.Sobolev
-import MyProject.LpJensen
-import MyProject.Translation
+import MyProject.Sobolev.Basic
+import MyProject.Common.LpJensen
+import MyProject.Common.Translation
 import Mathlib.MeasureTheory.Function.ContinuousMapDense
 import Mathlib.Analysis.Calculus.BumpFunction.Convolution
 import Mathlib.Analysis.FunctionalSpaces.SobolevInequality

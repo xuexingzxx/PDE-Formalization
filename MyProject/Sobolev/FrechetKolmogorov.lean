@@ -1,5 +1,5 @@
-import MyProject.LpJensen
-import MyProject.Translation
+import MyProject.Common.LpJensen
+import MyProject.Common.Translation
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic

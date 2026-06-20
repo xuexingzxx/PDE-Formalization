@@ -1,4 +1,4 @@
-import MyProject.LpJensen
+import MyProject.Common.LpJensen
 import Mathlib.Analysis.Calculus.ContDiff.Basic
 import Mathlib.Analysis.Calculus.Deriv.Mul
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus

@@ -1,4 +1,4 @@
-import MyProject.Sobolev
+import MyProject.Sobolev.Basic
 
 open MeasureTheory InnerProductSpace Set Topology
 open scoped ContDiff ENNReal RealInnerProductSpace

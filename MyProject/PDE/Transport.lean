@@ -1,4 +1,4 @@
-import MyProject.Calculus
+import MyProject.Common.Calculus
 
 open MeasureTheory InnerProductSpace
 
