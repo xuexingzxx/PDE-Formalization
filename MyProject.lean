@@ -9,3 +9,5 @@ import MyProject.Mollification
 import MyProject.SobolevHigher
 import MyProject.Rellich
 import MyProject.FrechetKolmogorov
+import MyProject.RellichKondrachov
+import MyProject.FrechetKolmogorov
