@@ -566,7 +566,8 @@ theorem exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir_of_hasCompactS
     (e : Fin n → ℝⁿ) (hweak : ∀ i, IsWeakDerivInDir univ (e i) u (v i)) {ε : ℝ≥0∞} (hε : 0 < ε) :
     ∃ (w : ℝⁿ → ℝ) (w' : Fin n → ℝⁿ → ℝ), ContDiff ℝ ∞ w ∧ HasCompactSupport w ∧
       eLpNorm (u - w) p volume ≤ ε ∧
-      ∀ i, IsWeakDerivInDir univ (e i) w (w' i) ∧ eLpNorm (v i - w' i) p volume ≤ ε := by
+      ∀ i, ContDiff ℝ ∞ (w' i) ∧ IsWeakDerivInDir univ (e i) w (w' i) ∧
+        eLpNorm (v i - w' i) p volume ≤ ε := by
   have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
   have hu_li : LocallyIntegrable u volume := hu.locallyIntegrable hp1
   have hv_li : ∀ i, LocallyIntegrable (v i) volume := fun i => (hv i).locallyIntegrable hp1
@@ -593,7 +594,9 @@ theorem exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir_of_hasCompactS
           funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
     exact hku
   · intro i
-    refine ⟨isWeakDerivInDir_convolution (φ k).contDiff_normed (φ k).hasCompactSupport_normed
+    refine ⟨(φ k).hasCompactSupport_normed.contDiff_convolution_left (lsmul ℝ ℝ)
+        (φ k).contDiff_normed (hv_li i),
+      isWeakDerivInDir_convolution (φ k).contDiff_normed (φ k).hasCompactSupport_normed
         hu_li (hv_li i) (e i) (hweak i), ?_⟩
     rw [show v i - ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i))
         = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i)) x - (v i) x from by
@@ -949,5 +952,45 @@ theorem exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto {u : ℝⁿ → ℝ} {V : �
   rw [hconv_u]
   exact hfatou.trans ((Filter.liminf_le_liminf (Eventually.of_forall hbound_k)).trans
     (le_of_eq hgrad_liminf))
+
+/-- **`C^∞_c` is dense in `W^{1,p}(ℝⁿ)`.**  For `u ∈ W^{1,p}` (weak derivatives `v i`) and `ε > 0`
+there is a **smooth, compactly supported** `w` with `‖u − w‖_p ≤ ε` and `‖v i − w'_i‖_p ≤ ε` for
+each direction (`w'_i` the weak derivative of `w`).  This combines truncation
+(`exists_hasCompactSupport_forall_isWeakDerivInDir`, ε/2) with compact-support mollification
+(`…_of_hasCompactSupport`, ε/2) and the triangle inequality — removing the approximation hypothesis
+from the Sobolev embedding (the resulting sequence feeds
+`exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto`). -/
+theorem exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir {u : ℝⁿ → ℝ}
+    {v : Fin n → ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) (hu : MemLp u p volume)
+    (hv : ∀ i, MemLp (v i) p volume) (e : Fin n → ℝⁿ)
+    (hweak : ∀ i, IsWeakDerivInDir univ (e i) u (v i)) {ε : ℝ≥0∞} (hε : 0 < ε) :
+    ∃ (w : ℝⁿ → ℝ) (w' : Fin n → ℝⁿ → ℝ), ContDiff ℝ ∞ w ∧ HasCompactSupport w ∧
+      eLpNorm (u - w) p volume ≤ ε ∧
+      ∀ i, IsWeakDerivInDir univ (e i) w (w' i) ∧ eLpNorm (v i - w' i) p volume ≤ ε := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  obtain ⟨w₀, w₀', hw₀cs, hw₀mem, hw₀'mem, hw₀u, hw₀i⟩ :=
+    exists_hasCompactSupport_forall_isWeakDerivInDir hp hu hv e hweak (ENNReal.half_pos hε.ne')
+  obtain ⟨w, w', hwcd, hwcs, hww₀, hwi⟩ :=
+    exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir_of_hasCompactSupport hp hw₀cs hw₀mem
+      hw₀'mem e (fun i => (hw₀i i).1) (ENNReal.half_pos hε.ne')
+  refine ⟨w, w', hwcd, hwcs, ?_, fun i => ⟨(hwi i).2.1, ?_⟩⟩
+  · have he : u - w = (u - w₀) + (w₀ - w) := by
+      funext x; simp only [Pi.sub_apply, Pi.add_apply]; ring
+    rw [he]
+    calc eLpNorm ((u - w₀) + (w₀ - w)) p volume
+        ≤ eLpNorm (u - w₀) p volume + eLpNorm (w₀ - w) p volume :=
+          eLpNorm_add_le (hu.aestronglyMeasurable.sub hw₀mem.aestronglyMeasurable)
+            (hw₀mem.aestronglyMeasurable.sub hwcd.continuous.aestronglyMeasurable) hp1
+      _ ≤ ε / 2 + ε / 2 := add_le_add hw₀u hww₀
+      _ = ε := ENNReal.add_halves ε
+  · have he : v i - w' i = (v i - w₀' i) + (w₀' i - w' i) := by
+      funext x; simp only [Pi.sub_apply, Pi.add_apply]; ring
+    rw [he]
+    calc eLpNorm ((v i - w₀' i) + (w₀' i - w' i)) p volume
+        ≤ eLpNorm (v i - w₀' i) p volume + eLpNorm (w₀' i - w' i) p volume :=
+          eLpNorm_add_le ((hv i).aestronglyMeasurable.sub (hw₀'mem i).aestronglyMeasurable)
+            ((hw₀'mem i).aestronglyMeasurable.sub (hwi i).1.continuous.aestronglyMeasurable) hp1
+      _ ≤ ε / 2 + ε / 2 := add_le_add (hw₀i i).2 (hwi i).2.2
+      _ = ε := ENNReal.add_halves ε
 
 end Sobolev
