@@ -649,6 +649,41 @@ lemma exists_cutoff_family :
             _ = R⁻¹ := mul_one _
       _ = M / R := (div_eq_mul_inv M R).symm
 
+/-- **The truncation gradient term vanishes in `Lᵖ`.**  If the cutoffs `χ_k` have gradient
+`‖∇χ_k‖ ≤ M/(k+1)` (as produced by `exists_cutoff_family`), then for `u ∈ Lᵖ` the term
+`(∂_e χ_k)·u` tends to `0` in `Lᵖ`: pointwise `‖(∂_e χ_k x)·u x‖ ≤ (M/(k+1)·‖e‖)·‖u x‖`, so the
+`Lᵖ` norm is `≤ ofReal(M/(k+1)·‖e‖)·‖u‖_p → 0`. -/
+lemma tendsto_eLpNorm_fderiv_cutoff_mul {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hu : MemLp u p volume)
+    {χ : ℕ → ℝⁿ → ℝ} {M : ℝ} (hM : 0 ≤ M) (e : ℝⁿ)
+    (hbd : ∀ k x, ‖fderiv ℝ (χ k) x‖ ≤ M / (k + 1)) :
+    Tendsto (fun k => eLpNorm (fun x => fderiv ℝ (χ k) x e * u x) p volume) atTop (𝓝 0) := by
+  have hcoef : ∀ k : ℕ, (0 : ℝ) ≤ M / (k + 1) * ‖e‖ :=
+    fun k => mul_nonneg (div_nonneg hM (by positivity)) (norm_nonneg e)
+  have hb : ∀ k, eLpNorm (fun x => fderiv ℝ (χ k) x e * u x) p volume
+      ≤ ENNReal.ofReal (M / (k + 1) * ‖e‖) * eLpNorm u p volume := by
+    intro k
+    have hmono : eLpNorm (fun x => fderiv ℝ (χ k) x e * u x) p volume
+        ≤ eLpNorm ((M / (k + 1) * ‖e‖ : ℝ) • u) p volume := by
+      refine eLpNorm_mono_ae (Eventually.of_forall fun x => ?_)
+      rw [norm_mul, Pi.smul_apply, smul_eq_mul, norm_mul, Real.norm_eq_abs (M / (k + 1) * ‖e‖),
+        abs_of_nonneg (hcoef k)]
+      gcongr
+      calc ‖fderiv ℝ (χ k) x e‖ ≤ ‖fderiv ℝ (χ k) x‖ * ‖e‖ := (fderiv ℝ (χ k) x).le_opNorm e
+        _ ≤ M / (k + 1) * ‖e‖ := by gcongr; exact hbd k x
+    rwa [eLpNorm_const_smul, Real.enorm_eq_ofReal (hcoef k)] at hmono
+  have hrhs : Tendsto (fun k : ℕ => ENNReal.ofReal (M / (k + 1) * ‖e‖) * eLpNorm u p volume)
+      atTop (𝓝 0) := by
+    have h1 : Tendsto (fun k : ℕ => M / (k + 1)) atTop (𝓝 0) := by
+      simpa using (tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)).const_mul M
+    have hreal : Tendsto (fun k : ℕ => M / (k + 1) * ‖e‖) atTop (𝓝 0) := by
+      simpa using h1.mul_const ‖e‖
+    have h2 : Tendsto (fun k : ℕ => ENNReal.ofReal (M / (k + 1) * ‖e‖)) atTop (𝓝 0) := by
+      rw [show (0 : ℝ≥0∞) = ENNReal.ofReal 0 from ENNReal.ofReal_zero.symm]
+      exact (ENNReal.continuous_ofReal.tendsto 0).comp hreal
+    simpa using ENNReal.Tendsto.mul_const h2 (Or.inr hu.eLpNorm_ne_top)
+  exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hrhs
+    (fun k => zero_le _) hb
+
 /-- **Sobolev embedding for all of `W^{1,p}` (passing to the limit).**  The
 Gagliardo–Nirenberg–Sobolev inequality, proved above for `C¹` compactly supported functions,
 extends to any `u` that is the `W^{1,p}`-limit of such functions: if a sequence `uk` of `C¹`
