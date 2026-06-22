@@ -2159,6 +2159,30 @@ theorem exists_eLpNorm_le_eLpNorm_fderiv_of_le (hu : ContDiff R 1 u) (h2u : u.su
     exists C : NNReal, eLpNorm u q volume <= C * eLpNorm (fderiv R u) p volume
 \end{lstlisting}
 
+The embedding \emph{passes to the limit} on all of $W^{1,p}(\mathbb{R}^n)$.  If $u$ is the
+$W^{1,p}$-limit of $C^1$ compactly supported functions $u_k$ --- $u_k\to u$ in $L^p$ and
+$Du_k\to V$ in $L^p$ --- then $u$ inherits the bound $\|u\|_{p^*}\le C\|V\|_p$ with the \emph{same}
+(uniform) constant (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}).  The argument is
+the standard density passage: the GNS constant is uniform across the sequence; $L^p$-convergence
+yields an a.e.\ convergent subsequence (convergence in measure,
+\texttt{tendstoInMeasure\_of\_tendsto\_eLpNorm} then
+\texttt{TendstoInMeasure.exists\_seq\_tendsto\_ae}); Fatou lower-semicontinuity of the seminorm
+(\texttt{Lp.eLpNorm'\_lim\_le\_liminf\_eLpNorm'}) passes the inequality to the limit; and the
+right-hand side converges since $\|Du_k\|_p\to\|V\|_p$ (norm-continuity in $L^p$).  Together with
+the Meyers--Serrin density above this is the embedding for the whole space; the only input still
+taken as a hypothesis is the $C^1_c$ approximating sequence itself (i.e.\ $C^\infty_c$ density in
+$W^{1,p}(\mathbb{R}^n)$, which needs a truncation step beyond the $C^\infty$ density already proved).
+
+\begin{lstlisting}[caption={Sobolev embedding for all of W^1p via limits (proved, zero sorry)}]
+theorem exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto (hp : 1 <= p) (hn : 0 < n) (hpn : p < n)
+    (hp' : (p' : R)⁻¹ = (p : R)⁻¹ - (n : R)⁻¹)
+    (hu_meas : AEStronglyMeasurable u volume) (hV : MemLp V p volume)
+    (hC1 : forall k, ContDiff R 1 (uk k)) (hcs : forall k, HasCompactSupport (uk k))
+    (hUconv : Tendsto (fun k => eLpNorm (uk k - u) p volume) atTop (nhds 0))
+    (hVconv : Tendsto (fun k => eLpNorm (fderiv R (uk k) - V) p volume) atTop (nhds 0)) :
+    exists C : NNReal, eLpNorm u p' volume <= C * eLpNorm V p volume
+\end{lstlisting}
+
 \subsection{Poincar\'e's inequality (§5.6)}
 
 For a continuously differentiable $u$ supported in a bounded set and $1\le p<n$, the $L^p$ norm of
@@ -2258,10 +2282,12 @@ and the Rellich--Kondrachov compactness theorem are all \emph{done} and document
 subsections above.  What remains:
 
 \begin{enumerate}
-  \item \textbf{Sobolev embedding on all of $W^{1,p}$}: extend
-    $W^{1,p}\hookrightarrow L^{p^*}$ from the $C^1$ compactly supported case
-    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv} and the full-range \texttt{\_of\_le}) to the whole
-    space, via the Meyers--Serrin density already proved plus completeness of $L^{p^*}$.
+  \item \textbf{Sobolev embedding on all of $W^{1,p}$}: the limit-passing step is \emph{done}
+    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}; see the embedding subsection): a
+    $W^{1,p}$-limit of $C^1$ compactly supported functions inherits $\|u\|_{p^*}\le C\|Du\|_p$ with
+    the uniform GNS constant.  What remains is $C^\infty_c$ density in $W^{1,p}(\mathbb{R}^n)$ --- the
+    truncation/cutoff step that upgrades the $C^\infty$ Meyers--Serrin density to compactly supported
+    approximants --- after which the embedding holds with no approximation hypothesis.
   \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
     rests on the Rellich--Kondrachov compactness now available.
   \item \textbf{Necessary direction of Fréchet--Kolmogorov}: the equicontinuity half is \emph{done}

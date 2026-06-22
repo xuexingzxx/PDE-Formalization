@@ -594,4 +594,104 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv {u : ℝⁿ → ℝ} {s : Set ℝ�
   exists_eLpNorm_le_eLpNorm_fderiv_of_le hu h2u hp hpn
     (sub_le_self (p : ℝ)⁻¹ (by positivity)) hs
 
+/-- **Sobolev embedding for all of `W^{1,p}` (passing to the limit).**  The
+Gagliardo–Nirenberg–Sobolev inequality, proved above for `C¹` compactly supported functions,
+extends to any `u` that is the `W^{1,p}`-limit of such functions: if a sequence `uk` of `C¹`
+compactly supported functions converges to `u` in `Lᵖ` and its gradients converge to `V` in `Lᵖ`,
+then `u ∈ L^{p*}` with the same constant,
+`‖u‖_{p*} ≤ C‖V‖_p`.
+
+This is the analyst's standard density argument made precise: the GNS constant
+`SNormLESNormFDerivOfEqConst` is **uniform** across the sequence; `Lᵖ`-convergence gives an a.e.
+convergent subsequence (`tendstoInMeasure_of_tendsto_eLpNorm` then
+`TendstoInMeasure.exists_seq_tendsto_ae`); and Fatou lower-semicontinuity of the seminorm
+(`eLpNorm'_lim_le_liminf_eLpNorm'`) passes the inequality to the limit, the right-hand side
+converging because `‖fderiv uk‖_p → ‖V‖_p` (norm-continuity in `Lᵖ`).  Combined with the
+Meyers–Serrin density above, this delivers the embedding on the whole space `W^{1,p}(ℝⁿ)`. -/
+theorem exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto {u : ℝⁿ → ℝ} {V : ℝⁿ → (ℝⁿ →L[ℝ] ℝ)}
+    {p p' : ℝ≥0} (hp : 1 ≤ p) (hn : 0 < n) (hpn : p < n)
+    (hp' : (p' : ℝ)⁻¹ = (p : ℝ)⁻¹ - (n : ℝ)⁻¹)
+    (hu_meas : AEStronglyMeasurable u volume) (hV : MemLp V (p : ℝ≥0∞) volume)
+    {uk : ℕ → ℝⁿ → ℝ} (hC1 : ∀ k, ContDiff ℝ 1 (uk k)) (hcs : ∀ k, HasCompactSupport (uk k))
+    (hUconv : Tendsto (fun k => eLpNorm (uk k - u) (p : ℝ≥0∞) volume) atTop (𝓝 0))
+    (hVconv : Tendsto (fun k => eLpNorm (fderiv ℝ (uk k) - V) (p : ℝ≥0∞) volume) atTop (𝓝 0)) :
+    ∃ C : ℝ≥0, eLpNorm u (p' : ℝ≥0∞) volume ≤ C * eLpNorm V (p : ℝ≥0∞) volume := by
+  haveI : Fact (1 ≤ (p : ℝ≥0∞)) := ⟨by exact_mod_cast hp⟩
+  -- positivity / finiteness bookkeeping for the exponents
+  have hp_pos' : (0 : ℝ≥0) < p := lt_of_lt_of_le zero_lt_one hp
+  have hp0 : (p : ℝ≥0∞) ≠ 0 := ENNReal.coe_ne_zero.mpr hp_pos'.ne'
+  have hp_posR : (0 : ℝ) < (p : ℝ) := by exact_mod_cast hp_pos'
+  have hpnR : (p : ℝ) < (n : ℝ) := by exact_mod_cast hpn
+  have h2 : (0 : ℝ) < (p' : ℝ)⁻¹ := by
+    rw [hp', sub_pos, inv_eq_one_div, inv_eq_one_div]
+    exact one_div_lt_one_div_of_lt hp_posR hpnR
+  have hpr_pos : (0 : ℝ) < (p' : ℝ) := inv_pos.mp h2
+  have hp'pos : (0 : ℝ≥0) < p' := by exact_mod_cast hpr_pos
+  have hp'0 : (p' : ℝ≥0∞) ≠ 0 := ENNReal.coe_ne_zero.mpr hp'pos.ne'
+  have hp'top : (p' : ℝ≥0∞) ≠ ⊤ := ENNReal.coe_ne_top
+  have hpr : ((p' : ℝ≥0∞)).toReal = (p' : ℝ) := by simp
+  -- `eLpNorm` ↔ `eLpNorm'` (real exponent) at the conjugate exponent `p'`
+  have hconv_u : eLpNorm u (p' : ℝ≥0∞) volume = eLpNorm' u (p' : ℝ) volume := by
+    rw [eLpNorm_eq_eLpNorm' hp'0 hp'top, hpr]
+  have hee : ∀ f : ℝⁿ → ℝ, eLpNorm' f (p' : ℝ) volume = eLpNorm f (p' : ℝ≥0∞) volume := by
+    intro f; rw [eLpNorm_eq_eLpNorm' hp'0 hp'top, hpr]
+  -- the **uniform** GNS constant (same for every member of the sequence)
+  obtain ⟨C, hGNS⟩ : ∃ C : ℝ≥0, ∀ k, eLpNorm (uk k) (p' : ℝ≥0∞) volume
+      ≤ (C : ℝ≥0∞) * eLpNorm (fderiv ℝ (uk k)) (p : ℝ≥0∞) volume :=
+    ⟨_, fun k => eLpNorm_le_eLpNorm_fderiv_of_eq volume (hC1 k) (hcs k) hp
+      (by rw [finrank_euclideanSpace_fin]; exact hn)
+      (by rw [finrank_euclideanSpace_fin]; exact hp')⟩
+  -- gradients of the (`C¹`, compactly supported) members are `Lᵖ`
+  have hgrad_mem : ∀ k, MemLp (fderiv ℝ (uk k)) (p : ℝ≥0∞) volume := fun k =>
+    ((hC1 k).continuous_fderiv one_ne_zero).memLp_of_hasCompactSupport ((hcs k).fderiv (𝕜 := ℝ))
+  have hmeas_uk : ∀ k, AEStronglyMeasurable (uk k) volume :=
+    fun k => (hC1 k).continuous.aestronglyMeasurable
+  -- an a.e. convergent subsequence from `Lᵖ`-convergence
+  have htim : TendstoInMeasure volume uk atTop u :=
+    tendstoInMeasure_of_tendsto_eLpNorm hp0 hmeas_uk hu_meas hUconv
+  obtain ⟨ns, hns_mono, hns_ae⟩ := htim.exists_seq_tendsto_ae
+  -- Fatou lower-semicontinuity of the seminorm along the subsequence
+  have hfatou : eLpNorm' u (p' : ℝ) volume
+      ≤ atTop.liminf (fun k => eLpNorm' (uk (ns k)) (p' : ℝ) volume) :=
+    Lp.eLpNorm'_lim_le_liminf_eLpNorm' hpr_pos (fun k => hmeas_uk (ns k)) hns_ae
+  have hbound_k : ∀ k, eLpNorm' (uk (ns k)) (p' : ℝ) volume
+      ≤ (C : ℝ≥0∞) * eLpNorm (fderiv ℝ (uk (ns k))) (p : ℝ≥0∞) volume := by
+    intro k; rw [hee]; exact hGNS (ns k)
+  -- the right-hand side converges: `‖fderiv uk‖_p → ‖V‖_p` by norm-continuity in `Lᵖ`
+  have hGtend : Tendsto (fun k => (hgrad_mem k).toLp (fderiv ℝ (uk k))) atTop (𝓝 (hV.toLp V)) := by
+    rw [tendsto_iff_dist_tendsto_zero]
+    have hd : (fun k => dist ((hgrad_mem k).toLp (fderiv ℝ (uk k))) (hV.toLp V))
+        = (fun k => (eLpNorm (fderiv ℝ (uk k) - V) (p : ℝ≥0∞) volume).toReal) := by
+      funext k
+      rw [Lp.dist_def]
+      congr 1
+      refine eLpNorm_congr_ae ?_
+      filter_upwards [MemLp.coeFn_toLp (hgrad_mem k), MemLp.coeFn_toLp hV] with x hx hxv
+      simp only [Pi.sub_apply, hx, hxv]
+    rw [hd]
+    simpa using (ENNReal.continuousAt_toReal (by simp : (0 : ℝ≥0∞) ≠ ⊤)).tendsto.comp hVconv
+  have hnf : ∀ k, ‖(hgrad_mem k).toLp (fderiv ℝ (uk k))‖
+      = (eLpNorm (fderiv ℝ (uk k)) (p : ℝ≥0∞) volume).toReal := fun k => by
+    rw [Lp.norm_def]; congr 1; exact eLpNorm_congr_ae (MemLp.coeFn_toLp (hgrad_mem k))
+  have hnV : ‖hV.toLp V‖ = (eLpNorm V (p : ℝ≥0∞) volume).toReal := by
+    rw [Lp.norm_def]; congr 1; exact eLpNorm_congr_ae (MemLp.coeFn_toLp hV)
+  have hgradnorm : Tendsto (fun k => eLpNorm (fderiv ℝ (uk k)) (p : ℝ≥0∞) volume) atTop
+      (𝓝 (eLpNorm V (p : ℝ≥0∞) volume)) := by
+    rw [← ENNReal.tendsto_toReal_iff (fun k => (hgrad_mem k).eLpNorm_ne_top) hV.eLpNorm_ne_top]
+    have hnorm := hGtend.norm
+    rw [hnV] at hnorm
+    simpa only [hnf] using hnorm
+  have hmul_tendsto : Tendsto (fun k => (C : ℝ≥0∞)
+        * eLpNorm (fderiv ℝ (uk (ns k))) (p : ℝ≥0∞) volume) atTop
+      (𝓝 ((C : ℝ≥0∞) * eLpNorm V (p : ℝ≥0∞) volume)) :=
+    ENNReal.Tendsto.const_mul (hgradnorm.comp hns_mono.tendsto_atTop) (Or.inr ENNReal.coe_ne_top)
+  have hgrad_liminf : atTop.liminf (fun k => (C : ℝ≥0∞)
+        * eLpNorm (fderiv ℝ (uk (ns k))) (p : ℝ≥0∞) volume)
+      = (C : ℝ≥0∞) * eLpNorm V (p : ℝ≥0∞) volume := hmul_tendsto.liminf_eq
+  -- assemble
+  refine ⟨C, ?_⟩
+  rw [hconv_u]
+  exact hfatou.trans ((Filter.liminf_le_liminf (Eventually.of_forall hbound_k)).trans
+    (le_of_eq hgrad_liminf))
+
 end Sobolev
