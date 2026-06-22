@@ -2236,8 +2236,19 @@ Mathlib provides:
 \end{itemize}
 These assemble into the \emph{self-contained} criterion
 \texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous} (discharging mollifiability with an
-explicit normalised \texttt{ContDiffBump}), whence \texttt{rellich\_kondrachov}.  The \emph{necessary}
-direction of Fréchet--Kolmogorov is not formalized.
+explicit normalised \texttt{ContDiffBump}), whence \texttt{rellich\_kondrachov}.
+
+The \emph{necessary} direction (the converse) is also formalized, in its equicontinuity form:
+\texttt{uniformEquicontinuous\_translate\_of\_totallyBounded} shows that a family totally bounded in
+$L^p(\mathbb{R}^n)$ is automatically uniformly $L^p$-equicontinuous,
+$\sup_i\|u_i(\cdot-y)-u_i\|_p\to0$ as $y\to0$ --- exactly the equicontinuity hypothesis consumed by
+the sufficient direction.  The proof is the symmetric $\varepsilon/3$ argument: a finite
+$\varepsilon/3$-net of the (totally bounded) image, each net point being $L^p$-translation-continuous
+(\texttt{tendsto\_eLpNorm\_translate\_sub}) uniformly over the finite net via
+\texttt{Set.Finite.eventually\_all}, and the splitting of $u_i(\cdot-y)-u_i$ through a nearby net
+point, two of whose three terms are $\|u_i-z\|_p<\varepsilon/3$ (translation is an $L^p$ isometry).
+Only the tightness half (uniform smallness of mass at infinity), needed for the full whole-space
+equivalence, is left.
 
 \subsection{Future work}
 
@@ -2253,9 +2264,10 @@ subsections above.  What remains:
     space, via the Meyers--Serrin density already proved plus completeness of $L^{p^*}$.
   \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
     rests on the Rellich--Kondrachov compactness now available.
-  \item \textbf{Necessary direction of Fréchet--Kolmogorov}: a totally bounded family in $L^p$ is
-    uniformly $L^p$-equicontinuous and uniformly $p$-tight (the converse of the criterion proved
-    here).
+  \item \textbf{Necessary direction of Fréchet--Kolmogorov}: the equicontinuity half is \emph{done}
+    (\texttt{uniformEquicontinuous\_translate\_of\_totallyBounded}; see the Rellich--Kondrachov
+    subsection); the remaining \emph{tightness} half --- a totally bounded family in $L^p(\mathbb{R}^n)$
+    is uniformly $p$-tight at infinity --- would complete the full whole-space equivalence.
   \item \textbf{Bounded-domain Rellich--Kondrachov}: transfer the compact-$K$ statement to
     $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$ on a bounded extension domain $U$ via a Sobolev
     extension operator.
