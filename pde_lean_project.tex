@@ -2168,10 +2168,17 @@ yields an a.e.\ convergent subsequence (convergence in measure,
 \texttt{tendstoInMeasure\_of\_tendsto\_eLpNorm} then
 \texttt{TendstoInMeasure.exists\_seq\_tendsto\_ae}); Fatou lower-semicontinuity of the seminorm
 (\texttt{Lp.eLpNorm'\_lim\_le\_liminf\_eLpNorm'}) passes the inequality to the limit; and the
-right-hand side converges since $\|Du_k\|_p\to\|V\|_p$ (norm-continuity in $L^p$).  Together with
-the Meyers--Serrin density above this is the embedding for the whole space; the only input still
-taken as a hypothesis is the $C^1_c$ approximating sequence itself (i.e.\ $C^\infty_c$ density in
-$W^{1,p}(\mathbb{R}^n)$, which needs a truncation step beyond the $C^\infty$ density already proved).
+right-hand side converges since $\|Du_k\|_p\to\|V\|_p$ (norm-continuity in $L^p$).  The required
+approximating sequence is supplied by the now-proved \textbf{density of $C^\infty_c$ in
+$W^{1,p}(\mathbb{R}^n)$}, \texttt{exists\_contDiff\_hasCompactSupport\_forall\_isWeakDerivInDir}:
+truncate by a scaled cutoff (\texttt{exists\_cutoff\_family}) to compact support --- the two $L^p$
+truncation limits \texttt{tendsto\_eLpNorm\_cutoff\_mul\_sub} and
+\texttt{tendsto\_eLpNorm\_fderiv\_cutoff\_mul} (with the weak Leibniz rule
+\texttt{IsWeakDerivInDir.mul\_smooth}) --- then mollify keeping compact support
+(\texttt{HasCompactSupport.convolution}), glued by $\varepsilon/2+\varepsilon/2$.  The one remaining
+step to a hypothesis-free embedding is the Euclidean identity relating the derivative CLM's $L^p$
+norm to its $n$ coordinate components, used to turn the per-direction convergence into
+$\|\mathrm{fderiv}\,u_k-V\|_p\to0$.
 
 \begin{lstlisting}[caption={Sobolev embedding for all of W^1p via limits (proved, zero sorry)}]
 theorem exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto (hp : 1 <= p) (hn : 0 < n) (hpn : p < n)
@@ -2283,15 +2290,19 @@ subsections above.  What remains:
 
 \begin{enumerate}
   \item \textbf{Sobolev embedding on all of $W^{1,p}$}: the limit-passing step is \emph{done}
-    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}; see the embedding subsection): a
-    $W^{1,p}$-limit of $C^1$ compactly supported functions inherits $\|u\|_{p^*}\le C\|Du\|_p$ with
-    the uniform GNS constant.  What remains is $C^\infty_c$ density in $W^{1,p}(\mathbb{R}^n)$, the
-    truncation/cutoff step upgrading the $C^\infty$ Meyers--Serrin density to compactly supported
-    approximants.  The cutoff \emph{device} is now in place: \texttt{exists\_cutoff\_family} produces
-    scaled smooth cutoffs $\chi_R$ ($=1$ on $B(0,R)$, valued in $[0,1]$, with gradient $\le M/R$
-    uniformly), so the gradient term $(\nabla\chi_R)\,u$ is $O(1/R)$ in $L^p$; the remaining work is
-    the two $L^p$ truncation limits ($\chi_R u\to u$ and $(\nabla\chi_R)u\to0$, with the weak Leibniz
-    rule \texttt{IsWeakDerivInDir.mul\_smooth}) and a mollification/diagonalisation.
+    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}): a $W^{1,p}$-limit of $C^1$ compactly
+    supported functions inherits $\|u\|_{p^*}\le C\|Du\|_p$ with the uniform GNS constant; and the
+    full \textbf{density of $C^\infty_c$ in $W^{1,p}(\mathbb{R}^n)$} is now also \emph{done}
+    (\texttt{exists\_contDiff\_hasCompactSupport\_forall\_isWeakDerivInDir}; see the embedding
+    subsection).  The density is assembled from the scaled cutoffs \texttt{exists\_cutoff\_family}
+    ($\chi_R=1$ on $B(0,R)$, gradient $\le M/R$), the two $L^p$ truncation limits
+    (\texttt{tendsto\_eLpNorm\_cutoff\_mul\_sub} for $\chi_R u\to u$ and
+    \texttt{tendsto\_eLpNorm\_fderiv\_cutoff\_mul} for $(\nabla\chi_R)u\to0$, via the weak Leibniz
+    rule \texttt{IsWeakDerivInDir.mul\_smooth}), and a compact-support mollification
+    (\texttt{\dots\_of\_hasCompactSupport}), glued by $\varepsilon/2+\varepsilon/2$.  Only the final
+    wiring remains --- feeding the resulting $C^\infty_c$ sequence to the limit-passing theorem,
+    which needs the Euclidean identity relating the derivative CLM's $L^p$ norm to its coordinate
+    components.
   \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
     rests on the Rellich--Kondrachov compactness now available.
   \item \textbf{Necessary direction of Fréchet--Kolmogorov}: the equicontinuity half is \emph{done}
