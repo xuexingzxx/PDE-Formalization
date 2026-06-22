@@ -555,6 +555,51 @@ theorem exists_contDiff_forall_isWeakDerivInDir {u : ℝⁿ → ℝ} {v : Fin n 
           funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
     exact hkv i
 
+/-- **Compact-support mollification.**  A compactly supported `u ∈ W^{1,p}` (with weak derivatives
+`v i`) is approximated in `W^{1,p}` by **smooth, compactly supported** functions: for every `ε > 0`
+there is `w ∈ C^∞_c` with `‖u − w‖_p ≤ ε` and `‖v i − w'_i‖_p ≤ ε`.  Same construction as
+Meyers–Serrin (`exists_contDiff_forall_isWeakDerivInDir`), additionally noting that the mollification
+`η_δ ⋆ u` is compactly supported when `u` is (`HasCompactSupport.convolution`). -/
+theorem exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir_of_hasCompactSupport
+    {u : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    (hucs : HasCompactSupport u) (hu : MemLp u p volume) (hv : ∀ i, MemLp (v i) p volume)
+    (e : Fin n → ℝⁿ) (hweak : ∀ i, IsWeakDerivInDir univ (e i) u (v i)) {ε : ℝ≥0∞} (hε : 0 < ε) :
+    ∃ (w : ℝⁿ → ℝ) (w' : Fin n → ℝⁿ → ℝ), ContDiff ℝ ∞ w ∧ HasCompactSupport w ∧
+      eLpNorm (u - w) p volume ≤ ε ∧
+      ∀ i, IsWeakDerivInDir univ (e i) w (w' i) ∧ eLpNorm (v i - w' i) p volume ≤ ε := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hu_li : LocallyIntegrable u volume := hu.locallyIntegrable hp1
+  have hv_li : ∀ i, LocallyIntegrable (v i) volume := fun i => (hv i).locallyIntegrable hp1
+  set φ : ℕ → ContDiffBump (0 : ℝⁿ) := fun k =>
+    ⟨1 / (k + 2 : ℝ), 1 / (k + 1 : ℝ), by positivity,
+      one_div_lt_one_div_of_lt (by positivity) (by linarith)⟩ with hφdef
+  have hφ : Tendsto (fun k => (φ k).rOut) atTop (𝓝 0) := by
+    simpa [hφdef] using tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)
+  have hev : ∀ᶠ k in atTop,
+      (eLpNorm (fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u) x - u x) p volume ≤ ε) ∧
+      ∀ i, eLpNorm (fun x =>
+        ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i)) x - (v i) x) p volume ≤ ε := by
+    refine (ENNReal.tendsto_nhds_zero.mp (tendsto_eLpNorm_convolution_sub hp hu hφ) ε hε).and ?_
+    exact eventually_all.mpr fun i =>
+      ENNReal.tendsto_nhds_zero.mp (tendsto_eLpNorm_convolution_sub hp (hv i) hφ) ε hε
+  obtain ⟨k, hku, hkv⟩ := hev.exists
+  refine ⟨(φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u,
+          fun i => (φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i), ?_, ?_, ?_, ?_⟩
+  · exact (φ k).hasCompactSupport_normed.contDiff_convolution_left (lsmul ℝ ℝ)
+      (φ k).contDiff_normed hu_li
+  · exact (φ k).hasCompactSupport_normed.convolution (lsmul ℝ ℝ) hucs
+  · rw [show u - ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u)
+        = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] u) x - u x from by
+          funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
+    exact hku
+  · intro i
+    refine ⟨isWeakDerivInDir_convolution (φ k).contDiff_normed (φ k).hasCompactSupport_normed
+        hu_li (hv_li i) (e i) (hweak i), ?_⟩
+    rw [show v i - ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i))
+        = -fun x => ((φ k).normed volume ⋆[lsmul ℝ ℝ, volume] (v i)) x - (v i) x from by
+          funext x; simp only [Pi.sub_apply, Pi.neg_apply]; ring, eLpNorm_neg]
+    exact hkv i
+
 /-! ### Sobolev embedding (Gagliardo–Nirenberg–Sobolev) -/
 
 /-- **Gagliardo–Nirenberg–Sobolev embedding inequality** on `ℝⁿ`.  A continuously differentiable,
