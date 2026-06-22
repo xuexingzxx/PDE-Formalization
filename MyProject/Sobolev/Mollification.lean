@@ -690,7 +690,7 @@ values in `[0,1]`, then `χ_k·u → u` in `Lᵖ` for `u ∈ Lᵖ` (`1 ≤ p < �
 ball where `χ_k = 1`), with dominating function `‖u‖ₑ^p ∈ L¹`. -/
 lemma tendsto_eLpNorm_cutoff_mul_sub {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp0 : p ≠ 0) (hp : p ≠ ⊤)
     (hu : MemLp u p volume) {χ : ℕ → ℝⁿ → ℝ}
-    (hχ1 : ∀ k (x : ℝⁿ), ‖x‖ ≤ k + 1 → χ k x = 1) (hχ01 : ∀ k x, 0 ≤ χ k x ∧ χ k x ≤ 1)
+    (hχ1 : ∀ (k : ℕ) (x : ℝⁿ), ‖x‖ ≤ (k : ℝ) + 1 → χ k x = 1) (hχ01 : ∀ k x, 0 ≤ χ k x ∧ χ k x ≤ 1)
     (hχmeas : ∀ k, AEStronglyMeasurable (χ k) volume) :
     Tendsto (fun k => eLpNorm (fun x => χ k x * u x - u x) p volume) atTop (𝓝 0) := by
   have hpr : 0 < p.toReal := ENNReal.toReal_pos hp0 hp
@@ -710,7 +710,7 @@ lemma tendsto_eLpNorm_cutoff_mul_sub {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp0 
   have hbound : ∀ k, (fun x => ‖χ k x * u x - u x‖ₑ ^ p.toReal)
       ≤ᵐ[volume] fun x => ‖u x‖ₑ ^ p.toReal :=
     fun k => Eventually.of_forall fun x => ENNReal.rpow_le_rpow (hgle k x) hpr.le
-  have hfin : ∫⁻ x, ‖u x‖ₑ ^ p.toReal ∂volume ≠ ∞ :=
+  have hfin : ∫⁻ x, ‖u x‖ₑ ^ p.toReal ∂volume ≠ (⊤ : ℝ≥0∞) :=
     (lintegral_rpow_enorm_lt_top_of_eLpNorm_lt_top hp0 hp hu.eLpNorm_lt_top).ne
   have hlim : ∀ x : ℝⁿ, Tendsto (fun k => ‖χ k x * u x - u x‖ₑ ^ p.toReal) atTop (𝓝 0) := by
     intro x
@@ -731,6 +731,79 @@ lemma tendsto_eLpNorm_cutoff_mul_sub {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp0 
       (fun x => ‖u x‖ₑ ^ p.toReal) hF_meas hbound hfin (Eventually.of_forall hlim)
   have hres := hlint.ennrpow_const (1 / p.toReal)
   rwa [ENNReal.zero_rpow_of_pos (by positivity)] at hres
+
+/-- **Truncation: compactly supported functions are dense in `W^{1,p}`.**  Given `u ∈ W^{1,p}(ℝⁿ)`
+(with weak derivatives `v i`), for every `ε > 0` there is a **compactly supported** `w ∈ W^{1,p}`
+with `‖u − w‖_p ≤ ε` and `‖v i − w'_i‖_p ≤ ε` for each direction, where `w'_i` is the weak
+derivative of `w`.  Take `w = χ_k·u` for a large cutoff `χ_k`: its weak derivative is
+`χ_k·v_i + (∂_{e_i}χ_k)·u` (the weak Leibniz rule `IsWeakDerivInDir.mul_smooth`), and both error
+families vanish in `Lᵖ` by `tendsto_eLpNorm_cutoff_mul_sub` (applied to `u` and each `v i`) and
+`tendsto_eLpNorm_fderiv_cutoff_mul`.  A single `k` works for all `n` directions
+(`Filter.eventually_all`). -/
+theorem exists_hasCompactSupport_forall_isWeakDerivInDir {u : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ}
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) (hu : MemLp u p volume)
+    (hv : ∀ i, MemLp (v i) p volume) (e : Fin n → ℝⁿ)
+    (hweak : ∀ i, IsWeakDerivInDir univ (e i) u (v i)) {ε : ℝ≥0∞} (hε : 0 < ε) :
+    ∃ (w : ℝⁿ → ℝ) (w' : Fin n → ℝⁿ → ℝ), HasCompactSupport w ∧ MemLp w p volume ∧
+      (∀ i, MemLp (w' i) p volume) ∧ eLpNorm (u - w) p volume ≤ ε ∧
+      ∀ i, IsWeakDerivInDir univ (e i) w (w' i) ∧ eLpNorm (v i - w' i) p volume ≤ ε := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hp0 : p ≠ 0 := (lt_of_lt_of_le one_pos hp1).ne'
+  obtain ⟨M, hM, hχfam⟩ := exists_cutoff_family (n := n)
+  choose χ hχcd hχcs hχ1 hχ0 hχ1' hχbd using fun k : ℕ => hχfam ((k : ℝ) + 1) (by positivity)
+  have hχmeas : ∀ k, AEStronglyMeasurable (χ k) volume :=
+    fun k => (hχcd k).continuous.aestronglyMeasurable
+  have hχ01 : ∀ k x, 0 ≤ χ k x ∧ χ k x ≤ 1 := fun k x => ⟨hχ0 k x, hχ1' k x⟩
+  have hχabs : ∀ k x, |χ k x| ≤ 1 := fun k x => abs_le.mpr ⟨by linarith [(hχ01 k x).1], (hχ01 k x).2⟩
+  -- a single `k` making all `2n+1` errors small
+  have hε2 : (0 : ℝ≥0∞) < ε / 2 := ENNReal.half_pos hε.ne'
+  have evU : ∀ᶠ k in atTop, eLpNorm (fun x => χ k x * u x - u x) p volume ≤ ε :=
+    ENNReal.tendsto_nhds_zero.mp (tendsto_eLpNorm_cutoff_mul_sub hp0 hp hu hχ1 hχ01 hχmeas) ε hε
+  have evV : ∀ᶠ k in atTop, ∀ i, eLpNorm (fun x => χ k x * v i x - v i x) p volume ≤ ε / 2 :=
+    eventually_all.mpr fun i =>
+      ENNReal.tendsto_nhds_zero.mp (tendsto_eLpNorm_cutoff_mul_sub hp0 hp (hv i) hχ1 hχ01 hχmeas)
+        (ε / 2) hε2
+  have evG : ∀ᶠ k in atTop, ∀ i,
+      eLpNorm (fun x => fderiv ℝ (χ k) x (e i) * u x) p volume ≤ ε / 2 :=
+    eventually_all.mpr fun i =>
+      ENNReal.tendsto_nhds_zero.mp (tendsto_eLpNorm_fderiv_cutoff_mul hu hM (e i) hχbd) (ε / 2) hε2
+  obtain ⟨k, hkU, hkV, hkG⟩ := (evU.and (evV.and evG)).exists
+  -- `∂_{e_i} χ_k` is continuous
+  have hdχc : ∀ i, Continuous (fun x => fderiv ℝ (χ k) x (e i)) := fun i =>
+    ((hχcd k).continuous_fderiv (by norm_num)).clm_apply continuous_const
+  -- membership facts via domination
+  have hmemχ : ∀ {g : ℝⁿ → ℝ}, MemLp g p volume → MemLp (fun x => χ k x * g x) p volume :=
+    fun {g} hg => hg.mono ((hχmeas k).mul hg.aestronglyMeasurable) <| Eventually.of_forall fun x => by
+      rw [norm_mul]
+      calc ‖χ k x‖ * ‖g x‖ ≤ 1 * ‖g x‖ := by gcongr; rw [Real.norm_eq_abs]; exact hχabs k x
+        _ = ‖g x‖ := one_mul _
+  have hCnn : ∀ i, (0 : ℝ) ≤ M / (k + 1) * ‖e i‖ :=
+    fun i => mul_nonneg (div_nonneg hM (by positivity)) (norm_nonneg _)
+  have hmemdχu : ∀ i, MemLp (fun x => fderiv ℝ (χ k) x (e i) * u x) p volume := fun i =>
+    (hu.const_smul (M / (k + 1) * ‖e i‖)).mono
+      ((hdχc i).aestronglyMeasurable.mul hu.aestronglyMeasurable) <| Eventually.of_forall fun x => by
+        rw [norm_mul, Pi.smul_apply, norm_smul, Real.norm_eq_abs (M / (k + 1) * ‖e i‖),
+          abs_of_nonneg (hCnn i)]
+        gcongr
+        calc ‖fderiv ℝ (χ k) x (e i)‖ ≤ ‖fderiv ℝ (χ k) x‖ * ‖e i‖ := (fderiv ℝ (χ k) x).le_opNorm _
+          _ ≤ M / (k + 1) * ‖e i‖ := by gcongr; exact hχbd k x
+  refine ⟨fun x => χ k x * u x, fun i x => χ k x * v i x + fderiv ℝ (χ k) x (e i) * u x,
+    (hχcs k).mul_right, hmemχ hu, fun i => (hmemχ (hv i)).add (hmemdχu i), ?_, fun i => ⟨?_, ?_⟩⟩
+  · rw [eLpNorm_sub_comm]; exact hkU
+  · exact (hweak i).mul_smooth (hu.locallyIntegrable hp1) ((hv i).locallyIntegrable hp1) (hχcd k)
+  · have hAm : AEStronglyMeasurable (fun x => χ k x * v i x - v i x) volume :=
+      ((hχmeas k).mul (hv i).aestronglyMeasurable).sub (hv i).aestronglyMeasurable
+    have hBm : AEStronglyMeasurable (fun x => fderiv ℝ (χ k) x (e i) * u x) volume :=
+      (hdχc i).aestronglyMeasurable.mul hu.aestronglyMeasurable
+    rw [show (v i - fun x => χ k x * v i x + fderiv ℝ (χ k) x (e i) * u x)
+        = -((fun x => χ k x * v i x - v i x) + fun x => fderiv ℝ (χ k) x (e i) * u x) from by
+          funext x; simp only [Pi.sub_apply, Pi.add_apply, Pi.neg_apply]; ring, eLpNorm_neg]
+    calc eLpNorm ((fun x => χ k x * v i x - v i x)
+            + fun x => fderiv ℝ (χ k) x (e i) * u x) p volume
+        ≤ eLpNorm (fun x => χ k x * v i x - v i x) p volume
+            + eLpNorm (fun x => fderiv ℝ (χ k) x (e i) * u x) p volume := eLpNorm_add_le hAm hBm hp1
+      _ ≤ ε / 2 + ε / 2 := add_le_add (hkV i) (hkG i)
+      _ = ε := ENNReal.add_halves ε
 
 /-- **Sobolev embedding for all of `W^{1,p}` (passing to the limit).**  The
 Gagliardo–Nirenberg–Sobolev inequality, proved above for `C¹` compactly supported functions,
