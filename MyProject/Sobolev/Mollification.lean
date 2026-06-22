@@ -684,6 +684,54 @@ lemma tendsto_eLpNorm_fderiv_cutoff_mul {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (h
   exact tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hrhs
     (fun k => zero_le _) hb
 
+/-- **The truncation `χ_k·u → u` in `Lᵖ`.**  If the cutoffs `χ_k` equal `1` on `B(0,k+1)` and take
+values in `[0,1]`, then `χ_k·u → u` in `Lᵖ` for `u ∈ Lᵖ` (`1 ≤ p < ∞`).  Dominated convergence:
+`‖χ_k u − u‖ ≤ ‖u‖` pointwise (since `|χ_k − 1| ≤ 1`) and `→ 0` (each `x` is eventually inside the
+ball where `χ_k = 1`), with dominating function `‖u‖ₑ^p ∈ L¹`. -/
+lemma tendsto_eLpNorm_cutoff_mul_sub {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp0 : p ≠ 0) (hp : p ≠ ⊤)
+    (hu : MemLp u p volume) {χ : ℕ → ℝⁿ → ℝ}
+    (hχ1 : ∀ k (x : ℝⁿ), ‖x‖ ≤ k + 1 → χ k x = 1) (hχ01 : ∀ k x, 0 ≤ χ k x ∧ χ k x ≤ 1)
+    (hχmeas : ∀ k, AEStronglyMeasurable (χ k) volume) :
+    Tendsto (fun k => eLpNorm (fun x => χ k x * u x - u x) p volume) atTop (𝓝 0) := by
+  have hpr : 0 < p.toReal := ENNReal.toReal_pos hp0 hp
+  -- pointwise domination `‖χ_k u − u‖ₑ ≤ ‖u‖ₑ`
+  have hgle : ∀ k (x : ℝⁿ), ‖χ k x * u x - u x‖ₑ ≤ ‖u x‖ₑ := by
+    intro k x
+    rw [Real.enorm_eq_ofReal_abs, Real.enorm_eq_ofReal_abs]
+    refine ENNReal.ofReal_le_ofReal ?_
+    rw [show χ k x * u x - u x = (χ k x - 1) * u x from by ring, abs_mul]
+    calc |χ k x - 1| * |u x| ≤ 1 * |u x| := by
+          refine mul_le_mul_of_nonneg_right ?_ (abs_nonneg _)
+          rw [abs_le]; exact ⟨by linarith [(hχ01 k x).1], by linarith [(hχ01 k x).2]⟩
+      _ = |u x| := one_mul _
+  -- the four ingredients of dominated convergence (in `ℝ≥0∞`)
+  have hF_meas : ∀ k, AEMeasurable (fun x => ‖χ k x * u x - u x‖ₑ ^ p.toReal) volume := fun k =>
+    (((hχmeas k).mul hu.aestronglyMeasurable).sub hu.aestronglyMeasurable).enorm.pow_const _
+  have hbound : ∀ k, (fun x => ‖χ k x * u x - u x‖ₑ ^ p.toReal)
+      ≤ᵐ[volume] fun x => ‖u x‖ₑ ^ p.toReal :=
+    fun k => Eventually.of_forall fun x => ENNReal.rpow_le_rpow (hgle k x) hpr.le
+  have hfin : ∫⁻ x, ‖u x‖ₑ ^ p.toReal ∂volume ≠ ∞ :=
+    (lintegral_rpow_enorm_lt_top_of_eLpNorm_lt_top hp0 hp hu.eLpNorm_lt_top).ne
+  have hlim : ∀ x : ℝⁿ, Tendsto (fun k => ‖χ k x * u x - u x‖ₑ ^ p.toReal) atTop (𝓝 0) := by
+    intro x
+    obtain ⟨N, hN⟩ := exists_nat_ge ‖x‖
+    refine tendsto_const_nhds.congr' ?_
+    filter_upwards [eventually_ge_atTop N] with k hk
+    have hxk : ‖x‖ ≤ (k : ℝ) + 1 := by
+      have : (N : ℝ) ≤ (k : ℝ) := by exact_mod_cast hk
+      linarith
+    rw [hχ1 k x hxk]
+    simp only [one_mul, sub_self, enorm_zero, ENNReal.zero_rpow_of_pos hpr]
+  -- reduce `eLpNorm` to the lintegral and pass to the limit
+  rw [show (fun k => eLpNorm (fun x => χ k x * u x - u x) p volume)
+      = fun k => (∫⁻ x, ‖χ k x * u x - u x‖ₑ ^ p.toReal ∂volume) ^ (1 / p.toReal) from
+    funext fun k => eLpNorm_eq_lintegral_rpow_enorm_toReal hp0 hp]
+  have hlint : Tendsto (fun k => ∫⁻ x, ‖χ k x * u x - u x‖ₑ ^ p.toReal ∂volume) atTop (𝓝 0) := by
+    simpa using tendsto_lintegral_of_dominated_convergence'
+      (fun x => ‖u x‖ₑ ^ p.toReal) hF_meas hbound hfin (Eventually.of_forall hlim)
+  have hres := hlint.ennrpow_const (1 / p.toReal)
+  rwa [ENNReal.zero_rpow_of_pos (by positivity)] at hres
+
 /-- **Sobolev embedding for all of `W^{1,p}` (passing to the limit).**  The
 Gagliardo–Nirenberg–Sobolev inequality, proved above for `C¹` compactly supported functions,
 extends to any `u` that is the `W^{1,p}`-limit of such functions: if a sequence `uk` of `C¹`
