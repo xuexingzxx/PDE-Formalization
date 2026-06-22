@@ -2285,9 +2285,13 @@ subsections above.  What remains:
   \item \textbf{Sobolev embedding on all of $W^{1,p}$}: the limit-passing step is \emph{done}
     (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}; see the embedding subsection): a
     $W^{1,p}$-limit of $C^1$ compactly supported functions inherits $\|u\|_{p^*}\le C\|Du\|_p$ with
-    the uniform GNS constant.  What remains is $C^\infty_c$ density in $W^{1,p}(\mathbb{R}^n)$ --- the
-    truncation/cutoff step that upgrades the $C^\infty$ Meyers--Serrin density to compactly supported
-    approximants --- after which the embedding holds with no approximation hypothesis.
+    the uniform GNS constant.  What remains is $C^\infty_c$ density in $W^{1,p}(\mathbb{R}^n)$, the
+    truncation/cutoff step upgrading the $C^\infty$ Meyers--Serrin density to compactly supported
+    approximants.  The cutoff \emph{device} is now in place: \texttt{exists\_cutoff\_family} produces
+    scaled smooth cutoffs $\chi_R$ ($=1$ on $B(0,R)$, valued in $[0,1]$, with gradient $\le M/R$
+    uniformly), so the gradient term $(\nabla\chi_R)\,u$ is $O(1/R)$ in $L^p$; the remaining work is
+    the two $L^p$ truncation limits ($\chi_R u\to u$ and $(\nabla\chi_R)u\to0$, with the weak Leibniz
+    rule \texttt{IsWeakDerivInDir.mul\_smooth}) and a mollification/diagonalisation.
   \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
     rests on the Rellich--Kondrachov compactness now available.
   \item \textbf{Necessary direction of Fréchet--Kolmogorov}: the equicontinuity half is \emph{done}
