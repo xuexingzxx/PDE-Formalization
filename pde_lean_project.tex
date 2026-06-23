@@ -2175,10 +2175,15 @@ truncate by a scaled cutoff (\texttt{exists\_cutoff\_family}) to compact support
 truncation limits \texttt{tendsto\_eLpNorm\_cutoff\_mul\_sub} and
 \texttt{tendsto\_eLpNorm\_fderiv\_cutoff\_mul} (with the weak Leibniz rule
 \texttt{IsWeakDerivInDir.mul\_smooth}) --- then mollify keeping compact support
-(\texttt{HasCompactSupport.convolution}), glued by $\varepsilon/2+\varepsilon/2$.  The one remaining
-step to a hypothesis-free embedding is the Euclidean identity relating the derivative CLM's $L^p$
-norm to its $n$ coordinate components, used to turn the per-direction convergence into
-$\|\mathrm{fderiv}\,u_k-V\|_p\to0$.
+(\texttt{HasCompactSupport.convolution}), glued by $\varepsilon/2+\varepsilon/2$.  Finally the
+\textbf{embedding holds with no hypotheses} (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_forall\_isWeakDerivInDir}):
+if $u\in L^p$ has weak derivatives given by a CLM-valued $V$ ($\partial_{e_i}u=V\cdot e_i$, $V\in L^p$),
+then $\|u\|_{p^*}\le C\|V\|_p$.  The per-direction convergence is turned into
+$\|\mathrm{fderiv}\,u_k-V\|_p\to0$ by the \emph{components bridge} $\|L\|\le\sum_i\|L\,e_i\|$
+(\texttt{opNorm\_le\_sum\_apply\_single}, lifted to $L^p$ by \texttt{eLpNorm\_clm\_sub\_le\_sum}); for
+smooth $u_k$ the weak partials agree a.e.\ with \texttt{fderiv} (\texttt{isWeakDerivInDir\_ae\_unique}).
+The bridge's $\mathbb{R}^n$ inner-product instance diamond (which blocks \texttt{rw}) was dodged by
+Riesz representation and closing with \texttt{exact} (definitional, not syntactic) equality.
 
 \begin{lstlisting}[caption={Sobolev embedding for all of W^1p via limits (proved, zero sorry)}]
 theorem exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto (hp : 1 <= p) (hn : 0 < n) (hpn : p < n)
@@ -2284,25 +2289,12 @@ equivalence, is left.
 \subsection{Future work}
 
 The higher-order theory ($W^{k,p}$, $H^k$), completeness of $W^{1,p}$, the Meyers--Serrin density
-theorem, the Gagliardo--Nirenberg--Sobolev embedding and Poincar\'e inequality (for $C^1$ data),
-and the Rellich--Kondrachov compactness theorem are all \emph{done} and documented in the
-subsections above.  What remains:
+theorem, the Gagliardo--Nirenberg--Sobolev embedding (now on \emph{all} of $W^{1,p}(\mathbb{R}^n)$,
+with no smoothness or compact-support hypothesis, via $C^\infty_c$ density --- see the embedding
+subsection) and Poincar\'e inequality, and the Rellich--Kondrachov compactness theorem are all
+\emph{done} and documented in the subsections above.  What remains:
 
 \begin{enumerate}
-  \item \textbf{Sobolev embedding on all of $W^{1,p}$}: the limit-passing step is \emph{done}
-    (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}): a $W^{1,p}$-limit of $C^1$ compactly
-    supported functions inherits $\|u\|_{p^*}\le C\|Du\|_p$ with the uniform GNS constant; and the
-    full \textbf{density of $C^\infty_c$ in $W^{1,p}(\mathbb{R}^n)$} is now also \emph{done}
-    (\texttt{exists\_contDiff\_hasCompactSupport\_forall\_isWeakDerivInDir}; see the embedding
-    subsection).  The density is assembled from the scaled cutoffs \texttt{exists\_cutoff\_family}
-    ($\chi_R=1$ on $B(0,R)$, gradient $\le M/R$), the two $L^p$ truncation limits
-    (\texttt{tendsto\_eLpNorm\_cutoff\_mul\_sub} for $\chi_R u\to u$ and
-    \texttt{tendsto\_eLpNorm\_fderiv\_cutoff\_mul} for $(\nabla\chi_R)u\to0$, via the weak Leibniz
-    rule \texttt{IsWeakDerivInDir.mul\_smooth}), and a compact-support mollification
-    (\texttt{\dots\_of\_hasCompactSupport}), glued by $\varepsilon/2+\varepsilon/2$.  Only the final
-    wiring remains --- feeding the resulting $C^\infty_c$ sequence to the limit-passing theorem,
-    which needs the Euclidean identity relating the derivative CLM's $L^p$ norm to its coordinate
-    components.
   \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
     rests on the Rellich--Kondrachov compactness now available.
   \item \textbf{Necessary direction of Fréchet--Kolmogorov}: the equicontinuity half is \emph{done}
