@@ -993,4 +993,32 @@ theorem exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir {u : ℝⁿ �
       _ ≤ ε / 2 + ε / 2 := add_le_add (hw₀i i).2 (hwi i).2.2
       _ = ε := ENNReal.add_halves ε
 
+/-- **Operator norm of a functional on `ℝⁿ` is bounded by the sum of its coordinate components.**
+For `L : ℝⁿ →L[ℝ] ℝ`, `‖L‖ ≤ ∑ᵢ ‖L eᵢ‖` (`eᵢ` the standard basis), via Riesz representation
+`L = ⟪g, ·⟫` with `g = (toDual).symm L`, `‖L‖ = ‖g‖`, the `ℓ²≤ℓ¹` bound, and `g i = L eᵢ`.  This is
+the bridge from per-direction control of a derivative to control of the full Fréchet derivative as a
+single continuous-linear map, turning per-coordinate `Lᵖ`-convergence into `Lᵖ`-convergence of
+`fderiv`. -/
+lemma opNorm_le_sum_apply_single (L : EuclideanSpace ℝ (Fin n) →L[ℝ] ℝ) :
+    ‖L‖ ≤ ∑ i, ‖L (EuclideanSpace.single i (1 : ℝ))‖ := by
+  set g : EuclideanSpace ℝ (Fin n) :=
+    (InnerProductSpace.toDual ℝ (EuclideanSpace ℝ (Fin n))).symm L with hg
+  have hgi : ∀ i, L (EuclideanSpace.single i (1 : ℝ)) = g i := by
+    intro i
+    have hL : L = InnerProductSpace.toDual ℝ (EuclideanSpace ℝ (Fin n)) g := by
+      rw [hg, LinearIsometryEquiv.apply_symm_apply]
+    rw [hL, InnerProductSpace.toDual_apply_apply]
+    exact (EuclideanSpace.inner_single_right i (1 : ℝ) g).trans (by simp)
+  have hnorm : ‖L‖ = ‖g‖ := by rw [hg]; exact (LinearIsometryEquiv.norm_map _ L).symm
+  rw [hnorm, EuclideanSpace.norm_eq]
+  have hsq : ∑ i, ‖g i‖ ^ 2 ≤ (∑ i, ‖g i‖) ^ 2 := by
+    rw [sq, Finset.sum_mul]
+    refine Finset.sum_le_sum fun i _ => ?_
+    rw [sq]
+    exact mul_le_mul_of_nonneg_left
+      (Finset.single_le_sum (fun j _ => norm_nonneg _) (Finset.mem_univ i)) (norm_nonneg _)
+  calc Real.sqrt (∑ i, ‖g i‖ ^ 2) ≤ Real.sqrt ((∑ i, ‖g i‖) ^ 2) := Real.sqrt_le_sqrt hsq
+    _ = ∑ i, ‖g i‖ := Real.sqrt_sq (Finset.sum_nonneg fun _ _ => norm_nonneg _)
+    _ = ∑ i, ‖L (EuclideanSpace.single i (1 : ℝ))‖ := by simp_rw [hgi]
+
 end Sobolev
