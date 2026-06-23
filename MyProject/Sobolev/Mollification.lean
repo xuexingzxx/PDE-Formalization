@@ -966,14 +966,15 @@ theorem exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir {u : ℝⁿ �
     (hweak : ∀ i, IsWeakDerivInDir univ (e i) u (v i)) {ε : ℝ≥0∞} (hε : 0 < ε) :
     ∃ (w : ℝⁿ → ℝ) (w' : Fin n → ℝⁿ → ℝ), ContDiff ℝ ∞ w ∧ HasCompactSupport w ∧
       eLpNorm (u - w) p volume ≤ ε ∧
-      ∀ i, IsWeakDerivInDir univ (e i) w (w' i) ∧ eLpNorm (v i - w' i) p volume ≤ ε := by
+      ∀ i, ContDiff ℝ ∞ (w' i) ∧ IsWeakDerivInDir univ (e i) w (w' i) ∧
+        eLpNorm (v i - w' i) p volume ≤ ε := by
   have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
   obtain ⟨w₀, w₀', hw₀cs, hw₀mem, hw₀'mem, hw₀u, hw₀i⟩ :=
     exists_hasCompactSupport_forall_isWeakDerivInDir hp hu hv e hweak (ENNReal.half_pos hε.ne')
   obtain ⟨w, w', hwcd, hwcs, hww₀, hwi⟩ :=
     exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir_of_hasCompactSupport hp hw₀cs hw₀mem
       hw₀'mem e (fun i => (hw₀i i).1) (ENNReal.half_pos hε.ne')
-  refine ⟨w, w', hwcd, hwcs, ?_, fun i => ⟨(hwi i).2.1, ?_⟩⟩
+  refine ⟨w, w', hwcd, hwcs, ?_, fun i => ⟨(hwi i).1, (hwi i).2.1, ?_⟩⟩
   · have he : u - w = (u - w₀) + (w₀ - w) := by
       funext x; simp only [Pi.sub_apply, Pi.add_apply]; ring
     rw [he]
@@ -1020,5 +1021,42 @@ lemma opNorm_le_sum_apply_single (L : EuclideanSpace ℝ (Fin n) →L[ℝ] ℝ) 
   calc Real.sqrt (∑ i, ‖g i‖ ^ 2) ≤ Real.sqrt ((∑ i, ‖g i‖) ^ 2) := Real.sqrt_le_sqrt hsq
     _ = ∑ i, ‖g i‖ := Real.sqrt_sq (Finset.sum_nonneg fun _ _ => norm_nonneg _)
     _ = ∑ i, ‖L (EuclideanSpace.single i (1 : ℝ))‖ := by simp_rw [hgi]
+
+/-- **`Lᵖ` control of a derivative `ℝⁿ →L ℝ` by its coordinate components.**  For CLM-valued
+`F, G`, `‖F − G‖_p ≤ ∑ᵢ ‖(F − G)·eᵢ‖_p`.  Pointwise `opNorm_le_sum_apply_single` plus the
+`Lᵖ` triangle inequality (`eLpNorm_sum_le`).  Turns per-direction `Lᵖ`-convergence of weak partials
+into `Lᵖ`-convergence of the full Fréchet derivative. -/
+lemma eLpNorm_clm_sub_le_sum
+    {F G : EuclideanSpace ℝ (Fin n) → (EuclideanSpace ℝ (Fin n) →L[ℝ] ℝ)}
+    {p : ℝ≥0∞} (hp : 1 ≤ p)
+    (hF : AEStronglyMeasurable F volume) (hG : AEStronglyMeasurable G volume) :
+    eLpNorm (F - G) p volume ≤ ∑ i, eLpNorm
+      (fun x => F x (EuclideanSpace.single i (1 : ℝ)) - G x (EuclideanSpace.single i (1 : ℝ)))
+      p volume := by
+  have hD : ∀ i, AEStronglyMeasurable
+      (fun x => F x (EuclideanSpace.single i (1 : ℝ)) - G x (EuclideanSpace.single i (1 : ℝ)))
+      volume := fun i =>
+    (((ContinuousLinearMap.apply ℝ ℝ
+          (EuclideanSpace.single i (1 : ℝ))).continuous.comp_aestronglyMeasurable hF).sub
+      ((ContinuousLinearMap.apply ℝ ℝ
+          (EuclideanSpace.single i (1 : ℝ))).continuous.comp_aestronglyMeasurable hG))
+  have hpt : ∀ x, ‖(F - G) x‖ ≤
+      ∑ i, ‖F x (EuclideanSpace.single i (1 : ℝ)) - G x (EuclideanSpace.single i (1 : ℝ))‖ := by
+    intro x
+    rw [Pi.sub_apply]
+    refine le_trans (opNorm_le_sum_apply_single (F x - G x)) (le_of_eq ?_)
+    exact Finset.sum_congr rfl fun i _ => by rw [ContinuousLinearMap.sub_apply]
+  calc eLpNorm (F - G) p volume
+      ≤ eLpNorm (∑ i, fun x => ‖F x (EuclideanSpace.single i (1 : ℝ))
+            - G x (EuclideanSpace.single i (1 : ℝ))‖) p volume := by
+        refine eLpNorm_mono_ae (Eventually.of_forall fun x => ?_)
+        rw [Finset.sum_apply, Real.norm_eq_abs,
+          abs_of_nonneg (Finset.sum_nonneg fun _ _ => norm_nonneg _)]
+        exact hpt x
+    _ ≤ ∑ i, eLpNorm (fun x => ‖F x (EuclideanSpace.single i (1 : ℝ))
+            - G x (EuclideanSpace.single i (1 : ℝ))‖) p volume :=
+        eLpNorm_sum_le (fun i _ => (hD i).norm) hp
+    _ = ∑ i, eLpNorm (fun x => F x (EuclideanSpace.single i (1 : ℝ))
+            - G x (EuclideanSpace.single i (1 : ℝ))) p volume := by simp_rw [eLpNorm_norm]
 
 end Sobolev
