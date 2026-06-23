@@ -1059,4 +1059,79 @@ lemma eLpNorm_clm_sub_le_sum
     _ = ∑ i, eLpNorm (fun x => F x (EuclideanSpace.single i (1 : ℝ))
             - G x (EuclideanSpace.single i (1 : ℝ))) p volume := by simp_rw [eLpNorm_norm]
 
+/-- **Gagliardo–Nirenberg–Sobolev embedding on all of `W^{1,p}(ℝⁿ)`.**  If `u ∈ Lᵖ` has weak
+derivatives given by a CLM-valued `V` (`∂_{eᵢ} u = V·eᵢ`, with `V ∈ Lᵖ`), then `u ∈ L^{p*}` with
+`‖u‖_{p*} ≤ C‖V‖_p` (`1 ≤ p < n`, `1/p* = 1/p − 1/n`).  This is the embedding with **no smoothness
+or compact-support hypothesis** — the culmination of the §5.6 development.  Proof: the now-proved
+`C^∞_c` density (`exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir`) supplies an
+approximating sequence `wₖ → u` in `W^{1,p}`; for smooth `wₖ` the weak partials coincide a.e. with
+`fderiv` (`isWeakDerivInDir_ae_unique`); the per-direction `Lᵖ`-convergence is upgraded to
+`‖fderiv wₖ − V‖_p → 0` by the components bridge (`eLpNorm_clm_sub_le_sum`,
+`opNorm_le_sum_apply_single`); and the limit is passed through the uniform GNS constant
+(`exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto`). -/
+theorem exists_eLpNorm_le_eLpNorm_fderiv_of_forall_isWeakDerivInDir
+    {u : EuclideanSpace ℝ (Fin n) → ℝ}
+    {V : EuclideanSpace ℝ (Fin n) → (EuclideanSpace ℝ (Fin n) →L[ℝ] ℝ)}
+    {p p' : ℝ≥0} (hp : 1 ≤ p) (hn : 0 < n) (hpn : p < n)
+    (hp' : (p' : ℝ)⁻¹ = (p : ℝ)⁻¹ - (n : ℝ)⁻¹)
+    (hu : MemLp u (p : ℝ≥0∞) volume) (hV : MemLp V (p : ℝ≥0∞) volume)
+    (hweak : ∀ i, IsWeakDerivInDir univ (EuclideanSpace.single i (1 : ℝ)) u
+      (fun x => V x (EuclideanSpace.single i (1 : ℝ)))) :
+    ∃ C : ℝ≥0, eLpNorm u (p' : ℝ≥0∞) volume ≤ C * eLpNorm V (p : ℝ≥0∞) volume := by
+  haveI : Fact (1 ≤ (p : ℝ≥0∞)) := ⟨by exact_mod_cast hp⟩
+  have hp1 : (1 : ℝ≥0∞) ≤ (p : ℝ≥0∞) := Fact.out
+  have hptop : (p : ℝ≥0∞) ≠ ⊤ := ENNReal.coe_ne_top
+  have hinv : Tendsto (fun k : ℕ => ((k : ℝ≥0∞) + 1)⁻¹) atTop (𝓝 0) := by
+    simpa only [Function.comp_def, Nat.cast_add_one] using
+      ENNReal.tendsto_inv_nat_nhds_zero.comp (tendsto_add_atTop_nat 1)
+  have hεpos : ∀ k : ℕ, (0 : ℝ≥0∞) < ((k : ℝ≥0∞) + 1)⁻¹ :=
+    fun k => ENNReal.inv_pos.mpr (by simp)
+  have hvmem : ∀ i, MemLp (fun x => V x (EuclideanSpace.single i (1 : ℝ))) (p : ℝ≥0∞) volume := by
+    intro i
+    refine hV.mono ((ContinuousLinearMap.apply ℝ ℝ
+      (EuclideanSpace.single i (1 : ℝ))).continuous.comp_aestronglyMeasurable
+      hV.aestronglyMeasurable) (Eventually.of_forall fun x => ?_)
+    calc ‖V x (EuclideanSpace.single i (1 : ℝ))‖
+        ≤ ‖V x‖ * ‖EuclideanSpace.single i (1 : ℝ)‖ := (V x).le_opNorm _
+      _ = ‖V x‖ := by rw [show ‖EuclideanSpace.single i (1 : ℝ)‖ = 1 from by simp, mul_one]
+  choose w w' hwcd hwcs hwu hwi using fun k : ℕ =>
+    exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir hptop hu hvmem
+      (fun i => EuclideanSpace.single i (1 : ℝ)) hweak (hεpos k)
+  have hC1 : ∀ k, ContDiff ℝ 1 (w k) := fun k => (hwcd k).of_le (by norm_num)
+  have hcomp : ∀ k i, eLpNorm (fun x => fderiv ℝ (w k) x (EuclideanSpace.single i (1 : ℝ))
+      - V x (EuclideanSpace.single i (1 : ℝ))) (p : ℝ≥0∞) volume ≤ ((k : ℝ≥0∞) + 1)⁻¹ := by
+    intro k i
+    have hae : (fun x => fderiv ℝ (w k) x (EuclideanSpace.single i (1 : ℝ))) =ᵐ[volume] w' k i := by
+      have huniq := isWeakDerivInDir_ae_unique isOpen_univ
+        (((hC1 k).continuous_fderiv one_ne_zero).clm_apply continuous_const).locallyIntegrable
+        (hwi k i).1.continuous.locallyIntegrable
+        (isWeakDerivInDir_of_contDiff univ (EuclideanSpace.single i (1 : ℝ)) (hC1 k))
+        (hwi k i).2.1
+      filter_upwards [huniq] with x hx; exact hx (mem_univ x)
+    calc eLpNorm (fun x => fderiv ℝ (w k) x (EuclideanSpace.single i (1 : ℝ))
+            - V x (EuclideanSpace.single i (1 : ℝ))) (p : ℝ≥0∞) volume
+        = eLpNorm (fun x => w' k i x - V x (EuclideanSpace.single i (1 : ℝ))) (p : ℝ≥0∞) volume :=
+          eLpNorm_congr_ae (hae.sub (EventuallyEq.refl _ _))
+      _ = eLpNorm (fun x => V x (EuclideanSpace.single i (1 : ℝ)) - w' k i x) (p : ℝ≥0∞) volume :=
+          eLpNorm_sub_comm _ _ _ _
+      _ ≤ ((k : ℝ≥0∞) + 1)⁻¹ := (hwi k i).2.2
+  have hUconv : Tendsto (fun k => eLpNorm (w k - u) (p : ℝ≥0∞) volume) atTop (𝓝 0) := by
+    refine tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hinv
+      (fun k => zero_le _) (fun k => ?_)
+    rw [eLpNorm_sub_comm]; exact hwu k
+  have hVconv : Tendsto (fun k => eLpNorm (fderiv ℝ (w k) - V) (p : ℝ≥0∞) volume) atTop (𝓝 0) := by
+    have hmul : Tendsto (fun k : ℕ => (n : ℝ≥0∞) * ((k : ℝ≥0∞) + 1)⁻¹) atTop (𝓝 0) := by
+      simpa using ENNReal.Tendsto.const_mul hinv (Or.inr (ENNReal.natCast_ne_top n))
+    refine tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds hmul
+      (fun k => zero_le _) (fun k => ?_)
+    refine le_trans (eLpNorm_clm_sub_le_sum hp1
+      ((hC1 k).continuous_fderiv one_ne_zero).aestronglyMeasurable hV.aestronglyMeasurable) ?_
+    calc ∑ i, eLpNorm (fun x => fderiv ℝ (w k) x (EuclideanSpace.single i (1 : ℝ))
+            - V x (EuclideanSpace.single i (1 : ℝ))) (p : ℝ≥0∞) volume
+        ≤ ∑ _i : Fin n, ((k : ℝ≥0∞) + 1)⁻¹ := Finset.sum_le_sum fun i _ => hcomp k i
+      _ = (n : ℝ≥0∞) * ((k : ℝ≥0∞) + 1)⁻¹ := by
+          rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+  exact exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto hp hn hpn hp' hu.aestronglyMeasurable hV
+    hC1 hwcs hUconv hVconv
+
 end Sobolev
