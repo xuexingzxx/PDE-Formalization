@@ -51,6 +51,15 @@ theorem hausdorffMeasure_image_bilipschitz {X Y : Type*}
       ≤ ((K' : ℝ≥0∞) ^ d)⁻¹ * ((K' : ℝ≥0∞) ^ d * μH[d] (f '' s)) := by gcongr
     _ = μH[d] (f '' s) := by rw [← mul_assoc, ENNReal.inv_mul_cancel hne htop, one_mul]
 
+/-- Hausdorff measure of the universe of a subtype equals that of the set (bridges the
+restricted-map domain `↥S` to `S` in the cell estimate). -/
+theorem hausdorffMeasure_univ_subtype {X : Type*}
+    [MeasurableSpace X] [EMetricSpace X] [BorelSpace X] {d : ℝ} (hd : 0 ≤ d) (S : Set X) :
+    μH[d] (Set.univ : Set ↥S) = μH[d] S := by
+  have := isometry_subtype_coe (s := S) |>.hausdorffMeasure_image (Or.inl hd) Set.univ
+  rw [Subtype.coe_image_univ] at this
+  exact this.symm
+
 variable {m : ℕ} {F : Type*}
   [NormedAddCommGroup F] [InnerProductSpace ℝ F] [FiniteDimensional ℝ F]
   [MeasurableSpace F] [BorelSpace F]
@@ -141,6 +150,39 @@ theorem exists_antilipschitz_of_injective {L : (ℝ^m) →ₗ[ℝ] F} (hL : Func
   have hx : x = gC (L x) := by simpa [gC] using (LinearMap.congr_fun hg x).symm
   calc ‖x‖ = ‖gC (L x)‖ := by rw [← hx]
     _ ≤ ‖gC‖₊ * ‖L x‖ := gC.le_opNorm (L x)
+
+omit [FiniteDimensional ℝ F] [MeasurableSpace F] [BorelSpace F] in
+/-- The "straightening" map `T = φ ∘ Φ_L⁻¹` (where `Φ_L x = φ x₀ + L(x - x₀)`) approximates the
+identity with constant `c·K` on `Φ_L '' Q`, when `φ` approximates `L` with constant `c` on `Q`
+and `L` is `K`-antilipschitz. This is the bridge that lets the bi-Lipschitz squeeze compare
+`φ '' Q` to the affine `Φ_L '' Q`. -/
+theorem approximatesLinearOn_comp_invFun {φ : (ℝ^m) → F} {L : (ℝ^m) →L[ℝ] F}
+    {Q : Set (ℝ^m)} {c K : ℝ≥0} (hLinj : Function.Injective L) (hK : AntilipschitzWith K L)
+    (happ : ApproximatesLinearOn φ L Q c) (x₀ : ℝ^m) :
+    ApproximatesLinearOn (φ ∘ Function.invFun (fun x => φ x₀ + L (x - x₀)))
+      (ContinuousLinearMap.id ℝ F) ((fun x => φ x₀ + L (x - x₀)) '' Q) (c * K) := by
+  set Φ : (ℝ^m) → F := fun x => φ x₀ + L (x - x₀) with hΦ
+  have hΦinj : Function.Injective Φ := by
+    intro a b hab
+    simp only [hΦ, add_right_inj] at hab
+    simpa using hLinj hab
+  intro p hp p' hp'
+  obtain ⟨x, hx, rfl⟩ := hp
+  obtain ⟨x', hx', rfl⟩ := hp'
+  have hTx : (φ ∘ Function.invFun Φ) (Φ x) = φ x := by
+    simp [Function.leftInverse_invFun hΦinj x]
+  have hTx' : (φ ∘ Function.invFun Φ) (Φ x') = φ x' := by
+    simp [Function.leftInverse_invFun hΦinj x']
+  have hΦsub : Φ x - Φ x' = L (x - x') := by
+    simp only [hΦ]; rw [add_sub_add_left_eq_sub, ← map_sub]; congr 1; abel
+  rw [hTx, hTx', ContinuousLinearMap.id_apply, hΦsub]
+  calc ‖φ x - φ x' - L (x - x')‖
+      ≤ c * ‖x - x'‖ := happ x hx x' hx'
+    _ ≤ c * (K * ‖L (x - x')‖) := by
+        gcongr
+        have := hK.le_mul_dist x x'
+        simpa [dist_eq_norm, map_sub] using this
+    _ = (c * K : ℝ≥0) * ‖L (x - x')‖ := by push_cast; ring
 
 /-- The linear part of an affine graph map: `y ↦ (y, ⟪a, y⟫)` into the `L²` product. -/
 def graphMap (a : ℝ^m) : (ℝ^m) →ₗ[ℝ] WithLp 2 ((ℝ^m) × ℝ) :=
