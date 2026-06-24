@@ -1,6 +1,7 @@
 import MyProject.Common.Calculus
 import MyProject.Common.LpJensen
 import MyProject.Common.Translation
+import MyProject.Common.AreaFormula
 import MyProject.PDE.Transport
 import MyProject.PDE.Laplace
 import MyProject.PDE.Heat
