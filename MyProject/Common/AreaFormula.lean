@@ -118,6 +118,30 @@ theorem μHE_image_linear (L : (ℝ^m) →ₗ[ℝ] F) (hL : Function.Injective L
           rw [hgram, LinearMap.det_comp, det_adjoint_self, sq]
         rw [hsq, Real.sqrt_sq_eq_abs]
 
+/-- Affine version of the linear area formula: translating the image leaves `μHE[m]`
+unchanged, so an affine map `z ↦ v + L z` scales by the same Jacobian `√det(Lᵀ L)`. -/
+theorem μHE_image_affine (L : (ℝ^m) →ₗ[ℝ] F) (hL : Function.Injective L) (v : F) (A : Set (ℝ^m)) :
+    (μHE[m] : Measure F) ((fun z => v + L z) '' A)
+      = ENNReal.ofReal (Real.sqrt (LinearMap.det (LinearMap.adjoint L ∘ₗ L))) * volume A := by
+  have hiso : Isometry (fun x : F => v + x) :=
+    Isometry.of_dist_eq fun x y => by simp [dist_add_left]
+  have himg : (fun z => v + L z) '' A = (fun x : F => v + x) '' (L '' A) := by
+    rw [Set.image_image]
+  rw [himg, hiso.euclideanHausdorffMeasure_image, μHE_image_linear L hL A]
+
+omit [MeasurableSpace F] [BorelSpace F] in
+/-- An injective linear map from `ℝᵐ` into a finite-dimensional inner product space is
+antilipschitz (bounded below), via a continuous left inverse. This is the lower bi-Lipschitz
+bound used to control a `C¹` map by its derivative in the cell estimate. -/
+theorem exists_antilipschitz_of_injective {L : (ℝ^m) →ₗ[ℝ] F} (hL : Function.Injective L) :
+    ∃ K : ℝ≥0, AntilipschitzWith K L := by
+  obtain ⟨g, hg⟩ := L.exists_leftInverse_of_injective (LinearMap.ker_eq_bot.mpr hL)
+  let gC : F →L[ℝ] (ℝ^m) := LinearMap.toContinuousLinearMap g
+  refine ⟨‖gC‖₊, AddMonoidHomClass.antilipschitz_of_bound L fun x => ?_⟩
+  have hx : x = gC (L x) := by simpa [gC] using (LinearMap.congr_fun hg x).symm
+  calc ‖x‖ = ‖gC (L x)‖ := by rw [← hx]
+    _ ≤ ‖gC‖₊ * ‖L x‖ := gC.le_opNorm (L x)
+
 /-- The linear part of an affine graph map: `y ↦ (y, ⟪a, y⟫)` into the `L²` product. -/
 def graphMap (a : ℝ^m) : (ℝ^m) →ₗ[ℝ] WithLp 2 ((ℝ^m) × ℝ) :=
   (WithLp.linearEquiv 2 ℝ ((ℝ^m) × ℝ)).symm.toLinearMap ∘ₗ
