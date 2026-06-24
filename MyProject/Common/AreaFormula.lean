@@ -26,11 +26,30 @@ local linearization and a covering argument.
 -/
 
 open MeasureTheory Matrix Module
-open scoped ENNReal RealInnerProductSpace
+open scoped ENNReal NNReal RealInnerProductSpace
 
 noncomputable section
 
 namespace AreaFormula
+
+/-- Two-sided bound for the Hausdorff measure of the image under a bi-Lipschitz map: the
+local squeeze underlying the linearization step of the area formula. -/
+theorem hausdorffMeasure_image_bilipschitz {X Y : Type*}
+    [MeasurableSpace X] [EMetricSpace X] [BorelSpace X]
+    [MeasurableSpace Y] [EMetricSpace Y] [BorelSpace Y]
+    {f : X → Y} {K K' : ℝ≥0} {d : ℝ}
+    (hd : 0 ≤ d) (hK' : K' ≠ 0) (hL : LipschitzWith K f) (hA : AntilipschitzWith K' f)
+    (s : Set X) :
+    ((K' : ℝ≥0∞) ^ d)⁻¹ * μH[d] s ≤ μH[d] (f '' s)
+      ∧ μH[d] (f '' s) ≤ (K : ℝ≥0∞) ^ d * μH[d] s := by
+  refine ⟨?_, hL.hausdorffMeasure_image_le hd s⟩
+  have h := hA.le_hausdorffMeasure_image hd s
+  have hKpos : (0 : ℝ≥0∞) < (K' : ℝ≥0∞) := by exact_mod_cast hK'.bot_lt
+  have htop : (K' : ℝ≥0∞) ^ d ≠ ∞ := ENNReal.rpow_ne_top_of_nonneg hd (by simp)
+  have hne : (K' : ℝ≥0∞) ^ d ≠ 0 := (ENNReal.rpow_pos hKpos (by simp)).ne'
+  calc ((K' : ℝ≥0∞) ^ d)⁻¹ * μH[d] s
+      ≤ ((K' : ℝ≥0∞) ^ d)⁻¹ * ((K' : ℝ≥0∞) ^ d * μH[d] (f '' s)) := by gcongr
+    _ = μH[d] (f '' s) := by rw [← mul_assoc, ENNReal.inv_mul_cancel hne htop, one_mul]
 
 variable {m : ℕ} {F : Type*}
   [NormedAddCommGroup F] [InnerProductSpace ℝ F] [FiniteDimensional ℝ F]
