@@ -174,6 +174,22 @@ theorem μHE_graph (a : ℝ^m) (A : Set (ℝ^m)) :
       = ENNReal.ofReal (Real.sqrt (1 + ‖a‖ ^ 2)) * volume A := by
   rw [μHE_image_linear (graphMap a) (graph_injective a) A, graph_gram_det a]
 
+/-! ### The `C¹` graph: integrand regularity
+
+Towards the general `C¹` graph area formula `μHE[m](Φ''A) = ∫_A √(1 + ‖∇g‖²)`, where
+`Φ y = (y, g y)`. The right-hand integrand must be continuous (hence measurable, and usable
+in the covering/Riemann-sum step). -/
+
+/-- The gradient of a `C¹` function is continuous. -/
+theorem continuous_gradient {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) :
+    Continuous (gradient g) :=
+  (InnerProductSpace.toDual ℝ (ℝ^m)).symm.continuous.comp (hg.continuous_fderiv (by norm_num))
+
+/-- The area integrand `y ↦ √(1 + ‖∇g(y)‖²)` of a `C¹` function is continuous. -/
+theorem continuous_graph_integrand {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) :
+    Continuous (fun y => Real.sqrt (1 + ‖gradient g y‖ ^ 2)) :=
+  Continuous.sqrt (continuous_const.add ((continuous_gradient hg).norm.pow 2))
+
 end AreaFormula
 
 end
