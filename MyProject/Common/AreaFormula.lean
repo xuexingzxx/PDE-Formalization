@@ -1192,6 +1192,72 @@ theorem divergence_subgraph {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ 1 γ) {A 
   rw [ftc_subgraph hF, flux_graph_vertical hγ hA hmeas, integral_sub hintγ hint0]
   congr 1
 
+/-! ### Geometric form via Fubini
+
+Upgrading the iterated integral to a genuine volume integral over the region `Ω` under the graph,
+using `WithLp.volume_preserving_ofLp` (implicitly, via `volume_eq_prod` on `ℝᵐ × ℝ`) and Fubini. -/
+
+set_option linter.unusedSectionVars false in
+set_option linter.style.longLine false in
+/-- Fubini over the region under a graph: the integral of `h` over `regionBetween 0 γ A` equals
+the iterated integral `∫_A ∫_{Ioo 0 (γx)} h(x,t) dt dx`. -/
+theorem setIntegral_regionBetween {γ : (ℝ^m) → ℝ} (hγ : Measurable γ) {A : Set (ℝ^m)}
+    (hA : MeasurableSet A) {h : (ℝ^m) × ℝ → ℝ}
+    (hint : IntegrableOn h (regionBetween (fun _ => (0 : ℝ)) γ A)) :
+    ∫ p in regionBetween (fun _ => (0 : ℝ)) γ A, h p ∂(volume : Measure ((ℝ^m) × ℝ))
+      = ∫ x in A, (∫ t in Set.Ioo 0 (γ x), h (x, t)) ∂volume := by
+  have hmS : MeasurableSet (regionBetween (fun _ => (0 : ℝ)) γ A) :=
+    measurableSet_regionBetween measurable_const hγ hA
+  have hint' : Integrable
+      (fun p => (regionBetween (fun _ => (0 : ℝ)) γ A).indicator h p) (volume : Measure ((ℝ^m) × ℝ)) :=
+    (integrable_indicator_iff hmS).mpr hint
+  rw [← integral_indicator hmS, volume_eq_prod,
+    integral_prod _ (by rw [← volume_eq_prod]; exact hint')]
+  have hslice : (fun x => ∫ t, (regionBetween (fun _ => (0 : ℝ)) γ A).indicator h (x, t) ∂volume)
+      = A.indicator (fun x => ∫ t in Set.Ioo (0 : ℝ) (γ x), h (x, t)) := by
+    funext x
+    by_cases hxA : x ∈ A
+    · rw [Set.indicator_of_mem hxA]
+      have hfun : (fun t => (regionBetween (fun _ => (0 : ℝ)) γ A).indicator h (x, t))
+          = (Set.Ioo (0 : ℝ) (γ x)).indicator (fun t => h (x, t)) := by
+        funext t
+        by_cases htI : t ∈ Set.Ioo (0 : ℝ) (γ x)
+        · rw [Set.indicator_of_mem htI, Set.indicator_of_mem (show
+            (x, t) ∈ regionBetween (fun _ => (0 : ℝ)) γ A from ⟨hxA, htI⟩)]
+        · rw [Set.indicator_of_notMem htI, Set.indicator_of_notMem (fun hmem => htI hmem.2)]
+      rw [hfun, integral_indicator measurableSet_Ioo]
+    · rw [Set.indicator_of_notMem hxA]
+      have hfun : (fun t => (regionBetween (fun _ => (0 : ℝ)) γ A).indicator h (x, t))
+          = fun _ => 0 := by
+        funext t; exact Set.indicator_of_notMem (fun hmem => hxA hmem.1) _
+      rw [hfun, integral_zero]
+  rw [hslice, integral_indicator hA]
+
+set_option linter.unusedSectionVars false in
+set_option linter.style.longLine false in
+/-- **Divergence theorem over a subgraph (geometric form).** For `γ ≥ 0` of class `C¹` and each
+`F x` of class `C¹`, the genuine volume integral of `∂ₜF` over the region `Ω = {(x,t): x∈A,
+0<t<γx}` equals the top-boundary flux minus the bottom integral. -/
+theorem divergence_subgraph_geometric {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ 1 γ) (hγ0 : ∀ x, 0 ≤ γ x)
+    {A : Set (ℝ^m)} (hA : MeasurableSet A) {F : (ℝ^m) → ℝ → ℝ} (hF : ∀ x, ContDiff ℝ 1 (F x))
+    (hmeas : AEStronglyMeasurable
+      (fun y => ⟪WithLp.toLp 2 ((0 : ℝ^m), F y.ofLp.1 y.ofLp.2), graphNormal γ y.ofLp.1⟫)
+      ((μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ))).restrict (graphFun γ '' A)))
+    (hint0 : IntegrableOn (fun x => F x 0) A) (hintγ : IntegrableOn (fun x => F x (γ x)) A)
+    (hregint : IntegrableOn (fun p => deriv (F p.1) p.2)
+      (regionBetween (fun _ => (0 : ℝ)) γ A)) :
+    ∫ p in regionBetween (fun _ => (0 : ℝ)) γ A, deriv (F p.1) p.2
+        ∂(volume : Measure ((ℝ^m) × ℝ))
+      = (∫ y in graphFun γ '' A,
+            (⟪WithLp.toLp 2 ((0 : ℝ^m), F y.ofLp.1 y.ofLp.2), graphNormal γ y.ofLp.1⟫ : ℝ)
+            ∂(μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ))))
+          - ∫ x in A, F x 0 ∂volume := by
+  rw [setIntegral_regionBetween hγ.continuous.measurable hA hregint,
+    ← divergence_subgraph hγ hA hF hmeas hint0 hintγ]
+  refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+  dsimp only
+  rw [intervalIntegral.integral_of_le (hγ0 x), integral_Ioc_eq_integral_Ioo]
+
 end AreaFormula
 
 end
