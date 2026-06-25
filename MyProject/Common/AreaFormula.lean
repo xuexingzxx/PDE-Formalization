@@ -127,6 +127,22 @@ theorem μHE_image_linear (L : (ℝ^m) →ₗ[ℝ] F) (hL : Function.Injective L
           rw [hgram, LinearMap.det_comp, det_adjoint_self, sq]
         rw [hsq, Real.sqrt_sq_eq_abs]
 
+omit [MeasurableSpace F] [BorelSpace F] in
+/-- The Gram determinant `det(Lᵀ L)` is nonnegative: in orthonormal bases `Lᵀ L` has matrix
+`Gᴴ G` (with `G` the matrix of `L`), which is positive semidefinite. This makes the Jacobian
+`√det(Lᵀ L)` a faithful (non-truncated) square root. -/
+theorem gram_det_nonneg (L : (ℝ^m) →ₗ[ℝ] F) :
+    0 ≤ LinearMap.det (LinearMap.adjoint L ∘ₗ L) := by
+  set b := stdOrthonormalBasis ℝ (ℝ^m) with hb
+  set bF := stdOrthonormalBasis ℝ F with hbF
+  rw [← LinearMap.det_toMatrix b.toBasis]
+  set G := LinearMap.toMatrix b.toBasis bF.toBasis L with hG
+  have hmat : LinearMap.toMatrix b.toBasis b.toBasis (LinearMap.adjoint L ∘ₗ L) = Gᴴ * G := by
+    rw [LinearMap.toMatrix_comp b.toBasis bF.toBasis b.toBasis,
+      LinearMap.toMatrix_adjoint b bF L, hG]
+  rw [hmat]
+  exact (Matrix.posSemidef_conjTranspose_mul_self G).det_nonneg
+
 /-- Affine version of the linear area formula: translating the image leaves `μHE[m]`
 unchanged, so an affine map `z ↦ v + L z` scales by the same Jacobian `√det(Lᵀ L)`. -/
 theorem μHE_image_affine (L : (ℝ^m) →ₗ[ℝ] F) (hL : Function.Injective L) (v : F) (A : Set (ℝ^m)) :
@@ -370,6 +386,22 @@ theorem continuous_gradient {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) :
 theorem continuous_graph_integrand {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) :
     Continuous (fun y => Real.sqrt (1 + ‖gradient g y‖ ^ 2)) :=
   Continuous.sqrt (continuous_const.add ((continuous_gradient hg).norm.pow 2))
+
+omit [MeasurableSpace F] [BorelSpace F] in
+/-- The general area integrand `M ↦ √det(Mᵀ M)` is a continuous function of the linear map.
+Composed with a continuous derivative `y ↦ Dφ(y)`, this gives a continuous (hence measurable)
+integrand `y ↦ √det(Dφ(y)ᵀ Dφ(y))` for the `C¹` area formula. -/
+theorem continuous_jacobian :
+    Continuous (fun M : (ℝ^m) →L[ℝ] F =>
+      Real.sqrt (LinearMap.det (LinearMap.adjoint M.toLinearMap ∘ₗ M.toLinearMap))) := by
+  have hbridge : ∀ M : (ℝ^m) →L[ℝ] F,
+      LinearMap.det (LinearMap.adjoint M.toLinearMap ∘ₗ M.toLinearMap)
+        = ContinuousLinearMap.det (ContinuousLinearMap.adjoint M ∘L M) := fun _ => rfl
+  simp_rw [hbridge]
+  refine Real.continuous_sqrt.comp (ContinuousLinearMap.continuous_det.comp ?_)
+  have hcomp : Continuous fun p : (F →L[ℝ] (ℝ^m)) × ((ℝ^m) →L[ℝ] F) => p.1.comp p.2 :=
+    isBoundedBilinearMap_comp.continuous
+  exact hcomp.comp ((ContinuousLinearMap.adjoint (𝕜 := ℝ)).continuous.prodMk continuous_id)
 
 end AreaFormula
 
