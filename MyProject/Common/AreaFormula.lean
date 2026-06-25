@@ -270,6 +270,35 @@ theorem cell_estimate [Nontrivial F] {φ : (ℝ^m) → F} {L : (ℝ^m) →L[ℝ]
       _ ≤ c₀ * μH[(m : ℝ)] (φ '' Q) := by gcongr
       _ = (μHE[m] : Measure F) (φ '' Q) := (hscale _).symm
 
+set_option linter.unusedSectionVars false in
+/-- For an injective continuous `φ`, the measure of `φ '' A` decomposes as a sum over a measurable
+partition of `A`. Continuous injective images of Borel sets are Borel (Lusin–Souslin), and
+injectivity makes the pieces disjoint — so `measure_iUnion` applies. This turns the area formula
+into a sum over the cells produced by the `ApproximatesLinearOn` partition. -/
+theorem measure_image_tsum_of_injOn {φ : (ℝ^m) → F} (hφc : Continuous φ) {A : Set (ℝ^m)}
+    (hA : MeasurableSet A) (hφinj : Set.InjOn φ A) {t : ℕ → Set (ℝ^m)}
+    (htd : Pairwise (Function.onFun Disjoint t)) (htm : ∀ n, MeasurableSet (t n))
+    (hAt : A ⊆ ⋃ n, t n) :
+    (μHE[m] : Measure F) (φ '' A) = ∑' n, (μHE[m] : Measure F) (φ '' (A ∩ t n)) := by
+  have hAeq : A = ⋃ n, A ∩ t n := by
+    rw [← Set.inter_iUnion, Set.inter_eq_left.mpr hAt]
+  have himg : φ '' A = ⋃ n, φ '' (A ∩ t n) := by
+    conv_lhs => rw [hAeq]
+    rw [Set.image_iUnion]
+  rw [himg, measure_iUnion ?_ ?_]
+  · intro i j hij
+    simp only [Function.onFun]
+    rw [Set.disjoint_iff_inter_eq_empty]
+    ext y
+    simp only [Set.mem_inter_iff, Set.mem_image, Set.mem_empty_iff_false, iff_false, not_and]
+    rintro ⟨x₁, ⟨hx₁A, hx₁t⟩, rfl⟩ ⟨x₂, ⟨hx₂A, hx₂t⟩, hx₂⟩
+    have hx : x₁ = x₂ := hφinj hx₁A hx₂A hx₂.symm
+    subst hx
+    exact (htd hij).le_bot ⟨hx₁t, hx₂t⟩
+  · intro n
+    exact (hA.inter (htm n)).image_of_continuousOn_injOn hφc.continuousOn
+      (hφinj.mono Set.inter_subset_left)
+
 /-- The linear part of an affine graph map: `y ↦ (y, ⟪a, y⟫)` into the `L²` product. -/
 def graphMap (a : ℝ^m) : (ℝ^m) →ₗ[ℝ] WithLp 2 ((ℝ^m) × ℝ) :=
   (WithLp.linearEquiv 2 ℝ ((ℝ^m) × ℝ)).symm.toLinearMap ∘ₗ
