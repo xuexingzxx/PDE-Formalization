@@ -25,7 +25,7 @@ These are the affine pieces underlying the general (`C¹`) area formula, to be o
 local linearization and a covering argument.
 -/
 
-open MeasureTheory Matrix Module
+open MeasureTheory Matrix Module Filter Topology
 open scoped ENNReal NNReal RealInnerProductSpace
 
 noncomputable section
@@ -65,6 +65,12 @@ variable {m : ℕ} {F : Type*}
   [MeasurableSpace F] [BorelSpace F]
 
 local notation "ℝ^" m => EuclideanSpace ℝ (Fin m)
+
+/-- The Jacobian `√det(Mᵀ M)` of a linear map `M : ℝᵐ → F`. By `gram_det_nonneg` the argument
+of the square root is nonnegative, so this is a faithful square root; it is the local volume-
+scaling factor in the area formula. -/
+def jacobian (M : (ℝ^m) →L[ℝ] F) : ℝ :=
+  Real.sqrt (LinearMap.det (LinearMap.adjoint M.toLinearMap ∘ₗ M.toLinearMap))
 
 /-- For a real endomorphism of a finite-dimensional inner product space,
 `det (adjoint g) = det g` (the adjoint's matrix in an orthonormal basis is the transpose). -/
@@ -286,6 +292,62 @@ theorem cell_estimate [Nontrivial F] {φ : (ℝ^m) → F} {L : (ℝ^m) →L[ℝ]
       _ ≤ c₀ * μH[(m : ℝ)] (φ '' Q) := by gcongr
       _ = (μHE[m] : Measure F) (φ '' Q) := (hscale _).symm
 
+set_option linter.style.longLine false in
+/-- **Per-linearization cell bound.** For an injective linear map `A`, there is a tolerance
+`δ > 0` such that any map `g` approximating `A` to within `δ` on a set `t` expands the
+`m`-dimensional measure by at most the Jacobian plus `ε`:
+`μHE[m](g '' t) ≤ (√det(Aᵀ A) + ε) · vol t`. This is `cell_estimate` with the multiplicative
+factor `(1 + δK)^m` absorbed into `ε` by choosing `δ` small — the analogue of Mathlib's
+`addHaar_image_le_mul_of_det_lt` and the per-cell input to the covering step of the area formula. -/
+theorem exists_delta_cell_bound [Nontrivial F] {A : (ℝ^m) →L[ℝ] F}
+    (hAinj : Function.Injective A) {ε : ℝ≥0} (hε : 0 < ε) :
+    ∃ δ : ℝ≥0, 0 < δ ∧ ∀ (t : Set (ℝ^m)) (g : (ℝ^m) → F),
+      ApproximatesLinearOn g A t δ →
+        (μHE[m] : Measure F) (g '' t) ≤ (ENNReal.ofReal (jacobian A) + ε) * volume t := by
+  obtain ⟨K, hK⟩ := exists_antilipschitz_of_injective (L := A.toLinearMap) hAinj
+  set J : ℝ := jacobian A with hJdef
+  have hJnn : 0 ≤ J := Real.sqrt_nonneg _
+  -- choose a real `δ` making `(1 + δK)^m · J < J + ε` and `δK < 1`
+  have hcont : ContinuousAt (fun δ : ℝ => (1 + δ * (K : ℝ)) ^ m * J) 0 := by fun_prop
+  have hlt : (fun δ : ℝ => (1 + δ * (K : ℝ)) ^ m * J) 0 < J + ε := by
+    simp only [zero_mul, add_zero, one_pow, one_mul]
+    have : (0 : ℝ) < ε := by exact_mod_cast hε
+    linarith
+  have hcontK : ContinuousAt (fun δ : ℝ => δ * (K : ℝ)) 0 := by fun_prop
+  have hltK : (fun δ : ℝ => δ * (K : ℝ)) 0 < 1 := by simp
+  have e1 : ∀ᶠ δ in 𝓝[>] (0:ℝ), (1 + δ * (K : ℝ)) ^ m * J < J + ε :=
+    (hcont.eventually_lt_const hlt).filter_mono nhdsWithin_le_nhds
+  have e2 : ∀ᶠ δ in 𝓝[>] (0:ℝ), δ * (K : ℝ) < 1 :=
+    (hcontK.eventually_lt_const hltK).filter_mono nhdsWithin_le_nhds
+  have e3 : ∀ᶠ δ in 𝓝[>] (0:ℝ), (0:ℝ) < δ := eventually_mem_nhdsWithin.mono fun x hx => hx
+  obtain ⟨δ, hδlt, hδK, hδpos⟩ := (e1.and (e2.and e3)).exists
+  refine ⟨δ.toNNReal, by simpa using hδpos, fun t g hg => ?_⟩
+  -- apply the cell estimate with `c = δ`, base point `0`
+  have hcK : (δ.toNNReal) * K < 1 := by
+    rw [← NNReal.coe_lt_coe]; push_cast
+    rw [Real.coe_toNNReal δ hδpos.le]; exact hδK
+  obtain ⟨hup, -⟩ := cell_estimate hAinj hK hg hcK (0 : ℝ^m)
+  refine hup.trans ?_
+  -- absorb the `(1 + δK)^m` factor into `ε`
+  have hfac : ((1 + δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * ENNReal.ofReal J
+      ≤ ENNReal.ofReal J + ε := by
+    have hpow : ((1 + δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ)
+        = ((1 + δ.toNNReal * K : ℝ≥0) ^ m : ℝ≥0) := by
+      rw [ENNReal.rpow_natCast]; push_cast; ring_nf
+    rw [hpow, ← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_mul (by positivity)]
+    calc ENNReal.ofReal (((1 + δ.toNNReal * K : ℝ≥0) ^ m : ℝ≥0) * J)
+        ≤ ENNReal.ofReal (J + ε) := by
+          apply ENNReal.ofReal_le_ofReal
+          have hcast : ((1 + δ.toNNReal * K : ℝ≥0) ^ m : ℝ) = (1 + δ * K) ^ m := by
+            push_cast; rw [Real.coe_toNNReal δ hδpos.le]
+          rw [show (((1 + δ.toNNReal * K : ℝ≥0) ^ m : ℝ≥0) : ℝ) = (1 + δ * K)^m from hcast]
+          exact hδlt.le
+      _ = ENNReal.ofReal J + ε := by
+          rw [ENNReal.ofReal_add hJnn (by positivity), ENNReal.ofReal_coe_nnreal]
+  calc ((1 + δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * (ENNReal.ofReal J * volume t)
+      = (((1 + δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * ENNReal.ofReal J) * volume t := by ring
+    _ ≤ (ENNReal.ofReal J + ε) * volume t := by gcongr
+
 set_option linter.unusedSectionVars false in
 /-- For an injective continuous `φ`, the measure of `φ '' A` decomposes as a sum over a measurable
 partition of `A`. Continuous injective images of Borel sets are Borel (Lusin–Souslin), and
@@ -391,9 +453,8 @@ omit [MeasurableSpace F] [BorelSpace F] in
 /-- The general area integrand `M ↦ √det(Mᵀ M)` is a continuous function of the linear map.
 Composed with a continuous derivative `y ↦ Dφ(y)`, this gives a continuous (hence measurable)
 integrand `y ↦ √det(Dφ(y)ᵀ Dφ(y))` for the `C¹` area formula. -/
-theorem continuous_jacobian :
-    Continuous (fun M : (ℝ^m) →L[ℝ] F =>
-      Real.sqrt (LinearMap.det (LinearMap.adjoint M.toLinearMap ∘ₗ M.toLinearMap))) := by
+theorem continuous_jacobian : Continuous (jacobian : ((ℝ^m) →L[ℝ] F) → ℝ) := by
+  unfold jacobian
   have hbridge : ∀ M : (ℝ^m) →L[ℝ] F,
       LinearMap.det (LinearMap.adjoint M.toLinearMap ∘ₗ M.toLinearMap)
         = ContinuousLinearMap.det (ContinuousLinearMap.adjoint M ∘L M) := fun _ => rfl
