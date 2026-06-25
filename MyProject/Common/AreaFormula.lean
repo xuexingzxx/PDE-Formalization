@@ -184,6 +184,92 @@ theorem approximatesLinearOn_comp_invFun {φ : (ℝ^m) → F} {L : (ℝ^m) →L[
         simpa [dist_eq_norm, map_sub] using this
     _ = (c * K : ℝ≥0) * ‖L (x - x')‖ := by push_cast; ring
 
+set_option linter.unusedSectionVars false in
+set_option linter.style.longLine false in
+/-- **Cell estimate.** If `φ` approximates the injective `K`-antilipschitz linear map `L` with
+constant `c` on `Q` (and `c·K < 1`), then `μHE[m](φ '' Q)` is squeezed between
+`(1 ∓ cK)^m · √det(Lᵀ L) · volume Q`. The straightening map `T = φ ∘ Φ_L⁻¹` is near-identity
+bi-Lipschitz, so the squeeze compares `φ '' Q` to the affine image whose measure is the
+Jacobian (milestone 1). -/
+theorem cell_estimate [Nontrivial F] {φ : (ℝ^m) → F} {L : (ℝ^m) →L[ℝ] F}
+    {Q : Set (ℝ^m)} {c K : ℝ≥0} (hLinj : Function.Injective L)
+    (hK : AntilipschitzWith K L) (happ : ApproximatesLinearOn φ L Q c)
+    (hcK : c * K < 1) (x₀ : ℝ^m) :
+    (μHE[m] : Measure F) (φ '' Q)
+        ≤ ((1 + c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) *
+          (ENNReal.ofReal (Real.sqrt (LinearMap.det (LinearMap.adjoint L.toLinearMap ∘ₗ L.toLinearMap)))
+            * volume Q)
+      ∧ ((1 - c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) *
+          (ENNReal.ofReal (Real.sqrt (LinearMap.det (LinearMap.adjoint L.toLinearMap ∘ₗ L.toLinearMap)))
+            * volume Q)
+        ≤ (μHE[m] : Measure F) (φ '' Q) := by
+  classical
+  set Φ : (ℝ^m) → F := fun x => φ x₀ + L (x - x₀) with hΦ
+  set T : F → F := φ ∘ Function.invFun Φ with hT
+  have hΦinj : Function.Injective Φ := by
+    intro a b hab
+    simp only [hΦ, add_right_inj] at hab
+    simpa using hLinj hab
+  have hTΦ : ∀ x, T (Φ x) = φ x := fun x => by
+    simp [hT, Function.leftInverse_invFun hΦinj x]
+  have happT : ApproximatesLinearOn T (ContinuousLinearMap.id ℝ F) (Φ '' Q) (c * K) :=
+    approximatesLinearOn_comp_invFun hLinj hK happ x₀
+  have happT' : ApproximatesLinearOn T ((ContinuousLinearEquiv.refl ℝ F) : F →L[ℝ] F)
+      (Φ '' Q) (c * K) := by rwa [ContinuousLinearEquiv.coe_refl]
+  have hN : ‖((ContinuousLinearEquiv.refl ℝ F).symm : F →L[ℝ] F)‖₊ = 1 := by
+    simp [ContinuousLinearMap.nnnorm_id]
+  have hLipT : LipschitzWith (1 + c * K) ((Φ '' Q).restrict T) := by
+    have := happT.lipschitz
+    simpa [ContinuousLinearMap.nnnorm_id] using this
+  have hAntiT : AntilipschitzWith (1 - c * K)⁻¹ ((Φ '' Q).restrict T) := by
+    have hcK' : c * K < ‖((ContinuousLinearEquiv.refl ℝ F).symm : F →L[ℝ] F)‖₊⁻¹ := by
+      rw [hN, inv_one]; exact hcK
+    have := happT'.antilipschitz (Or.inr hcK')
+    rwa [hN, inv_one] at this
+  have himg : ((Φ '' Q).restrict T) '' Set.univ = φ '' Q := by
+    rw [Set.image_univ, Set.range_restrict, Set.image_image]
+    simp only [hTΦ]
+  -- raw Hausdorff squeeze on the restriction
+  have hne : (1 - c * K : ℝ≥0) ≠ 0 := (tsub_pos_of_lt hcK).ne'
+  have hK'ne : (1 - c * K : ℝ≥0)⁻¹ ≠ 0 := inv_ne_zero hne
+  obtain ⟨hμlo, hμhi⟩ :=
+    hausdorffMeasure_image_bilipschitz (d := (m : ℝ)) (by positivity) hK'ne hLipT hAntiT Set.univ
+  rw [himg, hausdorffMeasure_univ_subtype (by positivity) (Φ '' Q)] at hμlo hμhi
+  -- scale μH to μHE (same dimension-only factor on every set)
+  set c₀ := Measure.addHaarScalarFactor
+    (volume : Measure (EuclideanSpace ℝ (Fin m))) μH[(m : ℝ)] with hc₀
+  have hscale : ∀ S : Set F, (μHE[m] : Measure F) S = c₀ * μH[(m : ℝ)] S := fun S => by
+    rw [Measure.euclideanHausdorffMeasure_def, Measure.smul_apply]; rfl
+  have hcoeinv : (((1 - c * K : ℝ≥0)⁻¹ : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ)
+      = (((1 - c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ))⁻¹ := by
+    rw [ENNReal.coe_inv hne, ENNReal.inv_rpow]
+  -- the affine image carries the Jacobian √det(Lᵀ L)
+  have haff : (μHE[m] : Measure F) (Φ '' Q)
+      = ENNReal.ofReal (Real.sqrt (LinearMap.det (LinearMap.adjoint L.toLinearMap ∘ₗ L.toLinearMap)))
+        * volume Q := by
+    have hΦeq : Φ '' Q = (fun z => (φ x₀ - L x₀) + L.toLinearMap z) '' Q := by
+      apply Set.image_congr'; intro x
+      simp only [hΦ, ContinuousLinearMap.coe_coe, map_sub]; abel
+    rw [hΦeq, μHE_image_affine L.toLinearMap hLinj _ Q]
+  refine ⟨?_, ?_⟩
+  · calc (μHE[m] : Measure F) (φ '' Q) = c₀ * μH[(m : ℝ)] (φ '' Q) := hscale _
+      _ ≤ c₀ * (((1 + c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * μH[(m : ℝ)] (Φ '' Q)) := by gcongr
+      _ = ((1 + c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * (c₀ * μH[(m : ℝ)] (Φ '' Q)) := by ring
+      _ = ((1 + c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * (μHE[m] : Measure F) (Φ '' Q) := by
+          rw [← hscale]
+      _ = _ := by rw [haff]
+  · have hlo' : ((1 - c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * μH[(m : ℝ)] (Φ '' Q)
+        ≤ μH[(m : ℝ)] (φ '' Q) := by
+      rw [hcoeinv, inv_inv] at hμlo; exact hμlo
+    calc ((1 - c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) *
+          (ENNReal.ofReal (Real.sqrt (LinearMap.det (LinearMap.adjoint L.toLinearMap ∘ₗ L.toLinearMap)))
+            * volume Q)
+        = ((1 - c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * (μHE[m] : Measure F) (Φ '' Q) := by rw [haff]
+      _ = c₀ * (((1 - c * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * μH[(m : ℝ)] (Φ '' Q)) := by
+          rw [hscale]; ring
+      _ ≤ c₀ * μH[(m : ℝ)] (φ '' Q) := by gcongr
+      _ = (μHE[m] : Measure F) (φ '' Q) := (hscale _).symm
+
 /-- The linear part of an affine graph map: `y ↦ (y, ⟪a, y⟫)` into the `L²` product. -/
 def graphMap (a : ℝ^m) : (ℝ^m) →ₗ[ℝ] WithLp 2 ((ℝ^m) × ℝ) :=
   (WithLp.linearEquiv 2 ℝ ((ℝ^m) × ℝ)).symm.toLinearMap ∘ₗ
