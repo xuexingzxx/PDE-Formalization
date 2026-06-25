@@ -25,8 +25,8 @@ These are the affine pieces underlying the general (`C¹`) area formula, to be o
 local linearization and a covering argument.
 -/
 
-open MeasureTheory Matrix Module Filter Topology
-open scoped ENNReal NNReal RealInnerProductSpace
+open MeasureTheory MeasureTheory.Measure Matrix Module Filter Topology Metric Set Asymptotics
+open scoped ENNReal NNReal RealInnerProductSpace Pointwise
 
 noncomputable section
 
@@ -186,8 +186,8 @@ theorem approximatesLinearOn_comp_invFun {φ : (ℝ^m) → F} {L : (ℝ^m) →L[
   set Φ : (ℝ^m) → F := fun x => φ x₀ + L (x - x₀) with hΦ
   have hΦinj : Function.Injective Φ := by
     intro a b hab
-    simp only [hΦ, add_right_inj] at hab
-    simpa using hLinj hab
+    simp only [hΦ] at hab
+    simpa using hLinj (add_left_cancel hab)
   intro p hp p' hp'
   obtain ⟨x, hx, rfl⟩ := hp
   obtain ⟨x', hx', rfl⟩ := hp'
@@ -230,8 +230,8 @@ theorem cell_estimate [Nontrivial F] {φ : (ℝ^m) → F} {L : (ℝ^m) →L[ℝ]
   set T : F → F := φ ∘ Function.invFun Φ with hT
   have hΦinj : Function.Injective Φ := by
     intro a b hab
-    simp only [hΦ, add_right_inj] at hab
-    simpa using hLinj hab
+    simp only [hΦ] at hab
+    simpa using hLinj (add_left_cancel hab)
   have hTΦ : ∀ x, T (Φ x) = φ x := fun x => by
     simp [hT, Function.leftInverse_invFun hΦinj x]
   have happT : ApproximatesLinearOn T (ContinuousLinearMap.id ℝ F) (Φ '' Q) (c * K) :=
@@ -376,6 +376,80 @@ theorem measure_image_tsum_of_injOn {φ : (ℝ^m) → F} (hφc : Continuous φ) 
   · intro n
     exact (hA.inter (htm n)).image_of_continuousOn_injOn hφc.continuousOn
       (hφinj.mono Set.inter_subset_left)
+
+set_option linter.unusedSectionVars false in
+/-- The a.e. derivative bound: if `φ` approximates the linear map `A` to within `δ` on a
+measurable set `s`, then `‖Dφ(x) - A‖ ≤ δ` for almost every `x ∈ s`. This is the codomain-`F`
+generalization of Mathlib's `ApproximatesLinearOn.norm_fderiv_sub_le` (stated there only for
+endomorphisms); the proof is the same Lebesgue-density argument on the domain `ℝᵐ`. It lets the
+discrete linearizations `A n` of the covering be compared to the pointwise derivative `Dφ`. -/
+theorem approximatesLinearOn_norm_fderiv_sub_le {φ : (ℝ^m) → F} {A : (ℝ^m) →L[ℝ] F} {δ : ℝ≥0}
+    {s : Set (ℝ^m)} (hf : ApproximatesLinearOn φ A s δ) (hs : MeasurableSet s)
+    (φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F) (hf' : ∀ x ∈ s, HasFDerivWithinAt φ (φ' x) s x) :
+    ∀ᵐ x ∂(volume : Measure (ℝ^m)).restrict s, ‖φ' x - A‖₊ ≤ δ := by
+  filter_upwards [Besicovitch.ae_tendsto_measure_inter_div (volume : Measure (ℝ^m)) s,
+    ae_restrict_mem hs]
+  intro x hx xs
+  apply ContinuousLinearMap.opNorm_le_bound _ δ.2 fun z => ?_
+  suffices H : ∀ ε, 0 < ε → ‖(φ' x - A) z‖ ≤ (δ + ε) * (‖z‖ + ε) + ‖φ' x - A‖ * ε by
+    have :
+      Tendsto (fun ε : ℝ => ((δ : ℝ) + ε) * (‖z‖ + ε) + ‖φ' x - A‖ * ε) (𝓝[>] 0)
+        (𝓝 ((δ + 0) * (‖z‖ + 0) + ‖φ' x - A‖ * 0)) :=
+      Tendsto.mono_left (Continuous.tendsto (by fun_prop) 0) nhdsWithin_le_nhds
+    simp only [add_zero, mul_zero] at this
+    apply le_of_tendsto_of_tendsto tendsto_const_nhds this
+    filter_upwards [self_mem_nhdsWithin]
+    exact H
+  intro ε εpos
+  have B₁ : ∀ᶠ r in 𝓝[>] (0 : ℝ), (s ∩ ({x} + r • closedBall z ε)).Nonempty :=
+    eventually_nonempty_inter_smul_of_density_one volume s x hx _ measurableSet_closedBall
+      (measure_closedBall_pos volume z εpos).ne'
+  obtain ⟨ρ, ρpos, hρ⟩ :
+      ∃ ρ > 0, ball x ρ ∩ s ⊆ {y : ℝ^m | ‖φ y - φ x - (φ' x) (y - x)‖ ≤ ε * ‖y - x‖} :=
+    mem_nhdsWithin_iff.1 ((hf' x xs).isLittleO.def εpos)
+  have B₂ : ∀ᶠ r in 𝓝[>] (0 : ℝ), {x} + r • closedBall z ε ⊆ ball x ρ := by
+    apply nhdsWithin_le_nhds
+    exact eventually_singleton_add_smul_subset isBounded_closedBall (ball_mem_nhds x ρpos)
+  obtain ⟨r, ⟨y, ⟨ys, hy⟩⟩, rρ, rpos⟩ :
+      ∃ r : ℝ,
+        (s ∩ ({x} + r • closedBall z ε)).Nonempty ∧
+          {x} + r • closedBall z ε ⊆ ball x ρ ∧ 0 < r :=
+    (B₁.and (B₂.and self_mem_nhdsWithin)).exists
+  obtain ⟨a, az, ya⟩ : ∃ a, a ∈ closedBall z ε ∧ y = x + r • a := by
+    simp only [mem_smul_set, image_add_left, mem_preimage, singleton_add] at hy
+    rcases hy with ⟨a, az, ha⟩
+    exact ⟨a, az, by simp only [ha, add_neg_cancel_left]⟩
+  have norm_a : ‖a‖ ≤ ‖z‖ + ε :=
+    calc
+      ‖a‖ = ‖z + (a - z)‖ := by simp only [add_sub_cancel]
+      _ ≤ ‖z‖ + ‖a - z‖ := norm_add_le _ _
+      _ ≤ ‖z‖ + ε := by grw [mem_closedBall_iff_norm.1 az]
+  have I : r * ‖(φ' x - A) a‖ ≤ r * (δ + ε) * (‖z‖ + ε) :=
+    calc
+      r * ‖(φ' x - A) a‖ = ‖(φ' x - A) (r • a)‖ := by
+        simp only [map_smul, norm_smul, Real.norm_eq_abs, abs_of_nonneg rpos.le]
+      _ = ‖φ y - φ x - A (y - x) - (φ y - φ x - (φ' x) (y - x))‖ := by
+        simp only [ya, add_sub_cancel_left, sub_sub_sub_cancel_left, ContinuousLinearMap.coe_sub',
+          Pi.sub_apply, map_smul, smul_sub]
+      _ ≤ ‖φ y - φ x - A (y - x)‖ + ‖φ y - φ x - (φ' x) (y - x)‖ := norm_sub_le _ _
+      _ ≤ δ * ‖y - x‖ + ε * ‖y - x‖ := (add_le_add (hf _ ys _ xs) (hρ ⟨rρ hy, ys⟩))
+      _ = r * (δ + ε) * ‖a‖ := by
+        simp only [ya, add_sub_cancel_left, norm_smul, Real.norm_eq_abs, abs_of_nonneg rpos.le]
+        ring
+      _ ≤ r * (δ + ε) * (‖z‖ + ε) := by gcongr
+  calc
+    ‖(φ' x - A) z‖ = ‖(φ' x - A) a + (φ' x - A) (z - a)‖ := by
+      congr 1
+      simp only [ContinuousLinearMap.coe_sub', map_sub, Pi.sub_apply]
+      abel
+    _ ≤ ‖(φ' x - A) a‖ + ‖(φ' x - A) (z - a)‖ := norm_add_le _ _
+    _ ≤ (δ + ε) * (‖z‖ + ε) + ‖φ' x - A‖ * ‖z - a‖ := by
+      apply add_le_add
+      · rw [mul_assoc] at I; exact (mul_le_mul_iff_right₀ rpos).1 I
+      · apply ContinuousLinearMap.le_opNorm
+    _ ≤ (δ + ε) * (‖z‖ + ε) + ‖φ' x - A‖ * ε := by
+      rw [mem_closedBall_iff_norm'] at az
+      gcongr
 
 /-- The linear part of an affine graph map: `y ↦ (y, ⟪a, y⟫)` into the `L²` product. -/
 def graphMap (a : ℝ^m) : (ℝ^m) →ₗ[ℝ] WithLp 2 ((ℝ^m) × ℝ) :=
