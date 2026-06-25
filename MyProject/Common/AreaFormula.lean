@@ -1,28 +1,47 @@
 import Mathlib
 
 /-!
-# The area formula: linear and affine-graph cases
+# The area formula
 
-This file develops the first milestone toward a surface-measure / area formula in
-`ℝⁿ`, working with the dimension-normalized Euclidean Hausdorff measure `μHE[d]`
-(`MeasureTheory.Measure.euclideanHausdorffMeasure`), which agrees with `volume` on a
-`d`-dimensional inner product space.
+The `m`-dimensional surface area of the image of a `C¹` map. Throughout, `F` is a
+finite-dimensional real inner product space and surface measure is the dimension-normalized
+Euclidean Hausdorff measure `μHE[d]` (`MeasureTheory.Measure.euclideanHausdorffMeasure`), which
+agrees with `volume` on a `d`-dimensional inner product space. The local volume-scaling factor is
+the **Jacobian** `jacobian M = √det(Mᵀ M)` of a linear map `M : ℝᵐ → F`.
 
 ## Main results
 
-* `AreaFormula.μHE_image_linear`: for an injective linear map `L : ℝᵐ → F` into a
-  finite-dimensional inner product space, the `m`-dimensional Euclidean Hausdorff measure
-  of `L '' A` is the Jacobian `√det(Lᵀ L)` times `volume A`. This is the load-bearing
-  *linear area formula*; Mathlib only provides volume scaling for endomorphisms, so the
-  higher-codimension image is handled by corestricting to `range L`, transferring through
-  an orthonormal isometry, and applying `addHaar_image_linearMap`.
+* `AreaFormula.area_formula`: for a `C¹` immersion `φ : ℝᵐ → F` (derivative `φ'` injective at every
+  point of `A`) that is injective on a measurable set `A`,
+  `μHE[m](φ '' A) = ∫_A √det(Dφ(x)ᵀ Dφ(x)) dx`.
 
-* `AreaFormula.μHE_graph`: the **affine graph area formula** — the `m`-dimensional measure
-  of the graph of `y ↦ ⟪a, y⟫` over `A ⊆ ℝᵐ` equals `√(1 + ‖a‖²) · volume A`. The Gram
-  matrix of the graph map is `1 + a aᵀ`, whose determinant is `1 + ‖a‖²`.
+* `AreaFormula.lintegral_image_jacobian_mul`: the change-of-variables / surface-integral form,
+  `∫_{φ''A} f dμHE = ∫_A f(φ x)·√det(DφᵀDφ) dx` for measurable `f`.
 
-These are the affine pieces underlying the general (`C¹`) area formula, to be obtained by
-local linearization and a covering argument.
+* `AreaFormula.area_formula_graph` and `AreaFormula.lintegral_image_graph_mul`: the concrete graph
+  case `Φ y = (y, g y)` for `g : ℝᵐ → ℝ` of class `C¹`, giving `μHE[m](Φ '' A) = ∫_A √(1 + ‖∇g‖²)`
+  and `∫_{Φ''A} f dμHE = ∫_A f(x, g x)·√(1 + ‖∇g x‖²) dx`.
+
+* `AreaFormula.μHE_image_linear` / `AreaFormula.μHE_graph`: the linear and affine-graph base cases.
+
+## Proof architecture
+
+The proof mirrors Mathlib's full-dimensional change-of-variables (`MeasureTheory/Function/
+Jacobian.lean`), with `μHE[m]` / `√det(DφᵀDφ)` in place of Haar measure / `|det Dφ|`:
+
+1. **Linear case** (`μHE_image_linear`): Mathlib only scales volume for endomorphisms, so a
+   higher-codimension image is handled by corestricting to `range L`, transferring through an
+   orthonormal isometry, then applying `addHaar_image_linearMap`.
+2. **Local linearization** (`cell_estimate`): a map approximating an injective linear `L` to within
+   `c` on a set expands `μHE[m]` by a factor in `[(1-cK)^m, (1+cK)^m]·√det(LᵀL)`, via a bi-Lipschitz
+   squeeze against the affine image.
+3. **Covering** (`exists_delta_cell_bound(_lower)` + Mathlib's `ApproximatesLinearOn` partition):
+   sum the per-cell bounds and let the tolerance `→ 0`, using the a.e. derivative bound
+   `approximatesLinearOn_norm_fderiv_sub_le` (a codomain-`F` port of Mathlib's endomorphism-only
+   version) to identify the linearizations with `Dφ`. Injectivity of `φ` makes the lower
+   direction's cell images disjoint.
+4. **Integral form**: the measure identity gives a pushforward of measures
+   (`map_withDensity_jacobian`), whence the change-of-variables formula.
 -/
 
 open MeasureTheory MeasureTheory.Measure Matrix Module Filter Topology Metric Set Asymptotics
@@ -31,6 +50,8 @@ open scoped ENNReal NNReal RealInnerProductSpace Pointwise
 noncomputable section
 
 namespace AreaFormula
+
+/-! ### Hausdorff-measure preliminaries -/
 
 /-- Two-sided bound for the Hausdorff measure of the image under a bi-Lipschitz map: the
 local squeeze underlying the linearization step of the area formula. -/
@@ -65,6 +86,8 @@ variable {m : ℕ} {F : Type*}
   [MeasurableSpace F] [BorelSpace F]
 
 local notation "ℝ^" m => EuclideanSpace ℝ (Fin m)
+
+/-! ### The Jacobian and the linear area formula -/
 
 /-- The Jacobian `√det(Mᵀ M)` of a linear map `M : ℝᵐ → F`. By `gram_det_nonneg` the argument
 of the square root is nonnegative, so this is a faithful square root; it is the local volume-
@@ -163,6 +186,8 @@ theorem μHE_image_affine (L : (ℝ^m) →ₗ[ℝ] F) (hL : Function.Injective L
   have himg : (fun z => v + L z) '' A = (fun x : F => v + x) '' (L '' A) := by
     rw [Set.image_image]
   rw [himg, hiso.euclideanHausdorffMeasure_image, μHE_image_linear L hL A]
+
+/-! ### Local linearization: the cell estimate -/
 
 omit [MeasurableSpace F] [BorelSpace F] in
 /-- An injective linear map from `ℝᵐ` into a finite-dimensional inner product space is
@@ -407,6 +432,8 @@ theorem exists_delta_cell_bound_lower [Nontrivial F] {A : (ℝ^m) →L[ℝ] F}
           + ε * volume t := by ring
     _ ≤ (μHE[m] : Measure F) (g '' t) + ε * volume t := by gcongr; exact hlow
 
+/-! ### Covering tools -/
+
 set_option linter.unusedSectionVars false in
 /-- For an injective continuous `φ`, the measure of `φ '' A` decomposes as a sum over a measurable
 partition of `A`. Continuous injective images of Borel sets are Borel (Lusin–Souslin), and
@@ -510,6 +537,8 @@ theorem approximatesLinearOn_norm_fderiv_sub_le {φ : (ℝ^m) → F} {A : (ℝ^m
       rw [mem_closedBall_iff_norm'] at az
       gcongr
 
+/-! ### The affine graph -/
+
 /-- The linear part of an affine graph map: `y ↦ (y, ⟪a, y⟫)` into the `L²` product. -/
 def graphMap (a : ℝ^m) : (ℝ^m) →ₗ[ℝ] WithLp 2 ((ℝ^m) × ℝ) :=
   (WithLp.linearEquiv 2 ℝ ((ℝ^m) × ℝ)).symm.toLinearMap ∘ₗ
@@ -566,11 +595,11 @@ theorem μHE_graph (a : ℝ^m) (A : Set (ℝ^m)) :
       = ENNReal.ofReal (Real.sqrt (1 + ‖a‖ ^ 2)) * volume A := by
   rw [μHE_image_linear (graphMap a) (graph_injective a) A, graph_gram_det a]
 
-/-! ### The `C¹` graph: integrand regularity
+/-! ### Integrand regularity
 
-Towards the general `C¹` graph area formula `μHE[m](Φ''A) = ∫_A √(1 + ‖∇g‖²)`, where
-`Φ y = (y, g y)`. The right-hand integrand must be continuous (hence measurable, and usable
-in the covering/Riemann-sum step). -/
+The area-formula integrand must be continuous (hence measurable, and usable in the
+covering/Riemann-sum step): `continuous_jacobian` for the general `√det(DφᵀDφ)`, and
+`continuous_graph_integrand` for the graph integrand `√(1 + ‖∇g‖²)`. -/
 
 /-- The gradient of a `C¹` function is continuous. -/
 theorem continuous_gradient {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) :
