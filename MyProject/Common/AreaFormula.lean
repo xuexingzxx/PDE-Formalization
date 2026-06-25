@@ -893,6 +893,53 @@ theorem area_formula [Nontrivial F]
   le_antisymm (μHE_image_le_lintegral_jacobian hA hφ' himm)
     (lintegral_jacobian_le_μHE_image hA hφc hφ' himm hinj)
 
+/-! ### Integral (change-of-variables) form
+
+The area formula upgrades from a measure identity to a change-of-variables formula for integrals:
+the pushforward of `√det(DφᵀDφ)·volume` along `φ` is `μHE[m]` on the image, hence
+`∫_{φ''A} f dμHE = ∫_A f(φ x)·√det(DφᵀDφ) dx`. This is the form consumed by surface integrals. -/
+
+set_option linter.unusedSectionVars false in
+/-- Pushforward form of the area formula: the image measure under `φ` of the density
+`√det(DφᵀDφ)·volume` on `A` is the Euclidean Hausdorff measure restricted to `φ '' A`. -/
+theorem map_withDensity_jacobian [Nontrivial F]
+    {φ : (ℝ^m) → F} {φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F} {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    (hφc : Continuous φ) (hφ' : ∀ x ∈ A, HasFDerivWithinAt φ (φ' x) A x)
+    (himm : ∀ x ∈ A, Function.Injective (φ' x)) (hinj : Set.InjOn φ A) :
+    Measure.map φ ((volume.restrict A).withDensity (fun x => ENNReal.ofReal (jacobian (φ' x))))
+      = (μHE[m] : Measure F).restrict (φ '' A) := by
+  have hφm : Measurable φ := hφc.measurable
+  refine Measure.ext fun t ht => ?_
+  have hpre : MeasurableSet (φ ⁻¹' t) := hφm ht
+  rw [Measure.map_apply hφm ht, withDensity_apply _ hpre,
+    Measure.restrict_restrict hpre, Measure.restrict_apply ht,
+    Set.inter_comm (φ ⁻¹' t) A, Set.inter_comm t (φ '' A), ← Set.image_inter_preimage]
+  exact (area_formula (hA.inter hpre) hφc
+    (fun x hx => (hφ' x hx.1).mono inter_subset_left) (fun x hx => himm x hx.1)
+    (hinj.mono inter_subset_left)).symm
+
+set_option linter.unusedSectionVars false in
+/-- **Integral form of the area formula.** For a `C¹` immersion `φ` injective on a measurable set
+`A`, with measurable derivative `φ'`, and a measurable `f : F → ℝ≥0∞`,
+`∫_{φ''A} f dμHE = ∫_A f(φ x)·√det(DφᵀDφ) dx`. -/
+theorem lintegral_image_jacobian_mul [Nontrivial F]
+    {φ : (ℝ^m) → F} {φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F} {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    (hφc : Continuous φ) (hφ' : ∀ x ∈ A, HasFDerivWithinAt φ (φ' x) A x)
+    (himm : ∀ x ∈ A, Function.Injective (φ' x)) (hinj : Set.InjOn φ A)
+    (hφ'm : AEMeasurable φ' (volume.restrict A)) {f : F → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ y in φ '' A, f y ∂(μHE[m] : Measure F)
+      = ∫⁻ x in A, f (φ x) * ENNReal.ofReal (jacobian (φ' x)) ∂volume := by
+  have hφm : Measurable φ := hφc.measurable
+  have hD : AEMeasurable (fun x => ENNReal.ofReal (jacobian (φ' x))) (volume.restrict A) :=
+    ENNReal.measurable_ofReal.comp_aemeasurable
+      (continuous_jacobian.measurable.comp_aemeasurable hφ'm)
+  rw [← map_withDensity_jacobian hA hφc hφ' himm hinj, lintegral_map hf hφm,
+    lintegral_withDensity_eq_lintegral_mul₀ (g := fun a => f (φ a)) hD
+      (hf.comp hφm).aemeasurable]
+  simp only [Pi.mul_apply]
+  refine lintegral_congr fun x => ?_
+  rw [mul_comm]
+
 /-! ### The `C¹` graph: the concrete surface-area formula
 
 Specializing `area_formula` to the graph map `Φ y = (y, g y)` of a `C¹` function `g : ℝᵐ → ℝ`
@@ -956,6 +1003,36 @@ theorem area_formula_graph {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) {A : Se
     (fun x _ => (hasFDerivAt_graphFun hg x).hasFDerivWithinAt)
     (fun x _ => hinj' x) (injective_graphFun g).injOn]
   exact lintegral_congr fun x => by rw [jacobian_graphFun' hg]
+
+theorem contDiff_graphFun {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) : ContDiff ℝ 1 (graphFun g) :=
+  (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm.contDiff.comp (contDiff_id.prodMk hg)
+
+theorem continuous_graphFun' {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) :
+    Continuous (graphFun' g) := by
+  have heq : graphFun' g = fderiv ℝ (graphFun g) :=
+    funext fun x => ((hasFDerivAt_graphFun hg x).fderiv).symm
+  rw [heq]
+  exact (contDiff_graphFun hg).continuous_fderiv (by norm_num)
+
+theorem injective_graphFun' {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) (x : ℝ^m) :
+    Function.Injective (graphFun' g x) := by
+  have hcoe : (graphFun' g x : (ℝ^m) → _) = graphMap (gradient g x) := by
+    funext v; exact LinearMap.congr_fun (graphFun'_toLinearMap hg x) v
+  exact fun a b h => graph_injective (gradient g x) (by simpa only [hcoe] using h)
+
+set_option linter.style.longLine false in
+/-- **Integral form of the `C¹` graph area formula.** `∫_{graph g '' A} f dμHE =
+∫_A f(x, g x)·√(1 + ‖∇g x‖²) dx` for measurable `f`. The concrete surface-integral
+change-of-variables for a `C¹` graph. -/
+theorem lintegral_image_graph_mul {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) {A : Set (ℝ^m)}
+    (hA : MeasurableSet A) {f : WithLp 2 ((ℝ^m) × ℝ) → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ y in graphFun g '' A, f y ∂(μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ)))
+      = ∫⁻ x in A, f (graphFun g x) * ENNReal.ofReal (Real.sqrt (1 + ‖gradient g x‖ ^ 2)) ∂volume := by
+  rw [lintegral_image_jacobian_mul hA (continuous_graphFun hg.continuous)
+    (fun x _ => (hasFDerivAt_graphFun hg x).hasFDerivWithinAt) (fun x _ => injective_graphFun' hg x)
+    (injective_graphFun g).injOn (continuous_graphFun' hg).aemeasurable hf]
+  refine lintegral_congr fun x => ?_
+  rw [jacobian_graphFun' hg]
 
 end AreaFormula
 
