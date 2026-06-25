@@ -969,6 +969,33 @@ theorem lintegral_image_jacobian_mul [Nontrivial F]
   refine lintegral_congr fun x => ?_
   rw [mul_comm]
 
+set_option linter.unusedSectionVars false in
+/-- **Bochner change-of-variables form of the area formula.** For a `C¹` immersion `φ` injective on
+a measurable set `A`, with measurable derivative `φ'`, and a vector-valued `g : F → E` strongly
+measurable on `φ''A`, `∫_{φ''A} g dμHE = ∫_A √det(DφᵀDφ) • g(φ x) dx`. This is the signed /
+vector-valued form needed for flux integrals and the divergence theorem. -/
+theorem setIntegral_image_jacobian_smul [Nontrivial F]
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    {φ : (ℝ^m) → F} {φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F} {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    (hφc : Continuous φ) (hφ' : ∀ x ∈ A, HasFDerivWithinAt φ (φ' x) A x)
+    (himm : ∀ x ∈ A, Function.Injective (φ' x)) (hinj : Set.InjOn φ A)
+    (hφ'm : AEMeasurable φ' (volume.restrict A)) {g : F → E}
+    (hg : AEStronglyMeasurable g ((μHE[m] : Measure F).restrict (φ '' A))) :
+    ∫ y in φ '' A, g y ∂(μHE[m] : Measure F)
+      = ∫ x in A, jacobian (φ' x) • g (φ x) ∂volume := by
+  have hmap := map_withDensity_jacobian hA hφc hφ' himm hinj
+  have hToNNReal : AEMeasurable (fun x => (jacobian (φ' x)).toNNReal) (volume.restrict A) :=
+    measurable_real_toNNReal.comp_aemeasurable
+      (continuous_jacobian.measurable.comp_aemeasurable hφ'm)
+  have hg' : AEStronglyMeasurable g (Measure.map φ
+      ((volume.restrict A).withDensity fun x => ENNReal.ofReal (jacobian (φ' x)))) := by
+    rw [hmap]; exact hg
+  rw [← hmap, integral_map hφc.measurable.aemeasurable hg']
+  simp only [ENNReal.ofReal]
+  rw [integral_withDensity_eq_integral_smul₀ hToNNReal]
+  refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+  simp only [NNReal.smul_def, Real.coe_toNNReal _ (jacobian_nonneg (φ' x))]
+
 /-! ### The `C¹` graph: the concrete surface-area formula
 
 Specializing `area_formula` to the graph map `Φ y = (y, g y)` of a `C¹` function `g : ℝᵐ → ℝ`
@@ -1062,6 +1089,22 @@ theorem lintegral_image_graph_mul {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) 
     (injective_graphFun g).injOn (continuous_graphFun' hg).aemeasurable hf]
   refine lintegral_congr fun x => ?_
   rw [jacobian_graphFun' hg]
+
+set_option linter.unusedSectionVars false in
+/-- **Bochner change-of-variables for the `C¹` graph.** For `γ : ℝᵐ → ℝ` of class `C¹` and `f`
+strongly measurable on the graph, `∫_{graph γ '' A} f dμHE = ∫_A √(1+‖∇γ‖²) • f(x, γ x) dx`. -/
+theorem setIntegral_image_graph_smul {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ 1 γ) {A : Set (ℝ^m)}
+    (hA : MeasurableSet A) {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    {f : WithLp 2 ((ℝ^m) × ℝ) → E}
+    (hf : AEStronglyMeasurable f ((μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ))).restrict
+      (graphFun γ '' A))) :
+    ∫ y in graphFun γ '' A, f y ∂(μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ)))
+      = ∫ x in A, Real.sqrt (1 + ‖gradient γ x‖ ^ 2) • f (graphFun γ x) ∂volume := by
+  rw [setIntegral_image_jacobian_smul hA (continuous_graphFun hγ.continuous)
+    (fun x _ => (hasFDerivAt_graphFun hγ x).hasFDerivWithinAt) (fun x _ => injective_graphFun' hγ x)
+    (injective_graphFun γ).injOn (continuous_graphFun' hγ).aemeasurable hf]
+  refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+  simp only [jacobian_graphFun' hγ]
 
 end AreaFormula
 
