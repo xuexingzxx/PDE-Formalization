@@ -739,6 +739,160 @@ theorem μHE_image_le_lintegral_jacobian [Nontrivial F]
         rw [lintegral_iUnion (fun n => hA.inter (u_meas n))]
         exact pairwise_disjoint_mono (disjoint_disjointed _) fun n => inter_subset_right
 
+/-! ### The covering step: lower bound for the `C¹` area formula
+
+The reverse inequality `∫_A √det(DφᵀDφ) ≤ μHE[m](φ '' A)`. Here injectivity of `φ` on `A`
+(together with continuity, via Lusin–Souslin) is essential: it makes the images of the cells
+disjoint, so `measure_image_tsum_of_injOn` turns the covering sum into an exact `μHE[m](φ '' A)`.
+This mirrors Mathlib's `lintegral_abs_det_fderiv_le_addHaar_image_aux1`. -/
+
+set_option linter.unusedSectionVars false in
+/-- Lower bound up to `ε`: `∫_A √det(DφᵀDφ) ≤ μHE[m](φ '' A) + 2ε·vol A` for a `C¹` immersion `φ`
+that is injective on the measurable set `A`. -/
+theorem lintegral_jacobian_le_μHE_image_aux1 [Nontrivial F]
+    {φ : (ℝ^m) → F} {φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F} {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    (hφc : Continuous φ) (hφ' : ∀ x ∈ A, HasFDerivWithinAt φ (φ' x) A x)
+    (himm : ∀ x ∈ A, Function.Injective (φ' x)) (hinj : Set.InjOn φ A) {ε : ℝ≥0} (εpos : 0 < ε) :
+    (∫⁻ x in A, ENNReal.ofReal (jacobian (φ' x)) ∂volume)
+      ≤ (μHE[m] : Measure F) (φ '' A) + 2 * ε * volume A := by
+  have key : ∀ B : (ℝ^m) →L[ℝ] F, ∃ δ : ℝ≥0, 0 < δ ∧
+      (∀ C : (ℝ^m) →L[ℝ] F, ‖C - B‖ ≤ δ → |jacobian C - jacobian B| ≤ ε) ∧
+      (Function.Injective B → ∀ (t : Set (ℝ^m)) (g : (ℝ^m) → F),
+        ApproximatesLinearOn g B t δ →
+          ENNReal.ofReal (jacobian B) * volume t
+            ≤ (μHE[m] : Measure F) (g '' t) + ε * volume t) := by
+    intro B
+    obtain ⟨δ', δ'pos, hδ'⟩ :
+        ∃ δ' : ℝ, 0 < δ' ∧ ∀ C, dist C B < δ' → dist (jacobian C) (jacobian B) < ε := by
+      refine Metric.continuousAt_iff.1 continuous_jacobian.continuousAt ε ?_
+      exact_mod_cast εpos
+    set δ'' : ℝ≥0 := ⟨δ' / 2, (half_pos δ'pos).le⟩ with hδ''
+    have hcontcl : ∀ C : (ℝ^m) →L[ℝ] F, ‖C - B‖ ≤ δ'' → |jacobian C - jacobian B| ≤ ε := by
+      intro C hC
+      rw [← Real.dist_eq]
+      refine (hδ' C ?_).le
+      rw [dist_eq_norm]
+      calc ‖C - B‖ ≤ (δ'' : ℝ) := hC
+        _ < δ' := by rw [hδ'']; exact half_lt_self δ'pos
+    by_cases hBinj : Function.Injective B
+    · obtain ⟨δ₁, δ₁pos, hcell⟩ := exists_delta_cell_bound_lower hBinj εpos
+      refine ⟨min δ₁ δ'', lt_min δ₁pos (by rw [hδ'']; exact_mod_cast half_pos δ'pos), ?_, ?_⟩
+      · intro C hC; exact hcontcl C (hC.trans (by simp))
+      · intro _ t g hg; exact hcell t g (hg.mono_num (min_le_left _ _))
+    · exact ⟨δ'', by rw [hδ'']; exact_mod_cast half_pos δ'pos, hcontcl, fun h => absurd h hBinj⟩
+  choose δ hδ using key
+  obtain ⟨t, B, t_disj, t_meas, t_cover, ht, hBy⟩ :=
+    exists_partition_approximatesLinearOn_of_hasFDerivWithinAt φ A φ' hφ' δ fun C => (hδ C).1.ne'
+  rcases A.eq_empty_or_nonempty with hAe | hAne
+  · simp [hAe]
+  · have hBinj : ∀ n, Function.Injective (B n) := by
+      intro n
+      obtain ⟨y, hyA, hy⟩ := hBy hAne n
+      rw [hy]; exact himm y hyA
+    have Mset : ∀ n : ℕ, MeasurableSet (A ∩ t n) := fun n => hA.inter (t_meas n)
+    have s_eq : A = ⋃ n, A ∩ t n := by
+      rw [← inter_iUnion]
+      exact Subset.antisymm (subset_inter Subset.rfl t_cover) inter_subset_left
+    have hvolA : volume A = ∑' n, volume (A ∩ t n) := by
+      conv_lhs => rw [s_eq]
+      exact measure_iUnion (pairwise_disjoint_mono t_disj fun n => inter_subset_right) Mset
+    calc (∫⁻ x in A, ENNReal.ofReal (jacobian (φ' x)) ∂volume)
+        = ∑' n, ∫⁻ x in A ∩ t n, ENNReal.ofReal (jacobian (φ' x)) ∂volume := by
+          conv_lhs => rw [s_eq]
+          rw [lintegral_iUnion Mset
+            (pairwise_disjoint_mono t_disj fun n => inter_subset_right)]
+      _ ≤ ∑' n, ∫⁻ _ in A ∩ t n, (ENNReal.ofReal (jacobian (B n)) + ε) ∂volume := by
+          refine ENNReal.tsum_le_tsum fun n => ?_
+          apply lintegral_mono_ae
+          filter_upwards [approximatesLinearOn_norm_fderiv_sub_le (ht n) (Mset n) φ'
+            fun x hx => (hφ' x hx.1).mono inter_subset_left] with x hx
+          have hJ : |jacobian (φ' x) - jacobian (B n)| ≤ ε :=
+            (hδ (B n)).2.1 (φ' x) (by exact_mod_cast hx)
+          have hle : jacobian (φ' x) ≤ jacobian (B n) + ε := by
+            have := (abs_le.1 hJ).2; linarith
+          calc ENNReal.ofReal (jacobian (φ' x))
+              ≤ ENNReal.ofReal (jacobian (B n) + ε) := ENNReal.ofReal_le_ofReal hle
+            _ = ENNReal.ofReal (jacobian (B n)) + ε := by
+                rw [ENNReal.ofReal_add (jacobian_nonneg _) (by positivity),
+                  ENNReal.ofReal_coe_nnreal]
+      _ = ∑' n, (ENNReal.ofReal (jacobian (B n)) * volume (A ∩ t n) + ε * volume (A ∩ t n)) := by
+          simp only [setLIntegral_const, lintegral_add_right _ measurable_const]
+      _ ≤ ∑' n, ((μHE[m] : Measure F) (φ '' (A ∩ t n)) + ε * volume (A ∩ t n)
+            + ε * volume (A ∩ t n)) := by
+          gcongr with n
+          exact (hδ (B n)).2.2 (hBinj n) _ _ (ht n)
+      _ = (μHE[m] : Measure F) (φ '' A) + 2 * ε * volume A := by
+          rw [measure_image_tsum_of_injOn hφc hA hinj t_disj t_meas t_cover, hvolA,
+            ← ENNReal.tsum_mul_left, ← ENNReal.tsum_add]
+          congr 1
+          ext1 n
+          rw [mul_assoc, two_mul, add_assoc]
+
+set_option linter.unusedSectionVars false in
+/-- Lower bound for finite-measure sets: letting `ε → 0` in the previous lemma. -/
+theorem lintegral_jacobian_le_μHE_image_aux2 [Nontrivial F]
+    {φ : (ℝ^m) → F} {φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F} {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    (h'A : volume A ≠ ∞) (hφc : Continuous φ)
+    (hφ' : ∀ x ∈ A, HasFDerivWithinAt φ (φ' x) A x)
+    (himm : ∀ x ∈ A, Function.Injective (φ' x)) (hinj : Set.InjOn φ A) :
+    (∫⁻ x in A, ENNReal.ofReal (jacobian (φ' x)) ∂volume) ≤ (μHE[m] : Measure F) (φ '' A) := by
+  have htend :
+      Tendsto (fun ε : ℝ≥0 => (μHE[m] : Measure F) (φ '' A) + 2 * ε * volume A) (𝓝[>] 0)
+        (𝓝 ((μHE[m] : Measure F) (φ '' A) + 2 * (0 : ℝ≥0) * volume A)) := by
+    apply Tendsto.mono_left _ nhdsWithin_le_nhds
+    refine tendsto_const_nhds.add ?_
+    refine ENNReal.Tendsto.mul_const ?_ (Or.inr h'A)
+    exact ENNReal.Tendsto.const_mul (ENNReal.tendsto_coe.2 tendsto_id) (Or.inr ENNReal.coe_ne_top)
+  simp only [add_zero, zero_mul, mul_zero, ENNReal.coe_zero] at htend
+  apply ge_of_tendsto htend
+  filter_upwards [self_mem_nhdsWithin] with ε εpos
+  rw [mem_Ioi] at εpos
+  exact lintegral_jacobian_le_μHE_image_aux1 hA hφc hφ' himm hinj εpos
+
+set_option linter.unusedSectionVars false in
+/-- **Lower bound for the `C¹` area formula.** For any measurable set `A` and `C¹` immersion `φ`
+that is injective on `A`, `∫_A √det(DφᵀDφ) ≤ μHE[m](φ '' A)`. -/
+theorem lintegral_jacobian_le_μHE_image [Nontrivial F]
+    {φ : (ℝ^m) → F} {φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F} {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    (hφc : Continuous φ) (hφ' : ∀ x ∈ A, HasFDerivWithinAt φ (φ' x) A x)
+    (himm : ∀ x ∈ A, Function.Injective (φ' x)) (hinj : Set.InjOn φ A) :
+    (∫⁻ x in A, ENNReal.ofReal (jacobian (φ' x)) ∂volume) ≤ (μHE[m] : Measure F) (φ '' A) := by
+  set u : ℕ → Set (ℝ^m) := fun n => disjointed (spanningSets (volume : Measure (ℝ^m))) n with hu
+  have u_meas : ∀ n, MeasurableSet (u n) :=
+    fun n => MeasurableSet.disjointed (fun i => measurableSet_spanningSets _ i) n
+  have u_disj : Pairwise (Function.onFun Disjoint u) := disjoint_disjointed _
+  have hcover : A = ⋃ n, A ∩ u n := by
+    rw [← inter_iUnion, iUnion_disjointed, iUnion_spanningSets, inter_univ]
+  have hAcov : A ⊆ ⋃ n, u n := by
+    rw [hcover]; exact iUnion_mono fun n => inter_subset_right
+  calc (∫⁻ x in A, ENNReal.ofReal (jacobian (φ' x)) ∂volume)
+      = ∑' n, ∫⁻ x in A ∩ u n, ENNReal.ofReal (jacobian (φ' x)) ∂volume := by
+        conv_lhs => rw [hcover]
+        rw [lintegral_iUnion (fun n => hA.inter (u_meas n))
+          (pairwise_disjoint_mono u_disj fun n => inter_subset_right)]
+    _ ≤ ∑' n, (μHE[m] : Measure F) (φ '' (A ∩ u n)) := by
+        refine ENNReal.tsum_le_tsum fun n => ?_
+        refine lintegral_jacobian_le_μHE_image_aux2 (hA.inter (u_meas n)) ?_ hφc
+          (fun x hx => (hφ' x hx.1).mono inter_subset_left) (fun x hx => himm x hx.1)
+          (hinj.mono inter_subset_left)
+        have hlt : volume (u n) < ∞ :=
+          lt_of_le_of_lt (measure_mono (disjointed_subset _ _)) (measure_spanningSets_lt_top _ n)
+        exact ne_of_lt (lt_of_le_of_lt (measure_mono inter_subset_right) hlt)
+    _ = (μHE[m] : Measure F) (φ '' A) :=
+        (measure_image_tsum_of_injOn hφc hA hinj u_disj u_meas hAcov).symm
+
+/-- **The `C¹` area formula.** For a `C¹` immersion `φ : ℝᵐ → F` (derivative `φ'` injective at
+every point of `A`) that is injective on a measurable set `A`,
+`μHE[m](φ '' A) = ∫_A √det(Dφ(x)ᵀ Dφ(x))`. The `m`-dimensional Euclidean Hausdorff measure of the
+image equals the integral of the Jacobian over `A`. -/
+theorem area_formula [Nontrivial F]
+    {φ : (ℝ^m) → F} {φ' : (ℝ^m) → (ℝ^m) →L[ℝ] F} {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    (hφc : Continuous φ) (hφ' : ∀ x ∈ A, HasFDerivWithinAt φ (φ' x) A x)
+    (himm : ∀ x ∈ A, Function.Injective (φ' x)) (hinj : Set.InjOn φ A) :
+    (μHE[m] : Measure F) (φ '' A) = ∫⁻ x in A, ENNReal.ofReal (jacobian (φ' x)) ∂volume :=
+  le_antisymm (μHE_image_le_lintegral_jacobian hA hφ' himm)
+    (lintegral_jacobian_le_μHE_image hA hφc hφ' himm hinj)
+
 end AreaFormula
 
 end
