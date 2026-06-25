@@ -353,6 +353,61 @@ theorem exists_delta_cell_bound [Nontrivial F] {A : (ℝ^m) →L[ℝ] F}
     _ ≤ (ENNReal.ofReal J + ε) * volume t := by gcongr
 
 set_option linter.unusedSectionVars false in
+/-- **Per-linearization lower cell bound.** For an injective linear map `A` and `ε>0`, a tolerance
+`δ>0` such that any `g` approximating `A` within `δ` on `t` has
+`(√det(Aᵀ A))·vol t ≤ μHE[m](g''t) + ε·vol t`. This is `cell_estimate`'s lower inequality with the
+`(1 - δK)^m` factor absorbed into `ε`; the per-cell input to the lower (`∫ ≤ μHE`) direction. -/
+theorem exists_delta_cell_bound_lower [Nontrivial F] {A : (ℝ^m) →L[ℝ] F}
+    (hAinj : Function.Injective A) {ε : ℝ≥0} (hε : 0 < ε) :
+    ∃ δ : ℝ≥0, 0 < δ ∧ ∀ (t : Set (ℝ^m)) (g : (ℝ^m) → F),
+      ApproximatesLinearOn g A t δ →
+        ENNReal.ofReal (jacobian A) * volume t
+          ≤ (μHE[m] : Measure F) (g '' t) + ε * volume t := by
+  obtain ⟨K, hK⟩ := exists_antilipschitz_of_injective (L := A.toLinearMap) hAinj
+  set J : ℝ := jacobian A with hJdef
+  have hJnn : 0 ≤ J := jacobian_nonneg A
+  -- choose a real δ making `J ≤ (1 - δK)^m · J + ε` and `δK < 1`
+  have hcont : ContinuousAt (fun δ : ℝ => (1 - δ * (K : ℝ)) ^ m * J + ε) 0 := by fun_prop
+  have hgt : J < (fun δ : ℝ => (1 - δ * (K : ℝ)) ^ m * J + ε) 0 := by
+    simp only [zero_mul, sub_zero, one_pow, one_mul]
+    have : (0 : ℝ) < ε := by exact_mod_cast hε
+    linarith
+  have hcontK : ContinuousAt (fun δ : ℝ => δ * (K : ℝ)) 0 := by fun_prop
+  have hltK : (fun δ : ℝ => δ * (K : ℝ)) 0 < 1 := by simp
+  have e1 : ∀ᶠ δ in 𝓝[>] (0:ℝ), J < (1 - δ * (K : ℝ)) ^ m * J + ε :=
+    (hcont.eventually_const_lt hgt).filter_mono nhdsWithin_le_nhds
+  have e2 : ∀ᶠ δ in 𝓝[>] (0:ℝ), δ * (K : ℝ) < 1 :=
+    (hcontK.eventually_lt_const hltK).filter_mono nhdsWithin_le_nhds
+  have e3 : ∀ᶠ δ in 𝓝[>] (0:ℝ), (0:ℝ) < δ := eventually_mem_nhdsWithin.mono fun x hx => hx
+  obtain ⟨δ, hδlt, hδK, hδpos⟩ := (e1.and (e2.and e3)).exists
+  refine ⟨δ.toNNReal, by simpa using hδpos, fun t g hg => ?_⟩
+  have hcK : (δ.toNNReal) * K < 1 := by
+    rw [← NNReal.coe_lt_coe]; push_cast
+    rw [Real.coe_toNNReal δ hδpos.le]; exact hδK
+  obtain ⟨-, hlow⟩ := cell_estimate hAinj hK hg hcK (0 : ℝ^m)
+  have h1δK : (0 : ℝ) ≤ 1 - δ * K := by linarith
+  have hsub : ((1 - δ.toNNReal * K : ℝ≥0) : ℝ) = 1 - δ * K := by
+    rw [NNReal.coe_sub hcK.le, NNReal.coe_one, NNReal.coe_mul, Real.coe_toNNReal δ hδpos.le]
+  have hpow : ((1 - δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ)
+      = ENNReal.ofReal ((1 - δ * K) ^ m) := by
+    rw [ENNReal.rpow_natCast, ← ENNReal.ofReal_coe_nnreal,
+      ← ENNReal.ofReal_pow (NNReal.coe_nonneg _), hsub]
+  have hbound : ENNReal.ofReal J
+      ≤ ((1 - δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * ENNReal.ofReal J + ε := by
+    rw [hpow, ← ENNReal.ofReal_mul (pow_nonneg h1δK m)]
+    calc ENNReal.ofReal J
+        ≤ ENNReal.ofReal ((1 - δ * K) ^ m * J + ε) := ENNReal.ofReal_le_ofReal hδlt.le
+      _ = ENNReal.ofReal ((1 - δ * K) ^ m * J) + ε := by
+          rw [ENNReal.ofReal_add (mul_nonneg (pow_nonneg h1δK m) hJnn) (by positivity),
+            ENNReal.ofReal_coe_nnreal]
+  calc ENNReal.ofReal J * volume t
+      ≤ (((1 - δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * ENNReal.ofReal J + ε) * volume t := by
+        gcongr
+    _ = ((1 - δ.toNNReal * K : ℝ≥0) : ℝ≥0∞) ^ (m : ℝ) * (ENNReal.ofReal J * volume t)
+          + ε * volume t := by ring
+    _ ≤ (μHE[m] : Measure F) (g '' t) + ε * volume t := by gcongr; exact hlow
+
+set_option linter.unusedSectionVars false in
 /-- For an injective continuous `φ`, the measure of `φ '' A` decomposes as a sum over a measurable
 partition of `A`. Continuous injective images of Borel sets are Borel (Lusin–Souslin), and
 injectivity makes the pieces disjoint — so `measure_iUnion` applies. This turns the area formula
