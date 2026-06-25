@@ -893,6 +893,70 @@ theorem area_formula [Nontrivial F]
   le_antisymm (μHE_image_le_lintegral_jacobian hA hφ' himm)
     (lintegral_jacobian_le_μHE_image hA hφc hφ' himm hinj)
 
+/-! ### The `C¹` graph: the concrete surface-area formula
+
+Specializing `area_formula` to the graph map `Φ y = (y, g y)` of a `C¹` function `g : ℝᵐ → ℝ`
+yields `μHE[m](Φ '' A) = ∫_A √(1 + ‖∇g‖²)`. The graph map is globally injective (its first
+coordinate is the identity) and its derivative is the affine graph map `graphMap (∇g x)`, whose
+Gram determinant is `1 + ‖∇g x‖²` (`graph_gram_det`). -/
+
+/-- The `C¹` graph map `y ↦ (y, g y)` into the `L²` product `WithLp 2 (ℝᵐ × ℝ)`. -/
+def graphFun (g : (ℝ^m) → ℝ) (y : ℝ^m) : WithLp 2 ((ℝ^m) × ℝ) :=
+  (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm (y, g y)
+
+/-- The derivative of the graph map at `x`, packaged as a continuous linear map. -/
+def graphFun' (g : (ℝ^m) → ℝ) (x : ℝ^m) : (ℝ^m) →L[ℝ] WithLp 2 ((ℝ^m) × ℝ) :=
+  ((WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm :
+      ((ℝ^m) × ℝ) →L[ℝ] WithLp 2 ((ℝ^m) × ℝ)).comp
+    ((ContinuousLinearMap.id ℝ (ℝ^m)).prod (fderiv ℝ g x))
+
+theorem hasFDerivAt_graphFun {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) (x : ℝ^m) :
+    HasFDerivAt (graphFun g) (graphFun' g x) x := by
+  have hgd : HasFDerivAt g (fderiv ℝ g x) x := (hg.differentiable (by norm_num) x).hasFDerivAt
+  have hprod : HasFDerivAt (fun y => (y, g y))
+      ((ContinuousLinearMap.id ℝ (ℝ^m)).prod (fderiv ℝ g x)) x :=
+    (hasFDerivAt_id x).prodMk hgd
+  exact (((WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm :
+    ((ℝ^m) × ℝ) →L[ℝ] WithLp 2 ((ℝ^m) × ℝ)).hasFDerivAt).comp x hprod
+
+theorem graphFun'_toLinearMap {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) (x : ℝ^m) :
+    (graphFun' g x).toLinearMap = graphMap (gradient g x) := by
+  ext v
+  change (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm (v, fderiv ℝ g x v)
+    = graphMap (gradient g x) v
+  rw [← inner_gradient_left (hg.differentiable (by norm_num) x)]
+  rfl
+
+theorem jacobian_graphFun' {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) (x : ℝ^m) :
+    jacobian (graphFun' g x) = Real.sqrt (1 + ‖gradient g x‖ ^ 2) := by
+  rw [jacobian, graphFun'_toLinearMap hg, graph_gram_det]
+
+theorem injective_graphFun (g : (ℝ^m) → ℝ) : Function.Injective (graphFun g) := by
+  intro a b h
+  have := (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm.injective h
+  exact (Prod.ext_iff.1 this).1
+
+theorem continuous_graphFun {g : (ℝ^m) → ℝ} (hg : Continuous g) : Continuous (graphFun g) :=
+  (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm.continuous.comp
+    (continuous_id.prodMk hg)
+
+/-- **The `C¹` graph area formula.** The `m`-dimensional Euclidean Hausdorff measure of the graph
+of a `C¹` function `g : ℝᵐ → ℝ` over a measurable set `A` equals `∫_A √(1 + ‖∇g‖²)`. This is the
+concrete surface-area theorem for a `C¹` graph — the form used for boundary integrals. -/
+theorem area_formula_graph {g : (ℝ^m) → ℝ} (hg : ContDiff ℝ 1 g) {A : Set (ℝ^m)}
+    (hA : MeasurableSet A) :
+    (μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ))) (graphFun g '' A)
+      = ∫⁻ x in A, ENNReal.ofReal (Real.sqrt (1 + ‖gradient g x‖ ^ 2)) ∂volume := by
+  have hinj' : ∀ x, Function.Injective (graphFun' g x) := by
+    intro x a b h
+    have hcoe : (graphFun' g x : (ℝ^m) → _) = graphMap (gradient g x) := by
+      funext v; exact LinearMap.congr_fun (graphFun'_toLinearMap hg x) v
+    exact graph_injective (gradient g x) (by simpa only [hcoe] using h)
+  rw [area_formula hA (continuous_graphFun hg.continuous)
+    (fun x _ => (hasFDerivAt_graphFun hg x).hasFDerivWithinAt)
+    (fun x _ => hinj' x) (injective_graphFun g).injOn]
+  exact lintegral_congr fun x => by rw [jacobian_graphFun' hg]
+
 end AreaFormula
 
 end
