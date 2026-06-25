@@ -1106,6 +1106,44 @@ theorem setIntegral_image_graph_smul {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ 
   refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
   simp only [jacobian_graphFun' hγ]
 
+/-! ### The divergence theorem: the graph flux identity
+
+The first Gauss–Green building block: the flux of a vector field through a `C¹` graph, with the
+area-element square root cancelled against the unit normal's denominator. -/
+
+/-- The upward unit normal to the graph of `γ` over the base point `x`, as an element of
+`WithLp 2 (ℝᵐ × ℝ)`: `ν(x) = (−∇γ x, 1)/√(1 + ‖∇γ x‖²)`. -/
+def graphNormal (γ : (ℝ^m) → ℝ) (x : ℝ^m) : WithLp 2 ((ℝ^m) × ℝ) :=
+  (Real.sqrt (1 + ‖gradient γ x‖ ^ 2))⁻¹ • WithLp.toLp 2 (-gradient γ x, (1 : ℝ))
+
+set_option linter.unusedSectionVars false in
+/-- **Graph flux identity (Gauss–Green building block).** The flux of a vector field `V` through
+the graph of a `C¹` function `γ` equals a base integral with the area-element square root
+cancelled: `∫_{graph} ⟪V, ν⟫ dμHE = ∫_A (V₂(x,γx) − ⟪V₁(x,γx), ∇γ x⟫) dx`, where `ν` is the
+upward unit normal and `V = (V₁, V₂)`. -/
+theorem flux_graph {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ 1 γ) {A : Set (ℝ^m)} (hA : MeasurableSet A)
+    {V : WithLp 2 ((ℝ^m) × ℝ) → WithLp 2 ((ℝ^m) × ℝ)}
+    (hV : AEStronglyMeasurable (fun y => ⟪V y, graphNormal γ y.ofLp.1⟫)
+      ((μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ))).restrict (graphFun γ '' A))) :
+    ∫ y in graphFun γ '' A, (⟪V y, graphNormal γ y.ofLp.1⟫ : ℝ)
+        ∂(μHE[m] : Measure (WithLp 2 ((ℝ^m) × ℝ)))
+      = ∫ x in A, ((V (graphFun γ x)).ofLp.2
+          - ⟪(V (graphFun γ x)).ofLp.1, gradient γ x⟫) ∂volume := by
+  rw [setIntegral_image_graph_smul hγ hA hV]
+  refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+  dsimp only
+  rw [show (graphFun γ x).ofLp.1 = x from rfl, graphNormal]
+  set s : ℝ := Real.sqrt (1 + ‖gradient γ x‖ ^ 2) with hs
+  have hspos : 0 < s := Real.sqrt_pos.mpr (by positivity)
+  rw [real_inner_smul_right, smul_eq_mul, ← mul_assoc, mul_inv_cancel₀ hspos.ne', one_mul,
+    WithLp.prod_inner_apply]
+  simp only [inner_neg_right]
+  have hone : (⟪(V (graphFun γ x)).ofLp.2, (1 : ℝ)⟫ : ℝ) = (V (graphFun γ x)).ofLp.2 := by
+    have h2 : (⟪(V (graphFun γ x)).ofLp.2, (1 : ℝ)⟫ : ℝ)
+        = ⟪(V (graphFun γ x)).ofLp.2 • (1 : ℝ), (1 : ℝ)⟫ := by rw [smul_eq_mul, mul_one]
+    rw [h2, real_inner_smul_left, real_inner_self_eq_norm_sq, norm_one]; ring
+  rw [hone]; ring
+
 end AreaFormula
 
 end
