@@ -360,6 +360,55 @@ theorem integral_eq_zero_of_forall_insertNth_integral_zero {n : ℕ} {F : (Fin (
   simp_rw [h]
   simp
 
+/-! ### Coordinate slices (`Fin.insertNth`)
+
+The affine slice map `s ↦ insertNth i s y`, which fixes the other `m` coordinates and varies the
+`i`-th one. These are the building blocks transferring `C¹`/compact-support data to the slices,
+where `integral_leibniz_comp_eq_zero` and `integral_eq_zero_of_forall_insertNth_integral_zero`
+combine into the multivariate (horizontal) integration by parts. -/
+
+/-- The slice map `s ↦ insertNth i s y` is affine with velocity `Pi.single i 1`. -/
+theorem hasDerivAt_insertNth {m : ℕ} (i : Fin (m + 1)) (y : Fin m → ℝ) (s₀ : ℝ) :
+    HasDerivAt (fun s : ℝ => (i.insertNth s y : Fin (m + 1) → ℝ)) (Pi.single i 1) s₀ := by
+  rw [hasDerivAt_pi]
+  intro j
+  rcases eq_or_ne j i with rfl | hj
+  · simp only [Fin.insertNth_apply_same, Pi.single_eq_same]
+    exact hasDerivAt_id s₀
+  · obtain ⟨k, rfl⟩ := Fin.exists_succAbove_eq hj
+    simp only [Fin.insertNth_apply_succAbove, Pi.single_eq_of_ne (Fin.succAbove_ne i k)]
+    exact hasDerivAt_const s₀ (y k)
+
+/-- The slice map `s ↦ insertNth i s y` is smooth. -/
+theorem contDiff_insertNth {m : ℕ} {n : WithTop ℕ∞} (i : Fin (m + 1)) (y : Fin m → ℝ) :
+    ContDiff ℝ n (fun s : ℝ => (i.insertNth s y : Fin (m + 1) → ℝ)) := by
+  rw [contDiff_pi]
+  intro j
+  rcases eq_or_ne j i with rfl | hj
+  · simpa only [Fin.insertNth_apply_same] using contDiff_id
+  · obtain ⟨k, rfl⟩ := Fin.exists_succAbove_eq hj
+    simpa only [Fin.insertNth_apply_succAbove] using contDiff_const
+
+theorem continuous_insertNth {m : ℕ} (i : Fin (m + 1)) (y : Fin m → ℝ) :
+    Continuous (fun s : ℝ => (i.insertNth s y : Fin (m + 1) → ℝ)) :=
+  (contDiff_insertNth (n := 1) i y).continuous
+
+/-- The slice map `s ↦ insertNth i s y` is a closed embedding (it is `Function.update` of a
+constant at coordinate `i`), so restricting a compactly-supported function to the slice keeps
+compact support. -/
+theorem isClosedEmbedding_insertNth {m : ℕ} (i : Fin (m + 1)) (y : Fin m → ℝ) :
+    Topology.IsClosedEmbedding (fun s : ℝ => (i.insertNth s y : Fin (m + 1) → ℝ)) := by
+  have heq : (fun s : ℝ => (i.insertNth s y : Fin (m + 1) → ℝ))
+      = Function.update (i.insertNth (0 : ℝ) y : Fin (m + 1) → ℝ) i := by
+    funext s j
+    rcases eq_or_ne j i with rfl | hj
+    · rw [Fin.insertNth_apply_same, Function.update_self]
+    · obtain ⟨k, rfl⟩ := Fin.exists_succAbove_eq hj
+      rw [Fin.insertNth_apply_succAbove, Function.update_of_ne (Fin.succAbove_ne i k),
+        Fin.insertNth_apply_succAbove]
+  rw [heq]
+  exact isClosedEmbedding_update _ i
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
