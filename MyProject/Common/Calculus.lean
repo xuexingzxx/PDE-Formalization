@@ -340,6 +340,26 @@ theorem integral_leibniz_comp_eq_zero {f f' : ℝ → ℝ → ℝ} {g : ℝ → 
   have hLG : L = deriv G := (funext fun s => (hGderiv s).deriv).symm
   rw [hLG, integral_deriv_eq_zero hGcd hGsupp]
 
+/-- If every `i`-th coordinate slice of `F : (Fin (n+1) → ℝ) → ℝ` integrates to zero over `ℝ`,
+    then `F` integrates to zero over `ℝⁿ⁺¹`. The single-coordinate Fubini step that lifts a
+    one-variable integral identity to all of `ℝⁿ⁺¹` (via `MeasurableEquiv.piFinSuccAbove`). -/
+theorem integral_eq_zero_of_forall_insertNth_integral_zero {n : ℕ} {F : (Fin (n + 1) → ℝ) → ℝ}
+    (i : Fin (n + 1)) (hF : MeasureTheory.Integrable F)
+    (h : ∀ y : Fin n → ℝ, ∫ s, F (i.insertNth s y) = 0) :
+    ∫ x, F x = 0 := by
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) i with he
+  have hmp : MeasureTheory.MeasurePreserving e :=
+    MeasureTheory.volume_preserving_piFinSuccAbove (fun _ => ℝ) i
+  have hsymm : ∀ p : ℝ × (Fin n → ℝ), e.symm p = i.insertNth p.1 p.2 := fun _ => rfl
+  have hint : MeasureTheory.Integrable (F ∘ e.symm) := hmp.symm.integrable_comp_of_integrable hF
+  have key := hmp.integral_comp' (F ∘ e.symm)
+  simp only [Function.comp, MeasurableEquiv.symm_apply_apply] at key
+  rw [key, MeasureTheory.Measure.volume_eq_prod,
+    MeasureTheory.integral_prod_symm (fun p => F (e.symm p)) hint]
+  simp only [hsymm]
+  simp_rw [h]
+  simp
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
