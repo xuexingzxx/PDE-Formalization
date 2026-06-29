@@ -476,6 +476,40 @@ theorem integral_horizontal_ibp {m : ℕ} (i : Fin (m + 1))
   dsimp only
   rw [(hγ_slice y s).deriv]
 
+/-- **Horizontal divergence theorem (iterated form).** The iterated volume integral of the `i`-th
+    horizontal partial of `u` over the region under the graph of `γ` equals minus the boundary
+    term `∫ u(x,γx)·∂ᵢγ`. Rearrangement of `integral_horizontal_ibp`. -/
+theorem integral_horizontal_ibp' {m : ℕ} (i : Fin (m + 1))
+    {u : (Fin (m + 1) → ℝ) × ℝ → ℝ} {γ : (Fin (m + 1) → ℝ) → ℝ}
+    (hu : ContDiff ℝ 1 u) (hγ : ContDiff ℝ 1 γ) (husupp : HasCompactSupport u) :
+    (∫ x, ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0))
+      = - ∫ x, u (x, γ x) * fderiv ℝ γ x (Pi.single i 1) := by
+  have hAcont : Continuous (fun x => u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)) :=
+    (hu.continuous.comp (continuous_id.prodMk hγ.continuous)).mul
+      ((hγ.continuous_fderiv (by norm_num)).clm_apply continuous_const)
+  have hAsupp : HasCompactSupport (fun x => u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)) :=
+    (HasCompactSupport.intro (husupp.image continuous_fst)
+      (fun x hx => image_eq_zero_of_notMem_tsupport
+        (fun hmem => hx ⟨(x, γ x), hmem, rfl⟩))).mul_right
+  have hA := hAcont.integrable_of_hasCompactSupport (μ := volume) hAsupp
+  have hfderivu : Continuous
+      (fun p : (Fin (m + 1) → ℝ) × ℝ => fderiv ℝ u p (Pi.single i 1, 0)) :=
+    (hu.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hBcont : Continuous
+      (fun x => ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0)) :=
+    intervalIntegral.continuous_parametric_intervalIntegral_of_continuous hfderivu hγ.continuous
+  have hBsupp : HasCompactSupport
+      (fun x => ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0)) := by
+    refine HasCompactSupport.intro ((husupp.fderiv (𝕜 := ℝ)).image continuous_fst) (fun x hx => ?_)
+    have hz : ∀ t, fderiv ℝ u (x, t) (Pi.single i 1, 0) = 0 := fun t => by
+      rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ u)
+        (fun hmem => hx ⟨(x, t), hmem, rfl⟩)]; rfl
+    simp only [hz, intervalIntegral.integral_zero]
+  have hB := hBcont.integrable_of_hasCompactSupport (μ := volume) hBsupp
+  have h0 := integral_horizontal_ibp i hu hγ husupp
+  rw [integral_add hA hB] at h0
+  linarith
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
