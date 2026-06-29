@@ -174,6 +174,122 @@ lemma leibniz_integral {H Ht : ℝ → ℝ → ℝ} {t : ℝ}
   rw [hFeq]
   simpa using (hP.add hBconst).add hC
 
+set_option linter.style.longLine false in
+/-- **General moving-boundary Leibniz rule.** Differentiating `s ↦ ∫₀^{g s} f s t dt`, where both
+    the integrand parameter and the upper limit `g s` depend on `s`:
+    `d/ds ∫₀^{g s} f s t dt |_{s=s₀} = f s₀ (g s₀) · g'(s₀) + ∫₀^{g s₀} ∂₁f s₀ t dt`.
+
+    **Proof**: decompose `D = A + B₁ + B₂` with `A(s) = ∫₀^{g s₀} f s t` (differentiation under the
+    integral over the *fixed* interval `[0, g s₀]`, gives `∫₀^{g s₀} ∂₁f s₀ t`), `B₁(s) =
+    ∫_{g s₀}^{g s} f s₀ t` (FTC for the upper limit composed with `g`, gives `f s₀ (g s₀)·g'(s₀)`),
+    and the moving-limit cross-term `B₂(s) = ∫_{g s₀}^{g s} (f s t − f s₀ t)` (derivative `0`: a
+    mean-value bound `|f s t − f s₀ t| ≤ M|s−s₀|` times the shrinking interval `|g s − g s₀|` makes
+    it `o(s − s₀)`). The uniform bound `M` on `|∂₁f|` over a compact box comes from continuity. -/
+lemma leibniz_integral_comp {f f' : ℝ → ℝ → ℝ} {g : ℝ → ℝ} {s₀ gd : ℝ}
+    (hf : Continuous (fun p : ℝ × ℝ => f p.1 p.2))
+    (hf' : Continuous (fun p : ℝ × ℝ => f' p.1 p.2))
+    (hderiv : ∀ a t : ℝ, HasDerivAt (fun a' => f a' t) (f' a t) a)
+    (hg : HasDerivAt g gd s₀) :
+    HasDerivAt (fun s => ∫ t in (0:ℝ)..(g s), f s t)
+      (f s₀ (g s₀) * gd + ∫ t in (0:ℝ)..(g s₀), f' s₀ t) s₀ := by
+  classical
+  have hfc : ∀ a, Continuous (fun t => f a t) := fun a =>
+    hf.comp (continuous_const.prodMk continuous_id)
+  have hf'c : ∀ a, Continuous (fun t => f' a t) := fun a =>
+    hf'.comp (continuous_const.prodMk continuous_id)
+  -- compact box and uniform bound `M` on `|f'|`
+  set R : ℝ := |g s₀| + 1 with hR
+  have hbox : IsCompact (Set.Icc (s₀ - 1) (s₀ + 1) ×ˢ Set.Icc (-R) R) :=
+    isCompact_Icc.prod isCompact_Icc
+  obtain ⟨M, hMbound⟩ := hbox.exists_bound_of_continuousOn hf'.continuousOn
+  have hRpos : 0 < R := by rw [hR]; positivity
+  have hgs0R : g s₀ ∈ Set.Icc (-R) R := ⟨by rw [hR]; nlinarith [neg_abs_le (g s₀)],
+    by rw [hR]; nlinarith [le_abs_self (g s₀)]⟩
+  have h0R : (0 : ℝ) ∈ Set.Icc (-R) R := ⟨by linarith, le_of_lt hRpos⟩
+  have hs0box : s₀ ∈ Set.Icc (s₀ - 1) (s₀ + 1) := ⟨by linarith, by linarith⟩
+  have hM0 : 0 ≤ M := le_trans (norm_nonneg _) (hMbound (s₀, 0) ⟨hs0box, h0R⟩)
+  have hbnd : ∀ x ∈ Set.Icc (s₀ - 1) (s₀ + 1), ∀ t ∈ Set.Icc (-R) R, |f' x t| ≤ M := by
+    intro x hx t ht; simpa [Real.norm_eq_abs] using hMbound (x, t) ⟨hx, ht⟩
+  -- Piece A: differentiation under the integral over the fixed interval `[0, g s₀]`.
+  have hA := intervalIntegral.hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (a := 0) (b := g s₀) (μ := volume) (F := f) (F' := f') (x₀ := s₀)
+    (bound := fun _ => M) (s := Set.Icc (s₀ - 1) (s₀ + 1))
+    (Icc_mem_nhds (by linarith) (by linarith))
+    (Filter.Eventually.of_forall fun a => (hfc a).aestronglyMeasurable.restrict)
+    ((hfc s₀).intervalIntegrable 0 (g s₀))
+    (hf'c s₀).aestronglyMeasurable.restrict
+    (MeasureTheory.ae_of_all _ fun t ht x hx => by
+      rw [Real.norm_eq_abs]
+      exact hbnd x hx t ((Set.uIcc_subset_Icc h0R hgs0R) (Set.uIoc_subset_uIcc ht)))
+    intervalIntegral.intervalIntegrable_const
+    (MeasureTheory.ae_of_all _ fun t _ x _ => hderiv x t)
+  -- Piece B₁: FTC for the moving limit, composed with `g`.
+  have hΦ : HasDerivAt (fun c => ∫ t in (g s₀)..c, f s₀ t) (f s₀ (g s₀)) (g s₀) :=
+    intervalIntegral.integral_hasDerivAt_right ((hfc s₀).intervalIntegrable _ _)
+      ((hfc s₀).stronglyMeasurableAtFilter volume (nhds (g s₀))) (hfc s₀).continuousAt
+  have hB₁ : HasDerivAt (fun s => ∫ t in (g s₀)..(g s), f s₀ t) (f s₀ (g s₀) * gd) s₀ :=
+    hΦ.comp s₀ hg
+  -- Piece B₂: the moving-limit cross-term has derivative `0`.
+  have hB₂ : HasDerivAt (fun s => ∫ t in (g s₀)..(g s), (f s t - f s₀ t)) 0 s₀ := by
+    rw [hasDerivAt_iff_isLittleO]
+    simp only [intervalIntegral.integral_same, sub_zero, smul_eq_mul, mul_zero]
+    rw [Asymptotics.isLittleO_iff]
+    intro c hc
+    have hMc : ContinuousAt (fun s => M * |g s - g s₀|) s₀ := continuousAt_const.mul
+      (continuous_abs.continuousAt.comp (hg.continuousAt.sub continuousAt_const))
+    have hMc0 : (fun s => M * |g s - g s₀|) s₀ < c := by simpa using hc
+    have hgc1 : ContinuousAt (fun s => |g s - g s₀|) s₀ :=
+      continuous_abs.continuousAt.comp (hg.continuousAt.sub continuousAt_const)
+    have hgc10 : (fun s => |g s - g s₀|) s₀ < 1 := by simp
+    filter_upwards [Metric.ball_mem_nhds s₀ one_pos,
+      hMc.eventually_lt_const hMc0, hgc1.eventually_lt_const hgc10] with s hsball hMlt hgs1
+    rw [Metric.mem_ball, Real.dist_eq] at hsball
+    have hb := abs_lt.mp hgs1
+    have hsabs := abs_lt.mp hsball
+    have hgsR : g s ∈ Set.Icc (-R) R := by
+      rw [hR, Set.mem_Icc]
+      exact ⟨by nlinarith [neg_abs_le (g s₀)], by nlinarith [le_abs_self (g s₀)]⟩
+    have hsuIcc : Set.uIcc s₀ s ⊆ Set.Icc (s₀ - 1) (s₀ + 1) :=
+      Set.uIcc_subset_Icc hs0box ⟨by linarith, by linarith⟩
+    have hmvt : ∀ t ∈ Set.uIoc (g s₀) (g s), |f s t - f s₀ t| ≤ M * |s - s₀| := by
+      intro t ht
+      have htbox : t ∈ Set.Icc (-R) R :=
+        (Set.uIcc_subset_Icc hgs0R hgsR) (Set.uIoc_subset_uIcc ht)
+      have hmv := Convex.norm_image_sub_le_of_norm_hasDerivWithin_le
+        (f := fun x => f x t) (f' := fun x => f' x t) (s := Set.uIcc s₀ s) (C := M)
+        (fun x _ => (hderiv x t).hasDerivWithinAt)
+        (fun x hx => by rw [Real.norm_eq_abs]; exact hbnd x (hsuIcc hx) t htbox)
+        (convex_uIcc s₀ s) Set.right_mem_uIcc Set.left_mem_uIcc
+      rw [Real.norm_eq_abs, Real.norm_eq_abs, abs_sub_comm (f s₀ t) (f s t),
+        abs_sub_comm s₀ s] at hmv
+      exact hmv
+    calc ‖∫ t in (g s₀)..(g s), (f s t - f s₀ t)‖
+        ≤ M * |s - s₀| * |g s - g s₀| := by
+          apply intervalIntegral.norm_integral_le_of_norm_le_const
+          intro t ht; rw [Real.norm_eq_abs]; exact hmvt t ht
+      _ = (M * |g s - g s₀|) * |s - s₀| := by ring
+      _ ≤ c * |s - s₀| := mul_le_mul_of_nonneg_right hMlt.le (abs_nonneg _)
+      _ = c * ‖s - s₀‖ := by rw [Real.norm_eq_abs]
+  -- Assemble `D = A + B₁ + B₂`.
+  have hDeq : (fun s => ∫ t in (0:ℝ)..(g s), f s t)
+      = fun s => (∫ t in (0:ℝ)..(g s₀), f s t)
+          + (∫ t in (g s₀)..(g s), f s₀ t)
+          + ∫ t in (g s₀)..(g s), (f s t - f s₀ t) := by
+    funext s
+    have e1 : (∫ t in (0:ℝ)..(g s), f s t)
+        = (∫ t in (0:ℝ)..(g s₀), f s t) + ∫ t in (g s₀)..(g s), f s t :=
+      (intervalIntegral.integral_add_adjacent_intervals
+        ((hfc s).intervalIntegrable 0 (g s₀)) ((hfc s).intervalIntegrable (g s₀) (g s))).symm
+    have e3 : (∫ t in (g s₀)..(g s), (f s t - f s₀ t))
+        = (∫ t in (g s₀)..(g s), f s t) - ∫ t in (g s₀)..(g s), f s₀ t :=
+      intervalIntegral.integral_sub ((hfc s).intervalIntegrable _ _)
+        ((hfc s₀).intervalIntegrable _ _)
+    rw [e1, e3]; ring
+  rw [hDeq]
+  have hsum := (hA.2.add hB₁).add hB₂
+  convert hsum using 1
+  ring
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
