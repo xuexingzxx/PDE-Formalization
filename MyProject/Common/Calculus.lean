@@ -510,6 +510,57 @@ theorem integral_horizontal_ibp' {m : ℕ} (i : Fin (m + 1))
   rw [integral_add hA hB] at h0
   linarith
 
+set_option linter.style.longLine false in
+/-- **Horizontal IBP, `EuclideanSpace` base.** The transfer of `integral_horizontal_ibp'` from the
+    pi type `Fin (m+1) → ℝ` to `EuclideanSpace ℝ (Fin (m+1))`, so the base matches the area formula
+    and `flux_graph`. Proof: pull `u`, `γ` back through the linear isometry `toLp` (= the continuous
+    linear equiv `EuclideanSpace.equiv.symm`), apply the pi-type IBP, and transfer the two integrals
+    back (volume-preserving) using the chain rule `fderiv (· ∘ toLp) = fderiv · ∘ toLp` and
+    `toLp (Pi.single i 1) = EuclideanSpace.single i 1`. -/
+theorem integral_horizontal_ibp_euclidean {m : ℕ} (i : Fin (m + 1))
+    {u : EuclideanSpace ℝ (Fin (m + 1)) × ℝ → ℝ} {γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ}
+    (hu : ContDiff ℝ 1 u) (hγ : ContDiff ℝ 1 γ) (husupp : HasCompactSupport u) :
+    (∫ x, ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (EuclideanSpace.single i 1, 0))
+      = - ∫ x, u (x, γ x) * fderiv ℝ γ x (EuclideanSpace.single i 1) := by
+  set e : (Fin (m + 1) → ℝ) ≃L[ℝ] EuclideanSpace ℝ (Fin (m + 1)) :=
+    (PiLp.continuousLinearEquiv 2 ℝ (fun _ : Fin (m + 1) => ℝ)).symm with he
+  set LE : ((Fin (m + 1) → ℝ) × ℝ) ≃L[ℝ] EuclideanSpace ℝ (Fin (m + 1)) × ℝ :=
+    e.prodCongr (ContinuousLinearEquiv.refl ℝ ℝ) with hLE
+  set L : ((Fin (m + 1) → ℝ) × ℝ) →L[ℝ] EuclideanSpace ℝ (Fin (m + 1)) × ℝ :=
+    LE.toContinuousLinearMap with hLdef
+  set γ' : (Fin (m + 1) → ℝ) → ℝ := γ ∘ e with hγ'
+  set u' : (Fin (m + 1) → ℝ) × ℝ → ℝ := u ∘ L with hu'
+  have hγ'cd : ContDiff ℝ 1 γ' := hγ.comp e.contDiff
+  have hu'cd : ContDiff ℝ 1 u' := hu.comp L.contDiff
+  have hu'supp : HasCompactSupport u' := husupp.comp_homeomorph LE.toHomeomorph
+  have hpi := integral_horizontal_ibp' i hu'cd hγ'cd hu'supp
+  have hγfd : ∀ z, fderiv ℝ γ' z (Pi.single i 1)
+      = fderiv ℝ γ (e z) (EuclideanSpace.single i 1) := fun z => by
+    rw [hγ', (hγ.differentiable (by norm_num) (e z)).hasFDerivAt.comp z e.hasFDerivAt |>.fderiv]
+    rfl
+  have hufd : ∀ z t, fderiv ℝ u' (z, t) (Pi.single i 1, 0)
+      = fderiv ℝ u (e z, t) (EuclideanSpace.single i 1, 0) := fun z t => by
+    rw [hu', (hu.differentiable (by norm_num) (L (z, t))).hasFDerivAt.comp (z, t)
+      L.hasFDerivAt |>.fderiv]
+    rfl
+  have hmp : MeasureTheory.MeasurePreserving e := PiLp.volume_preserving_toLp (Fin (m + 1))
+  have hme : MeasurableEmbedding e := e.toHomeomorph.measurableEmbedding
+  have hLHS : (∫ x, ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (EuclideanSpace.single i 1, 0))
+      = ∫ z, ∫ t in (0:ℝ)..(γ' z), fderiv ℝ u' (z, t) (Pi.single i 1, 0) := by
+    rw [← hmp.integral_comp hme (fun x => ∫ t in (0:ℝ)..(γ x),
+      fderiv ℝ u (x, t) (EuclideanSpace.single i 1, 0))]
+    exact integral_congr_ae (Filter.Eventually.of_forall fun z =>
+      intervalIntegral.integral_congr fun t _ => (hufd z t).symm)
+  have hRHS : (∫ x, u (x, γ x) * fderiv ℝ γ x (EuclideanSpace.single i 1))
+      = ∫ z, u' (z, γ' z) * fderiv ℝ γ' z (Pi.single i 1) := by
+    rw [← hmp.integral_comp hme
+      (fun x => u (x, γ x) * fderiv ℝ γ x (EuclideanSpace.single i 1))]
+    refine integral_congr_ae (Filter.Eventually.of_forall fun z => ?_)
+    show u (e z, γ (e z)) * fderiv ℝ γ (e z) (EuclideanSpace.single i 1)
+      = u' (z, γ' z) * fderiv ℝ γ' z (Pi.single i 1)
+    rw [hγfd z]; rfl
+  rw [hLHS, hRHS]; exact hpi
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
