@@ -409,6 +409,52 @@ theorem isClosedEmbedding_insertNth {m : ℕ} (i : Fin (m + 1)) (y : Fin m → �
   rw [heq]
   exact isClosedEmbedding_update _ i
 
+/-- **Multivariate horizontal integration by parts.** For `C¹` `u` (compact support) and `γ`,
+    the `i`-th horizontal divergence integrates to zero:
+    `∫ (u(x,γx)·∂ᵢγ + ∫₀^{γx} ∂ᵢu) dx = 0`, where `∂ᵢ` is the directional derivative in the
+    `i`-th base coordinate (`fderiv · (Pi.single i 1, ·)`). The slice in each `i`-th coordinate is
+    handled by `integral_leibniz_comp_eq_zero` and lifted to `ℝᵐ⁺¹` by the Fubini step. -/
+theorem integral_horizontal_ibp {m : ℕ} (i : Fin (m + 1))
+    {u : (Fin (m + 1) → ℝ) × ℝ → ℝ} {γ : (Fin (m + 1) → ℝ) → ℝ}
+    (hu : ContDiff ℝ 1 u) (hγ : ContDiff ℝ 1 γ) (husupp : HasCompactSupport u)
+    (hF : MeasureTheory.Integrable (fun x => u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)
+        + ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0))) :
+    ∫ x, (u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)
+        + ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0)) = 0 := by
+  have hud : Differentiable ℝ u := hu.differentiable (by norm_num)
+  have hγd : Differentiable ℝ γ := hγ.differentiable (by norm_num)
+  have hu_slice : ∀ (y : Fin m → ℝ) (s t : ℝ),
+      HasDerivAt (fun s' => u (i.insertNth s' y, t))
+        (fderiv ℝ u (i.insertNth s y, t) (Pi.single i 1, 0)) s := fun y s t =>
+    (hud _).hasFDerivAt.comp_hasDerivAt s
+      ((hasDerivAt_insertNth i y s).prodMk (hasDerivAt_const s t))
+  have hγ_slice : ∀ (y : Fin m → ℝ) (s : ℝ),
+      HasDerivAt (fun s' => γ (i.insertNth s' y)) (fderiv ℝ γ (i.insertNth s y) (Pi.single i 1)) s :=
+    fun y s => (hγd _).hasFDerivAt.comp_hasDerivAt s (hasDerivAt_insertNth i y s)
+  apply integral_eq_zero_of_forall_insertNth_integral_zero i hF
+  intro y
+  have hslicemap : Continuous (fun p : ℝ × ℝ => ((i.insertNth p.1 y : Fin (m + 1) → ℝ), p.2)) :=
+    ((continuous_insertNth i y).comp continuous_fst).prodMk continuous_snd
+  have hf : Continuous (fun p : ℝ × ℝ => u (i.insertNth p.1 y, p.2)) := hu.continuous.comp hslicemap
+  have hf' : Continuous
+      (fun p : ℝ × ℝ => fderiv ℝ u (i.insertNth p.1 y, p.2) (Pi.single i 1, 0)) :=
+    ((hu.continuous_fderiv (by norm_num)).clm_apply continuous_const).comp hslicemap
+  have hgcd : ContDiff ℝ 1 (fun s => γ (i.insertNth s y)) := hγ.comp (contDiff_insertNth i y)
+  have emb : Topology.IsClosedEmbedding
+      (Prod.map (fun s : ℝ => (i.insertNth s y : Fin (m + 1) → ℝ)) (id : ℝ → ℝ)) := by
+    refine ⟨(isClosedEmbedding_insertNth i y).toIsEmbedding.prodMap Topology.IsEmbedding.id, ?_⟩
+    rw [Set.range_prodMap, Set.range_id]
+    exact (isClosedEmbedding_insertNth i y).isClosed_range.prod isClosed_univ
+  have hsupp : HasCompactSupport (fun p : ℝ × ℝ => u (i.insertNth p.1 y, p.2)) :=
+    husupp.comp_isClosedEmbedding emb
+  have key := integral_leibniz_comp_eq_zero (f := fun s t => u (i.insertNth s y, t))
+    (f' := fun s t => fderiv ℝ u (i.insertNth s y, t) (Pi.single i 1, 0))
+    (g := fun s => γ (i.insertNth s y)) hf hf' (fun a t => hu_slice y a t) hgcd hsupp
+  refine Eq.trans ?_ key
+  refine integral_congr_ae (Filter.Eventually.of_forall fun s => ?_)
+  dsimp only
+  rw [(hγ_slice y s).deriv]
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
