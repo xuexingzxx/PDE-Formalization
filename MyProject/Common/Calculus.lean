@@ -303,6 +303,43 @@ theorem integral_deriv_eq_zero {f : ℝ → ℝ} (hf : ContDiff ℝ 1 f) (h'f : 
       hint.integrableOn hint.integrableOn, h1, h2]
   ring
 
+/-- **Integration by parts along a line.** Combining the moving-boundary Leibniz rule
+    (`leibniz_integral_comp`) with the compact-support vanishing (`integral_deriv_eq_zero`): for
+    compactly-supported `C¹` data, the total derivative `d/ds ∫₀^{g s} f s t dt` integrates to
+    zero over `ℝ`, i.e. `∫_ℝ (f s (g s)·g'(s) + ∫₀^{g s} ∂₁f s t dt) ds = 0`. This is the slice
+    form of the horizontal integration by parts behind the full-gradient divergence theorem. -/
+theorem integral_leibniz_comp_eq_zero {f f' : ℝ → ℝ → ℝ} {g : ℝ → ℝ}
+    (hf : Continuous (fun p : ℝ × ℝ => f p.1 p.2))
+    (hf' : Continuous (fun p : ℝ × ℝ => f' p.1 p.2))
+    (hderiv : ∀ a t : ℝ, HasDerivAt (fun a' => f a' t) (f' a t) a)
+    (hg : ContDiff ℝ 1 g)
+    (hsupp : HasCompactSupport (fun p : ℝ × ℝ => f p.1 p.2)) :
+    ∫ s, (f s (g s) * deriv g s + ∫ t in (0:ℝ)..(g s), f' s t) = 0 := by
+  set G : ℝ → ℝ := fun s => ∫ t in (0:ℝ)..(g s), f s t with hG
+  set L : ℝ → ℝ := fun s => f s (g s) * deriv g s + ∫ t in (0:ℝ)..(g s), f' s t with hL
+  have hGderiv : ∀ s, HasDerivAt G (L s) s := fun s =>
+    leibniz_integral_comp hf hf' hderiv (hg.differentiable (by norm_num) s).hasDerivAt
+  have hLcont : Continuous L := by
+    apply Continuous.add
+    · exact (hf.comp (continuous_id.prodMk hg.continuous)).mul (hg.continuous_deriv (by norm_num))
+    · exact intervalIntegral.continuous_parametric_intervalIntegral_of_continuous hf' hg.continuous
+  have hGcd : ContDiff ℝ 1 G := by
+    rw [contDiff_one_iff_deriv]
+    refine ⟨fun s => (hGderiv s).differentiableAt, ?_⟩
+    have hd : deriv G = L := funext fun s => (hGderiv s).deriv
+    rwa [hd]
+  have hGsupp : HasCompactSupport G := by
+    apply HasCompactSupport.intro
+      (K := Prod.fst '' tsupport (fun p : ℝ × ℝ => f p.1 p.2)) (hsupp.image continuous_fst)
+    intro s hs
+    have hfs : ∀ t, f s t = 0 := by
+      intro t
+      by_contra h
+      exact hs ⟨(s, t), subset_tsupport _ h, rfl⟩
+    simp only [hG, hfs, intervalIntegral.integral_zero]
+  have hLG : L = deriv G := (funext fun s => (hGderiv s).deriv).symm
+  rw [hLG, integral_deriv_eq_zero hGcd hGsupp]
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
