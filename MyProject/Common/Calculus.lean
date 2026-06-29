@@ -416,11 +416,32 @@ theorem isClosedEmbedding_insertNth {m : ℕ} (i : Fin (m + 1)) (y : Fin m → �
     handled by `integral_leibniz_comp_eq_zero` and lifted to `ℝᵐ⁺¹` by the Fubini step. -/
 theorem integral_horizontal_ibp {m : ℕ} (i : Fin (m + 1))
     {u : (Fin (m + 1) → ℝ) × ℝ → ℝ} {γ : (Fin (m + 1) → ℝ) → ℝ}
-    (hu : ContDiff ℝ 1 u) (hγ : ContDiff ℝ 1 γ) (husupp : HasCompactSupport u)
-    (hF : MeasureTheory.Integrable (fun x => u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)
-        + ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0))) :
+    (hu : ContDiff ℝ 1 u) (hγ : ContDiff ℝ 1 γ) (husupp : HasCompactSupport u) :
     ∫ x, (u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)
         + ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0)) = 0 := by
+  -- the integrand is continuous with compact support, hence integrable
+  have hfderivu : Continuous
+      (fun p : (Fin (m + 1) → ℝ) × ℝ => fderiv ℝ u p (Pi.single i 1, 0)) :=
+    (hu.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hcont : Continuous (fun x => u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)
+        + ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0)) :=
+    ((hu.continuous.comp (continuous_id.prodMk hγ.continuous)).mul
+        ((hγ.continuous_fderiv (by norm_num)).clm_apply continuous_const)).add
+      (intervalIntegral.continuous_parametric_intervalIntegral_of_continuous hfderivu hγ.continuous)
+  have hF : MeasureTheory.Integrable (fun x => u (x, γ x) * fderiv ℝ γ x (Pi.single i 1)
+      + ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0)) := by
+    have h1 : HasCompactSupport (fun x => u (x, γ x)) :=
+      HasCompactSupport.intro (husupp.image continuous_fst)
+        (fun x hx => image_eq_zero_of_notMem_tsupport (fun hmem => hx ⟨(x, γ x), hmem, rfl⟩))
+    have h2 : HasCompactSupport
+        (fun x => ∫ t in (0:ℝ)..(γ x), fderiv ℝ u (x, t) (Pi.single i 1, 0)) := by
+      refine HasCompactSupport.intro ((husupp.fderiv (𝕜 := ℝ)).image continuous_fst)
+        (fun x hx => ?_)
+      have hz : ∀ t, fderiv ℝ u (x, t) (Pi.single i 1, 0) = 0 := fun t => by
+        rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ u)
+          (fun hmem => hx ⟨(x, t), hmem, rfl⟩)]; rfl
+      simp only [hz, intervalIntegral.integral_zero]
+    exact hcont.integrable_of_hasCompactSupport (h1.mul_right.add h2)
   have hud : Differentiable ℝ u := hu.differentiable (by norm_num)
   have hγd : Differentiable ℝ γ := hγ.differentiable (by norm_num)
   have hu_slice : ∀ (y : Fin m → ℝ) (s t : ℝ),
