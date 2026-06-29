@@ -290,6 +290,19 @@ lemma leibniz_integral_comp {f f' : ℝ → ℝ → ℝ} {g : ℝ → ℝ} {s₀
   convert hsum using 1
   ring
 
+/-- The integral over `ℝ` of the derivative of a compactly-supported `C¹` function vanishes:
+    `∫_ℝ f' = f(+∞) − f(−∞) = 0`. The boundary term of an integration by parts on the line. -/
+theorem integral_deriv_eq_zero {f : ℝ → ℝ} (hf : ContDiff ℝ 1 f) (h'f : HasCompactSupport f) :
+    ∫ x, deriv f x = 0 := by
+  have hint : MeasureTheory.Integrable (deriv f) :=
+    (hf.continuous_deriv le_rfl).integrable_of_hasCompactSupport h'f.deriv
+  have h1 := HasCompactSupport.integral_Iic_deriv_eq hf h'f 0
+  have h2 := HasCompactSupport.integral_Ioi_deriv_eq hf h'f 0
+  rw [← MeasureTheory.setIntegral_univ, ← Set.Iic_union_Ioi (a := (0 : ℝ)),
+    MeasureTheory.setIntegral_union (Set.Iic_disjoint_Ioi le_rfl) measurableSet_Ioi
+      hint.integrableOn hint.integrableOn, h1, h2]
+  ring
+
 /-! ### Gaussian moment integrability
 
 Integrability over `ℝⁿ` of `‖z‖^k · exp(−c‖z‖²)` for `k = 0, 1, 2` (`c > 0`). Mathlib
