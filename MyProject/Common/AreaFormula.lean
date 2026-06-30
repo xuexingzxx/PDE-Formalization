@@ -1655,6 +1655,47 @@ theorem flatten_measurePreserving (m : ℕ) :
     MeasurePreserving (flatten m) volume volume :=
   (flatten m).measurePreserving
 
+/-! ### Bounded `C¹` domains
+
+The domain of the general divergence theorem: an open bounded set whose boundary is, near each of
+its points, a `C¹` graph in a suitably rotated and translated frame. The boundary is compact (the
+key to extracting a finite chart cover for the partition-of-unity assembly). -/
+
+set_option linter.style.longLine false in
+/-- A **bounded `C¹` domain** in `ℝᵐ⁺²`: open, bounded, with boundary locally a `C¹` graph. Near
+each boundary point `x₀` there are a radius `r`, a rotation `e`, and a `C¹` function `γ` such that,
+in the rotated-and-translated frame (`x ↦ (flatten).symm (e (x − x₀))`, splitting `ℝᵐ⁺²` into
+base × height), the domain is exactly the strict subgraph `height < γ(base)`. This is Evans' local
+boundary-flattening hypothesis (§C.1), with `flatten` providing the base × height split. -/
+structure IsBoundedC1Domain {m : ℕ} (Ω : Set (ℝ^(m + 2))) : Prop where
+  /-- The domain is open. -/
+  isOpen : IsOpen Ω
+  /-- The domain is bounded (so its closure is compact). -/
+  isBounded : Bornology.IsBounded Ω
+  /-- The boundary is, near each point, a `C¹` graph in a rotated/translated frame. -/
+  locallyGraph : ∀ x₀ ∈ frontier Ω, ∃ (r : ℝ) (_ : 0 < r) (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2)))
+    (γ : (ℝ^(m + 1)) → ℝ), ContDiff ℝ 1 γ ∧
+    Ω ∩ Metric.ball x₀ r =
+      {x | ((flatten m).symm (e (x - x₀))).ofLp.2 < γ ((flatten m).symm (e (x - x₀))).ofLp.1}
+        ∩ Metric.ball x₀ r
+
+namespace IsBoundedC1Domain
+variable {m : ℕ} {Ω : Set (ℝ^(m + 2))}
+
+/-- A bounded `C¹` domain is measurable. -/
+theorem measurableSet (h : IsBoundedC1Domain Ω) : MeasurableSet Ω := h.isOpen.measurableSet
+
+/-- The closure of a bounded `C¹` domain is compact. -/
+theorem isCompact_closure (h : IsBoundedC1Domain Ω) : IsCompact (closure Ω) :=
+  h.isBounded.isCompact_closure
+
+/-- **The boundary of a bounded `C¹` domain is compact** — the finiteness behind the partition of
+unity that assembles the general divergence theorem from the local graph charts. -/
+theorem isCompact_frontier (h : IsBoundedC1Domain Ω) : IsCompact (frontier Ω) :=
+  h.isCompact_closure.of_isClosed_subset isClosed_frontier frontier_subset_closure
+
+end IsBoundedC1Domain
+
 end AreaFormula
 
 end
