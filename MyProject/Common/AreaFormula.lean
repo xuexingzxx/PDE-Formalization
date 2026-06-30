@@ -1600,6 +1600,32 @@ theorem divergence_eq_trace {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)
     simp only [ContinuousLinearMap.coe_coe]
     rw [Module.Basis.prod_repr_inr, Module.Basis.singleton_repr]
 
+set_option linter.style.longLine false in
+/-- **Divergence reconciliation under a coordinate identification.** The canonical flat divergence
+`divergenceE` of the conjugated field `z ↦ Φ⁻¹(F(Φ z))` agrees with the graph theorem's product
+divergence of `F` at `Φ z`, for any linear identification `Φ : ℝᵐ⁺² ≃L (ℝᵐ⁺¹) × ℝ`. Both are the
+trace of the Jacobian (`divergenceE_eq_trace`, `divergence_eq_trace`), and the trace is invariant
+under the conjugation by `Φ`. This is the bridge that lets the graph divergence theorem be
+restated in flat `EuclideanSpace ℝ (Fin (m+2))` coordinates with the canonical `divergenceE`. -/
+theorem divergenceE_comp_cle {m : ℕ} (Φ : (ℝ^(m + 2)) ≃L[ℝ] ((ℝ^(m + 1)) × ℝ))
+    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : Differentiable ℝ F) (y : ℝ^(m + 2)) :
+    divergenceE (fun z => Φ.symm (F (Φ z))) y = divergence F (Φ y) := by
+  rw [divergenceE_eq_trace, divergence_eq_trace (hF (Φ y))]
+  have hfd : HasFDerivAt (fun z => Φ.symm (F (Φ z)))
+      ((Φ.symm.toContinuousLinearMap).comp
+        ((fderiv ℝ F (Φ y)).comp Φ.toContinuousLinearMap)) y := by
+    have h1 : HasFDerivAt (fun z : ℝ^(m + 2) => Φ z) Φ.toContinuousLinearMap y :=
+      Φ.toContinuousLinearMap.hasFDerivAt
+    have h2 : HasFDerivAt F (fderiv ℝ F (Φ y)) (Φ y) := (hF (Φ y)).hasFDerivAt
+    have h3 : HasFDerivAt (fun w => Φ.symm w) Φ.symm.toContinuousLinearMap (F (Φ y)) :=
+      Φ.symm.toContinuousLinearMap.hasFDerivAt
+    exact h3.comp y (h2.comp y h1)
+  rw [hfd.fderiv]
+  have hconj : ((Φ.symm.toContinuousLinearMap).comp
+      ((fderiv ℝ F (Φ y)).comp Φ.toContinuousLinearMap)).toLinearMap
+      = Φ.symm.toLinearEquiv.conj (fderiv ℝ F (Φ y)).toLinearMap := rfl
+  rw [hconj, LinearMap.trace_conj']
+
 end AreaFormula
 
 end
