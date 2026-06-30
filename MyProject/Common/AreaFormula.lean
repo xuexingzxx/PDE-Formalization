@@ -1117,6 +1117,16 @@ area-element square root cancelled against the unit normal's denominator. -/
 def graphNormal (γ : (ℝ^m) → ℝ) (x : ℝ^m) : WithLp 2 ((ℝ^m) × ℝ) :=
   (Real.sqrt (1 + ‖gradient γ x‖ ^ 2))⁻¹ • WithLp.toLp 2 (-gradient γ x, (1 : ℝ))
 
+/-- The upward unit normal of a `C¹` graph depends continuously on the base point. -/
+theorem continuous_graphNormal {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ 1 γ) :
+    Continuous (graphNormal γ) := by
+  unfold graphNormal
+  refine Continuous.smul ?_ ?_
+  · exact (continuous_graph_integrand hγ).inv₀
+      (fun x => (Real.sqrt_pos.mpr (by positivity)).ne')
+  · exact (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^m) ℝ).symm.continuous.comp
+      ((continuous_gradient hγ).neg.prodMk continuous_const)
+
 set_option linter.unusedSectionVars false in
 /-- **Graph flux identity (Gauss–Green building block).** The flux of a vector field `V` through
 the graph of a `C¹` function `γ` equals a base integral with the area-element square root
@@ -1364,14 +1374,21 @@ over the flat bottom `{t = 0}`:
 This is the Gauss–Green theorem: the horizontal half (`horizontal_sum`) and the vertical half
 (`vertical_ftc`) are added and reconciled with the surface integral via `flux_graph`. -/
 theorem divergence_theorem_graph {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
-    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F)
-    (hmeas : AEStronglyMeasurable
-      (fun y => ⟪WithLp.toLp 2 (F y.ofLp), graphNormal γ y.ofLp.1⟫)
-      ((μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))).restrict (graphFun γ '' univ))) :
+    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) :
     (∫ x, ∫ t in (0:ℝ)..(γ x), divergence F (x, t))
       = (∫ y in graphFun γ '' univ, (⟪WithLp.toLp 2 (F y.ofLp), graphNormal γ y.ofLp.1⟫ : ℝ)
             ∂(μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))))
           - ∫ x, (F (x, 0)).2 := by
+  -- the surface integrand is continuous, hence a.e.-strongly measurable
+  have hofLp : Continuous (fun y : WithLp 2 ((ℝ^(m + 1)) × ℝ) => (y.ofLp : (ℝ^(m + 1)) × ℝ)) :=
+    (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^(m + 1)) ℝ).continuous
+  have hmeas : AEStronglyMeasurable
+      (fun y => ⟪WithLp.toLp 2 (F y.ofLp), graphNormal γ y.ofLp.1⟫)
+      ((μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))).restrict (graphFun γ '' univ)) :=
+    (Continuous.inner
+      ((WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^(m + 1)) ℝ).symm.continuous.comp
+        (hF.continuous.comp hofLp))
+      ((continuous_graphNormal hγ).comp (continuous_fst.comp hofLp))).aestronglyMeasurable
   -- component smoothness / supports
   have huc : ∀ i, ContDiff ℝ 1 (fun q => (F q).1 i) :=
     fun i => (contDiff_piLp_apply 2).comp (contDiff_fst.comp hF)
