@@ -1,4 +1,5 @@
 import Mathlib
+import MyProject.Common.Calculus
 
 /-!
 # The area formula
@@ -1257,6 +1258,227 @@ theorem divergence_subgraph_geometric {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ
   refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
   dsimp only
   rw [intervalIntegral.integral_of_le (hγ0 x), integral_Ioc_eq_integral_Ioo]
+
+/-! ### The full-gradient divergence theorem (Gauss–Green)
+
+The capstone: the genuine divergence theorem `∫_Ω div F = ∫_∂Ω ⟪F, ν⟫` for a `C¹` vector field
+over the region under a `C¹` graph. The horizontal half (`horizontal_sum`) is the coordinate sum
+of `Calculus.integral_horizontal_ibp_euclidean`; the vertical half (`vertical_ftc`) is the
+fibrewise fundamental theorem of calculus; the two are reconciled with the surface flux via
+`flux_graph`. -/
+
+set_option linter.style.longLine false in
+/-- Pointwise inner-product identity: `∑ᵢ aᵢ · ∂ᵢγ(x) = ⟪a, ∇γ(x)⟫`. The `i`-th directional
+derivative `∂ᵢγ = fderiv γ x (eᵢ)` is the `i`-th component of the gradient, so the weighted sum
+collapses to the inner product. -/
+theorem sum_smul_fderiv_eq_inner {n : ℕ} {γ : (ℝ^n) → ℝ} (hγ : ContDiff ℝ 1 γ) (x : ℝ^n)
+    (a : ℝ^n) :
+    ∑ i, a i * fderiv ℝ γ x (EuclideanSpace.single i 1) = ⟪a, gradient γ x⟫ := by
+  have hg : ∀ i, fderiv ℝ γ x (EuclideanSpace.single i 1) = gradient γ x i := by
+    intro i
+    rw [← inner_gradient_left (hγ.differentiable (by norm_num) x), PiLp.inner_apply,
+      Finset.sum_eq_single i]
+    · rw [PiLp.single_apply, if_pos rfl]
+      exact (Real.ext_cauchy rfl : (⟪gradient γ x i, (1:ℝ)⟫ : ℝ) = 1 * gradient γ x i).trans (one_mul _)
+    · intro j _ hj
+      rw [PiLp.single_apply, if_neg hj]
+      exact (Real.ext_cauchy rfl : (⟪gradient γ x j, (0:ℝ)⟫ : ℝ) = 0 * gradient γ x j).trans (zero_mul _)
+    · simp
+  simp_rw [hg]
+  rw [PiLp.inner_apply]
+  exact Finset.sum_congr rfl fun i _ =>
+    ((Real.ext_cauchy rfl : (⟪a i, gradient γ x i⟫ : ℝ) = gradient γ x i * a i).trans (mul_comm _ _)).symm
+
+/-- The divergence of a vector field `F : ℝⁿ × ℝ → ℝⁿ × ℝ` on the ambient half-space: the sum of
+the `n` horizontal partials of the horizontal components plus the vertical partial of the vertical
+component. -/
+noncomputable def divergence {n : ℕ} (F : (ℝ^n) × ℝ → (ℝ^n) × ℝ) (p : (ℝ^n) × ℝ) : ℝ :=
+  (∑ i, fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0))
+    + fderiv ℝ (fun q => (F q).2) p (0, 1)
+
+set_option linter.style.longLine false in
+/-- **Horizontal half of the divergence theorem.** Summing `integral_horizontal_ibp_euclidean`
+over the base coordinates: `∑ᵢ ∫ₓ ∫₀^{γx} ∂ᵢFᵢ = −∫ₓ ⟪F₁(x,γx), ∇γ x⟫`, where `F₁` is the
+horizontal part of `F`. The per-coordinate boundary terms `∫ Fᵢ(x,γx)·∂ᵢγ` sum to `∫ ⟪F₁,∇γ⟫`
+by `sum_smul_fderiv_eq_inner`. -/
+theorem horizontal_sum {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) :
+    ∑ i, (∫ x, ∫ t in (0:ℝ)..(γ x),
+        fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0))
+      = - ∫ x, ⟪(F (x, γ x)).1, gradient γ x⟫ := by
+  have huc : ∀ i, ContDiff ℝ 1 (fun q => (F q).1 i) :=
+    fun i => (contDiff_piLp_apply 2).comp (contDiff_fst.comp hF)
+  have husupp : ∀ i, HasCompactSupport (fun q => (F q).1 i) := fun i => by
+    have he : (fun q => (F q).1 i) = (fun y : (ℝ^(m + 1)) × ℝ => y.1 i) ∘ F := rfl
+    rw [he]; exact hsupp.comp_left (by simp)
+  have key : ∀ i, (∫ x, ∫ t in (0:ℝ)..(γ x),
+        fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0))
+      = - ∫ x, (F (x, γ x)).1 i * fderiv ℝ γ x (EuclideanSpace.single i 1) :=
+    fun i => integral_horizontal_ibp_euclidean i (huc i) hγ (husupp i)
+  have hint : ∀ i, Integrable
+      (fun x => (F (x, γ x)).1 i * fderiv ℝ γ x (EuclideanSpace.single i 1)) := by
+    intro i
+    refine Continuous.integrable_of_hasCompactSupport (μ := volume) ?_ ?_
+    · exact ((huc i).continuous.comp (continuous_id.prodMk hγ.continuous)).mul
+        ((hγ.continuous_fderiv (by norm_num)).clm_apply continuous_const)
+    · exact (HasCompactSupport.intro ((husupp i).image continuous_fst)
+        (fun x hx => image_eq_zero_of_notMem_tsupport
+          (fun hmem => hx ⟨(x, γ x), hmem, rfl⟩))).mul_right
+  calc ∑ i, (∫ x, ∫ t in (0:ℝ)..(γ x),
+          fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0))
+      = ∑ i, - ∫ x, (F (x, γ x)).1 i * fderiv ℝ γ x (EuclideanSpace.single i 1) :=
+        Finset.sum_congr rfl fun i _ => key i
+    _ = - ∑ i, ∫ x, (F (x, γ x)).1 i * fderiv ℝ γ x (EuclideanSpace.single i 1) := by
+        rw [Finset.sum_neg_distrib]
+    _ = - ∫ x, ∑ i, (F (x, γ x)).1 i * fderiv ℝ γ x (EuclideanSpace.single i 1) := by
+        rw [← integral_finset_sum _ (fun i _ => hint i)]
+    _ = - ∫ x, ⟪(F (x, γ x)).1, gradient γ x⟫ := by
+        congr 1
+        exact integral_congr_ae (.of_forall fun x => sum_smul_fderiv_eq_inner hγ x (F (x, γ x)).1)
+
+set_option linter.style.longLine false in
+/-- **Vertical half of the divergence theorem.** Fibrewise fundamental theorem of calculus for the
+vertical partial: `∫ₓ ∫₀^{γx} ∂ₜF₂ = ∫ₓ (F₂(x,γx) − F₂(x,0))`. -/
+theorem vertical_ftc {n : ℕ} {γ : (ℝ^n) → ℝ}
+    {F : (ℝ^n) × ℝ → (ℝ^n) × ℝ} (hF : ContDiff ℝ 1 F) :
+    ∫ x, (∫ t in (0:ℝ)..(γ x), fderiv ℝ (fun q => (F q).2) (x, t) (0, 1))
+      = ∫ x, ((F (x, γ x)).2 - (F (x, 0)).2) := by
+  have hv : Differentiable ℝ (fun q => (F q).2) := (contDiff_snd.comp hF).differentiable (by norm_num)
+  refine integral_congr_ae (.of_forall fun x => ?_)
+  dsimp only
+  have hslice : ∀ t, HasDerivAt (fun s => (F (x, s)).2)
+      (fderiv ℝ (fun q => (F q).2) (x, t) (0, 1)) t := fun t =>
+    (hv (x, t)).hasFDerivAt.comp_hasDerivAt t ((hasDerivAt_const t x).prodMk (hasDerivAt_id t))
+  have hcontderiv : Continuous (fun t => fderiv ℝ (fun q => (F q).2) (x, t) (0, 1)) :=
+    (((contDiff_snd.comp hF).continuous_fderiv (by norm_num)).clm_apply continuous_const).comp
+      (continuous_const.prodMk continuous_id)
+  exact intervalIntegral.integral_eq_sub_of_hasDerivAt (fun t _ => hslice t)
+    (hcontderiv.intervalIntegrable _ _)
+
+set_option linter.style.longLine false in
+/-- **The divergence theorem over the region under a `C¹` graph.** For a `C¹` vector field `F`
+with compact support, the iterated volume integral of `div F` over the region under the graph of
+`γ` equals the surface flux of `F` through the graph minus the integral of the vertical component
+over the flat bottom `{t = 0}`:
+`∫ₓ ∫₀^{γx} div F (x,t) dt = ∫_{graph} ⟪F, ν⟫ dμHE − ∫ₓ F₂(x,0)`.
+This is the Gauss–Green theorem: the horizontal half (`horizontal_sum`) and the vertical half
+(`vertical_ftc`) are added and reconciled with the surface integral via `flux_graph`. -/
+theorem divergence_theorem_graph {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F)
+    (hmeas : AEStronglyMeasurable
+      (fun y => ⟪WithLp.toLp 2 (F y.ofLp), graphNormal γ y.ofLp.1⟫)
+      ((μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))).restrict (graphFun γ '' univ))) :
+    (∫ x, ∫ t in (0:ℝ)..(γ x), divergence F (x, t))
+      = (∫ y in graphFun γ '' univ, (⟪WithLp.toLp 2 (F y.ofLp), graphNormal γ y.ofLp.1⟫ : ℝ)
+            ∂(μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))))
+          - ∫ x, (F (x, 0)).2 := by
+  -- component smoothness / supports
+  have huc : ∀ i, ContDiff ℝ 1 (fun q => (F q).1 i) :=
+    fun i => (contDiff_piLp_apply 2).comp (contDiff_fst.comp hF)
+  have hvc : ContDiff ℝ 1 (fun q => (F q).2) := contDiff_snd.comp hF
+  have husupp : ∀ i, HasCompactSupport (fun q => (F q).1 i) := fun i => by
+    have he : (fun q => (F q).1 i) = (fun y : (ℝ^(m + 1)) × ℝ => y.1 i) ∘ F := rfl
+    rw [he]; exact hsupp.comp_left (by simp)
+  have hvsupp : HasCompactSupport (fun q => (F q).2) := by
+    have he : (fun q => (F q).2) = (fun y : (ℝ^(m + 1)) × ℝ => y.2) ∘ F := rfl
+    rw [he]; exact hsupp.comp_left (by simp)
+  -- continuity of the directional partials as functions on the ambient space
+  have hHcont : ∀ i, Continuous
+      (fun p : (ℝ^(m + 1)) × ℝ => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0)) :=
+    fun i => ((huc i).continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hVcont : Continuous
+      (fun p : (ℝ^(m + 1)) × ℝ => fderiv ℝ (fun q => (F q).2) p (0, 1)) :=
+    (hvc.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  -- inner interval-integrability (per base point)
+  have hHii : ∀ i x, IntervalIntegrable
+      (fun t => fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0)) volume 0 (γ x) :=
+    fun i x => ((hHcont i).comp (continuous_const.prodMk continuous_id)).intervalIntegrable _ _
+  have hVii : ∀ x, IntervalIntegrable
+      (fun t => fderiv ℝ (fun q => (F q).2) (x, t) (0, 1)) volume 0 (γ x) :=
+    fun x => (hVcont.comp (continuous_const.prodMk continuous_id)).intervalIntegrable _ _
+  -- compact support of the partials (for outer integrability)
+  have hHsupp : ∀ i, HasCompactSupport
+      (fun p : (ℝ^(m + 1)) × ℝ => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0)) :=
+    fun i => (HasCompactSupport.intro ((husupp i).fderiv (𝕜 := ℝ)) (fun p hp => by
+      rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ (fun q => (F q).1 i)) hp]; rfl))
+  have hVsupp : HasCompactSupport
+      (fun p : (ℝ^(m + 1)) × ℝ => fderiv ℝ (fun q => (F q).2) p (0, 1)) :=
+    HasCompactSupport.intro (hvsupp.fderiv (𝕜 := ℝ)) (fun p hp => by
+      rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ (fun q => (F q).2)) hp]; rfl)
+  -- outer integrability of the fibre integrals (continuous parametric integral, compact support)
+  have hHout : ∀ i, Integrable (fun x => ∫ t in (0:ℝ)..(γ x),
+      fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0)) := fun i => by
+    refine Continuous.integrable_of_hasCompactSupport (μ := volume)
+      (intervalIntegral.continuous_parametric_intervalIntegral_of_continuous
+        (hHcont i) hγ.continuous) ?_
+    refine HasCompactSupport.intro ((hHsupp i).image continuous_fst) (fun x hx => ?_)
+    have hz : ∀ t, fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0) = 0 :=
+      fun t => image_eq_zero_of_notMem_tsupport
+        (f := fun p => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0))
+        (fun hmem => hx ⟨(x, t), hmem, rfl⟩)
+    simp only [hz, intervalIntegral.integral_zero]
+  have hVout : Integrable (fun x => ∫ t in (0:ℝ)..(γ x),
+      fderiv ℝ (fun q => (F q).2) (x, t) (0, 1)) := by
+    refine Continuous.integrable_of_hasCompactSupport (μ := volume)
+      (intervalIntegral.continuous_parametric_intervalIntegral_of_continuous hVcont hγ.continuous) ?_
+    refine HasCompactSupport.intro (hVsupp.image continuous_fst) (fun x hx => ?_)
+    have hz : ∀ t, fderiv ℝ (fun q => (F q).2) (x, t) (0, 1) = 0 :=
+      fun t => image_eq_zero_of_notMem_tsupport
+        (f := fun p => fderiv ℝ (fun q => (F q).2) p (0, 1))
+        (fun hmem => hx ⟨(x, t), hmem, rfl⟩)
+    simp only [hz, intervalIntegral.integral_zero]
+  -- split the fibre integral of the divergence into horizontal sum + vertical
+  have hsplit : ∀ x, (∫ t in (0:ℝ)..(γ x), divergence F (x, t))
+      = (∑ i, ∫ t in (0:ℝ)..(γ x),
+            fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0))
+        + ∫ t in (0:ℝ)..(γ x), fderiv ℝ (fun q => (F q).2) (x, t) (0, 1) := by
+    intro x
+    have hsumii : IntervalIntegrable (fun t => ∑ i, fderiv ℝ (fun q => (F q).1 i) (x, t)
+        (EuclideanSpace.single i 1, 0)) volume 0 (γ x) :=
+      (continuous_finset_sum Finset.univ
+        (fun i _ => (hHcont i).comp (continuous_const.prodMk continuous_id))).intervalIntegrable _ _
+    simp only [divergence]
+    rw [intervalIntegral.integral_add hsumii (hVii x),
+      intervalIntegral.integral_finset_sum (fun i _ => hHii i x)]
+  -- assemble the volume integral
+  rw [integral_congr_ae (.of_forall hsplit),
+    integral_add (integrable_finset_sum _ (fun i _ => hHout i)) hVout,
+    integral_finset_sum _ (fun i _ => hHout i),
+    horizontal_sum hγ hF hsupp, vertical_ftc hF]
+  -- integrabilities of the three boundary integrands
+  have ha : Integrable (fun x => (⟪(F (x, γ x)).1, gradient γ x⟫ : ℝ)) :=
+    Continuous.integrable_of_hasCompactSupport (μ := volume)
+      (((contDiff_fst.comp hF).continuous.comp (continuous_id.prodMk hγ.continuous)).inner
+        (continuous_gradient hγ))
+      (HasCompactSupport.intro (hsupp.image continuous_fst) (fun x hx => by
+        rw [show (F (x, γ x)).1 = ((0 : (ℝ^(m + 1)) × ℝ)).1 from
+          congrArg Prod.fst (image_eq_zero_of_notMem_tsupport
+            (fun hmem => hx ⟨(x, γ x), hmem, rfl⟩))]
+        simp))
+  have hb : Integrable (fun x => (F (x, γ x)).2) :=
+    Continuous.integrable_of_hasCompactSupport (μ := volume)
+      (hvc.continuous.comp (continuous_id.prodMk hγ.continuous))
+      (HasCompactSupport.intro (hsupp.image continuous_fst) (fun x hx => by
+        rw [show (F (x, γ x)).2 = ((0 : (ℝ^(m + 1)) × ℝ)).2 from
+          congrArg Prod.snd (image_eq_zero_of_notMem_tsupport
+            (fun hmem => hx ⟨(x, γ x), hmem, rfl⟩))]
+        simp))
+  have hc : Integrable (fun x => (F (x, 0)).2) :=
+    Continuous.integrable_of_hasCompactSupport (μ := volume)
+      (hvc.continuous.comp (continuous_id.prodMk continuous_const))
+      (HasCompactSupport.intro (hsupp.image continuous_fst) (fun x hx => by
+        rw [show (F (x, 0)).2 = ((0 : (ℝ^(m + 1)) × ℝ)).2 from
+          congrArg Prod.snd (image_eq_zero_of_notMem_tsupport
+            (fun hmem => hx ⟨(x, 0), hmem, rfl⟩))]
+        simp))
+  -- relate the boundary integral to the surface flux via `flux_graph`
+  have key : (∫ y in graphFun γ '' univ, (⟪WithLp.toLp 2 (F y.ofLp), graphNormal γ y.ofLp.1⟫ : ℝ)
+        ∂(μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))))
+      = ∫ x, ((F (x, γ x)).2 - ⟪(F (x, γ x)).1, gradient γ x⟫) := by
+    rw [flux_graph hγ MeasurableSet.univ hmeas, setIntegral_univ]
+    rfl
+  rw [key, integral_sub hb ha, integral_sub hb hc]
+  ring
 
 end AreaFormula
 
