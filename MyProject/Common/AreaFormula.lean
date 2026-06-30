@@ -1504,6 +1504,17 @@ general bounded `C¹` domain (via boundary charts and a partition of unity). The
 assembly is a coordinate-free divergence on flat Euclidean space and its invariance under the
 orthogonal coordinate changes (rotations/reflections) used to straighten the boundary. -/
 
+/-- **Trace as a sum of diagonal inner products** over an orthonormal basis:
+`tr A = ∑ᵢ ⟪A eᵢ, eᵢ⟫`. The basis-free engine that makes the divergence (a trace) computable in
+any orthonormal frame — both in flat coordinates and the base × height product frame of a graph. -/
+theorem trace_eq_sum_inner {ι : Type*} [Fintype ι] [DecidableEq ι] {E : Type*}
+    [NormedAddCommGroup E] [InnerProductSpace ℝ E] (b : OrthonormalBasis ι ℝ E) (A : E →ₗ[ℝ] E) :
+    LinearMap.trace ℝ E A = ∑ i, ⟪A (b i), b i⟫ := by
+  rw [LinearMap.trace_eq_matrix_trace ℝ b.toBasis, Matrix.trace]
+  refine Finset.sum_congr rfl fun i _ => ?_
+  rw [Matrix.diag, LinearMap.toMatrix_apply, OrthonormalBasis.coe_toBasis,
+    OrthonormalBasis.coe_toBasis_repr_apply, OrthonormalBasis.repr_apply_apply, real_inner_comm]
+
 /-- The divergence of a vector field on Euclidean space: `div F x = ∑ᵢ ∂ᵢ Fᵢ(x)`, the trace of
 the Jacobian. This is the coordinate-free form used for the general divergence theorem. -/
 noncomputable def divergenceE {n : ℕ} (F : (ℝ^n) → (ℝ^n)) (x : ℝ^n) : ℝ :=
