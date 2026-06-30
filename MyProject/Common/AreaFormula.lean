@@ -1558,6 +1558,48 @@ theorem divergenceE_comp_isometry {n : ℕ} (e : (ℝ^n) ≃ₗᵢ[ℝ] (ℝ^n))
       = e.toLinearEquiv.symm.conj (fderiv ℝ F (e x)).toLinearMap := rfl
   rw [hconj, LinearMap.trace_conj']
 
+set_option linter.style.longLine false in
+/-- **The graph theorem's product divergence is also the trace of the Jacobian.** This identifies
+the base × height product divergence `∑ᵢ ∂ᵢFᵢ + ∂ₜF₂` with the basis-free trace, matching
+`divergenceE_eq_trace`. It is the bridge that lets the graph divergence theorem be transported into
+the canonical flat-coordinate divergence `divergenceE` (via a linear identification of
+`(ℝᵐ⁺¹) × ℝ` with `ℝᵐ⁺²`). Proof: trace in the product basis `{(eᵢ,0)} ∪ {(0,1)}`, with each
+diagonal entry the corresponding component partial. -/
+theorem divergence_eq_trace {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ}
+    {p : (ℝ^(m + 1)) × ℝ} (hF : DifferentiableAt ℝ F p) :
+    divergence F p = LinearMap.trace ℝ _ (fderiv ℝ F p).toLinearMap := by
+  have hc1 : ∀ i, fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0)
+      = (fderiv ℝ F p (EuclideanSpace.single i 1, 0)).1 i := fun i => by
+    have hclm : fderiv ℝ (fun q => (F q).1 i) p
+        = ((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ)).comp
+            (fderiv ℝ F p) :=
+      (((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ)).hasFDerivAt.comp p
+        hF.hasFDerivAt).fderiv
+    rw [hclm]; rfl
+  have hc2 : fderiv ℝ (fun q => (F q).2) p (0, 1) = (fderiv ℝ F p (0, 1)).2 := by
+    have hclm : fderiv ℝ (fun q => (F q).2) p
+        = (ContinuousLinearMap.snd ℝ (ℝ^(m + 1)) ℝ).comp (fderiv ℝ F p) :=
+      ((ContinuousLinearMap.snd ℝ (ℝ^(m + 1)) ℝ).hasFDerivAt.comp p hF.hasFDerivAt).fderiv
+    rw [hclm]; rfl
+  rw [divergence]
+  simp_rw [hc1, hc2]
+  set b := (EuclideanSpace.basisFun (Fin (m + 1)) ℝ).toBasis.prod (Module.Basis.singleton (Fin 1) ℝ)
+    with hb
+  have hbl : ∀ i, b (Sum.inl i) = (EuclideanSpace.single i (1:ℝ), (0:ℝ)) := by
+    intro i; rw [hb, Module.Basis.prod_apply]; simp [EuclideanSpace.basisFun_apply]
+  have hbr : ∀ j, b (Sum.inr j) = ((0:ℝ^(m + 1)), (1:ℝ)) := by
+    intro j; rw [hb, Module.Basis.prod_apply]; simp
+  rw [LinearMap.trace_eq_matrix_trace ℝ b, Matrix.trace, Fintype.sum_sum_type]
+  congr 1
+  · refine Finset.sum_congr rfl fun i _ => ?_
+    rw [Matrix.diag, LinearMap.toMatrix_apply, hbl i]
+    simp only [ContinuousLinearMap.coe_coe]
+    rw [Module.Basis.prod_repr_inl, OrthonormalBasis.coe_toBasis_repr_apply,
+      EuclideanSpace.basisFun_repr]
+  · rw [Fin.sum_univ_one, Matrix.diag, LinearMap.toMatrix_apply, hbr 0]
+    simp only [ContinuousLinearMap.coe_coe]
+    rw [Module.Basis.prod_repr_inr, Module.Basis.singleton_repr]
+
 end AreaFormula
 
 end
