@@ -1655,6 +1655,35 @@ theorem flatten_measurePreserving (m : ℕ) :
     MeasurePreserving (flatten m) volume volume :=
   (flatten m).measurePreserving
 
+/-- `flatten` preserves the surface (Hausdorff) measure `μHE[m+1]` (it is an isometry). -/
+theorem flatten_measurePreserving_μHE (m : ℕ) :
+    MeasurePreserving (flatten m)
+      (μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))) (μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  refine ⟨(flatten m).continuous.measurable, ?_⟩
+  ext t ht
+  rw [Measure.map_apply (flatten m).continuous.measurable ht,
+    ← (flatten m).isometry.euclideanHausdorffMeasure_image ((flatten m) ⁻¹' t),
+    Set.image_preimage_eq t (flatten m).surjective]
+
+set_option linter.style.longLine false in
+/-- **Volume change of variables under `flatten`**: `∫_{flatten '' s} g = ∫_s g∘flatten`. -/
+theorem setIntegral_flatten_image {m : ℕ} (g : (ℝ^(m + 2)) → ℝ)
+    (s : Set (WithLp 2 ((ℝ^(m + 1)) × ℝ))) :
+    ∫ z in flatten m '' s, g z = ∫ p in s, g (flatten m p) := by
+  rw [← (flatten_measurePreserving m).setIntegral_preimage_emb
+    (flatten m).toHomeomorph.measurableEmbedding g (flatten m '' s),
+    Set.preimage_image_eq s (flatten m).injective]
+
+set_option linter.style.longLine false in
+/-- **Surface change of variables under `flatten`**: `∫_{flatten '' s} g dμHE = ∫_s g∘flatten dμHE`. -/
+theorem setIntegral_flatten_image_μHE {m : ℕ} (g : (ℝ^(m + 2)) → ℝ)
+    (s : Set (WithLp 2 ((ℝ^(m + 1)) × ℝ))) :
+    ∫ z in flatten m '' s, g z ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+      = ∫ p in s, g (flatten m p) ∂(μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))) := by
+  rw [← (flatten_measurePreserving_μHE m).setIntegral_preimage_emb
+    (flatten m).toHomeomorph.measurableEmbedding g (flatten m '' s),
+    Set.preimage_image_eq s (flatten m).injective]
+
 /-! ### Bounded `C¹` domains
 
 The domain of the general divergence theorem: an open bounded set whose boundary is, near each of
