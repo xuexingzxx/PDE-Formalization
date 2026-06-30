@@ -1497,6 +1497,56 @@ theorem divergence_theorem_graph {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : C
   rw [key, integral_sub hb ha, integral_sub hb hc]
   ring
 
+/-! ### Toward the general divergence theorem: coordinate-free divergence
+
+The graph divergence theorem above is the local building block for the divergence theorem on a
+general bounded `C¹` domain (via boundary charts and a partition of unity). The first piece of that
+assembly is a coordinate-free divergence on flat Euclidean space and its invariance under the
+orthogonal coordinate changes (rotations/reflections) used to straighten the boundary. -/
+
+/-- The divergence of a vector field on Euclidean space: `div F x = ∑ᵢ ∂ᵢ Fᵢ(x)`, the trace of
+the Jacobian. This is the coordinate-free form used for the general divergence theorem. -/
+noncomputable def divergenceE {n : ℕ} (F : (ℝ^n) → (ℝ^n)) (x : ℝ^n) : ℝ :=
+  ∑ i, fderiv ℝ F x (EuclideanSpace.single i 1) i
+
+set_option linter.style.longLine false in
+/-- The divergence is the trace of the Jacobian (basis-free), hence well-defined independently of
+the coordinate axes. -/
+theorem divergenceE_eq_trace {n : ℕ} (F : (ℝ^n) → (ℝ^n)) (x : ℝ^n) :
+    divergenceE F x = LinearMap.trace ℝ _ (fderiv ℝ F x).toLinearMap := by
+  rw [divergenceE, LinearMap.trace_eq_matrix_trace ℝ (EuclideanSpace.basisFun (Fin n) ℝ).toBasis,
+    Matrix.trace]
+  refine Finset.sum_congr rfl fun i _ => ?_
+  rw [Matrix.diag, LinearMap.toMatrix_apply, OrthonormalBasis.coe_toBasis,
+    EuclideanSpace.basisFun_apply]
+  show ((EuclideanSpace.basisFun (Fin n) ℝ).toBasis.repr (fderiv ℝ F x (EuclideanSpace.single i 1))) i
+    = fderiv ℝ F x (EuclideanSpace.single i 1) i
+  rw [OrthonormalBasis.coe_toBasis_repr_apply, EuclideanSpace.basisFun_repr]
+
+/-- **Rotation/reflection invariance of the divergence.** For a linear isometry equivalence `e`
+and a differentiable field `F`, the divergence of the conjugated field `y ↦ e⁻¹(F(e y))` at `x`
+equals the divergence of `F` at `e x`. The divergence is a scalar invariant of orthogonal
+coordinate changes — the key fact that lets boundary charts (rotations straightening `∂Ω` to a
+graph) be glued together. -/
+theorem divergenceE_comp_isometry {n : ℕ} (e : (ℝ^n) ≃ₗᵢ[ℝ] (ℝ^n)) {F : (ℝ^n) → (ℝ^n)}
+    (hF : Differentiable ℝ F) (x : ℝ^n) :
+    divergenceE (fun y => e.symm (F (e y))) x = divergenceE F (e x) := by
+  have hfd : HasFDerivAt (fun y => e.symm (F (e y)))
+      ((e.symm.toContinuousLinearEquiv.toContinuousLinearMap).comp
+        ((fderiv ℝ F (e x)).comp e.toContinuousLinearEquiv.toContinuousLinearMap)) x := by
+    have h1 : HasFDerivAt (fun y : ℝ^n => e y) e.toContinuousLinearEquiv.toContinuousLinearMap x :=
+      e.toContinuousLinearEquiv.toContinuousLinearMap.hasFDerivAt
+    have h2 : HasFDerivAt F (fderiv ℝ F (e x)) (e x) := (hF (e x)).hasFDerivAt
+    have h3 : HasFDerivAt (fun z : ℝ^n => e.symm z)
+        e.symm.toContinuousLinearEquiv.toContinuousLinearMap (F (e x)) :=
+      e.symm.toContinuousLinearEquiv.toContinuousLinearMap.hasFDerivAt
+    exact h3.comp x (h2.comp x h1)
+  rw [divergenceE_eq_trace, divergenceE_eq_trace, hfd.fderiv]
+  have hconj : ((e.symm.toContinuousLinearEquiv.toContinuousLinearMap).comp
+      ((fderiv ℝ F (e x)).comp e.toContinuousLinearEquiv.toContinuousLinearMap)).toLinearMap
+      = e.toLinearEquiv.symm.conj (fderiv ℝ F (e x)).toLinearMap := rfl
+  rw [hconj, LinearMap.trace_conj']
+
 end AreaFormula
 
 end
