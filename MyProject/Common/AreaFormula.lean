@@ -1626,6 +1626,35 @@ theorem divergenceE_comp_cle {m : ℕ} (Φ : (ℝ^(m + 2)) ≃L[ℝ] ((ℝ^(m + 
       = Φ.symm.toLinearEquiv.conj (fderiv ℝ F (Φ y)).toLinearMap := rfl
   rw [hconj, LinearMap.trace_conj']
 
+set_option linter.style.longLine false in
+/-- **The flattening isometry.** Identifies the base × height product `WithLp 2 (ℝᵐ⁺¹ × ℝ)` (where
+the area formula, surface measure, and flux live) with flat Euclidean space `ℝᵐ⁺²` (where the
+general divergence theorem lives), sending the product orthonormal basis `{(eᵢ,0)} ∪ {(0,1)}` to the
+standard basis. As a linear isometry equivalence it is automatically volume-preserving
+(`LinearIsometryEquiv.measurePreserving`) and surface-measure-preserving
+(`Isometry.euclideanHausdorffMeasure_image`), and it preserves inner products — exactly the
+properties needed to transport the graph divergence theorem (the volume integral via
+`measurePreserving`, the flux via the Hausdorff-measure isometry and `⟪Φ a, Φ b⟫ = ⟪a, b⟫`) into
+flat coordinates. -/
+noncomputable def flatten (m : ℕ) : WithLp 2 ((ℝ^(m + 1)) × ℝ) ≃ₗᵢ[ℝ] ℝ^(m + 2) :=
+  ((EuclideanSpace.basisFun (Fin (m + 1)) ℝ).prod (stdOrthonormalBasis ℝ ℝ)).equiv
+    (EuclideanSpace.basisFun (Fin (m + 2)) ℝ)
+    ((Equiv.sumCongr (Equiv.refl (Fin (m + 1))) (finCongr (Module.finrank_self ℝ))).trans
+      finSumFinEquiv)
+
+/-- The flattening identification as a continuous linear equivalence onto the **plain** product
+`(ℝᵐ⁺¹) × ℝ` (the domain of the graph theorem's `divergence`), obtained by composing `flatten` with
+the `L²`-product equivalence. This is the `Φ` consumed by `divergenceE_comp_cle` to rewrite the
+graph divergence as the flat `divergenceE`. -/
+noncomputable def flattenCLE (m : ℕ) : (ℝ^(m + 2)) ≃L[ℝ] ((ℝ^(m + 1)) × ℝ) :=
+  (flatten m).symm.toContinuousLinearEquiv.trans
+    (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^(m + 1)) ℝ)
+
+/-- `flatten` is volume-preserving (it is a linear isometry of finite-dimensional spaces). -/
+theorem flatten_measurePreserving (m : ℕ) :
+    MeasurePreserving (flatten m) volume volume :=
+  (flatten m).measurePreserving
+
 end AreaFormula
 
 end
