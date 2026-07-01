@@ -1765,6 +1765,48 @@ theorem setIntegral_flatten_divergence {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (h
   dsimp only
   rw [intervalIntegral.integral_of_le (hγ0 x), integral_Ioc_eq_integral_Ioo]
 
+set_option linter.style.longLine false in
+/-- **The surface (flux) side of the flat divergence theorem.** The surface flux of the flat field
+against the flat normal, over the flattened graph, equals the graph theorem's surface flux. Uses the
+`flatten` surface change-of-variables and the fact that `flatten`, an isometry, preserves inner
+products. -/
+theorem setIntegral_flatten_flux {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ}
+    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} :
+    (∫ z in flatten m '' (graphFun γ '' univ),
+        (⟪(flattenCLE m).symm (F (flattenCLE m z)),
+            flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      = ∫ y in graphFun γ '' univ, (⟪WithLp.toLp 2 (F y.ofLp), graphNormal γ y.ofLp.1⟫ : ℝ)
+          ∂(μHE[m + 1] : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ))) := by
+  rw [setIntegral_flatten_image_μHE]
+  refine integral_congr_ae (.of_forall fun y => ?_)
+  dsimp only
+  rw [LinearIsometryEquiv.symm_apply_apply,
+    show (flattenCLE m).symm (F (flattenCLE m (flatten m y)))
+      = flatten m (WithLp.toLp 2 (F (WithLp.ofLp y))) from by simp [flattenCLE],
+    LinearIsometryEquiv.inner_map_map]
+
+set_option linter.style.longLine false in
+/-- **The divergence theorem in flat `ℝᵐ⁺²` coordinates.** For a `C¹` compactly-supported field `F`
+and a `C¹` graph `γ ≥ 0`, the volume integral of the canonical flat divergence `divergenceE` over
+the flattened subgraph region equals the surface flux through the flattened graph minus the
+flat-bottom term. This is the graph divergence theorem (`divergence_theorem_graph`) transported via
+the flattening isometry `flatten` into flat Euclidean coordinates with the canonical divergence —
+the local building block for the general divergence theorem on a bounded `C¹` domain. -/
+theorem divergence_theorem_flat {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    (hγ0 : ∀ x, 0 ≤ γ x) {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F)
+    (hsupp : HasCompactSupport F) :
+    (∫ z in flatten m ''
+        {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)},
+        divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
+      = (∫ z in flatten m '' (graphFun γ '' univ),
+            (⟪(flattenCLE m).symm (F (flattenCLE m z)),
+                flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
+              ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+          - ∫ x, (F (x, 0)).2 := by
+  rw [setIntegral_flatten_divergence hγ hγ0 hF hsupp, divergence_theorem_graph hγ hF hsupp,
+    ← setIntegral_flatten_flux]
+
 /-! ### Bounded `C¹` domains
 
 The domain of the general divergence theorem: an open bounded set whose boundary is, near each of
