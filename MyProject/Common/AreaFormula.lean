@@ -1807,6 +1807,54 @@ theorem divergence_theorem_flat {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : Co
   rw [setIntegral_flatten_divergence hγ hγ0 hF hsupp, divergence_theorem_graph hγ hF hsupp,
     ← setIntegral_flatten_flux]
 
+set_option linter.style.longLine false in
+/-- **The divergence theorem for a compactly-supported field on all of `ℝᵐ⁺¹`**: `∫ div F = 0`.
+The interior case of the partition-of-unity assembly (a field supported in the interior of a domain
+contributes no boundary flux). Each `∫ ∂ᵢFᵢ = 0` by Fubini plus the compact-support fundamental
+theorem of calculus, bridged from the pi type to `EuclideanSpace`. -/
+theorem integral_divergenceE_eq_zero {m : ℕ} {F : (ℝ^(m + 1)) → (ℝ^(m + 1))}
+    (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) :
+    ∫ x, divergenceE F x = 0 := by
+  have hFd : Differentiable ℝ F := hF.differentiable (by norm_num)
+  set e : (Fin (m + 1) → ℝ) ≃L[ℝ] ℝ^(m + 1) :=
+    (PiLp.continuousLinearEquiv 2 ℝ (fun _ : Fin (m + 1) => ℝ)).symm with he
+  have hmp : MeasureTheory.MeasurePreserving e := PiLp.volume_preserving_toLp (Fin (m + 1))
+  have hme : MeasurableEmbedding e := e.toHomeomorph.measurableEmbedding
+  have hcont : ∀ i, Continuous
+      (fun x : ℝ^(m + 1) => (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i) := fun i =>
+    (EuclideanSpace.proj i).continuous.comp
+      ((hF.continuous_fderiv (by norm_num)).clm_apply continuous_const)
+  have hcs : ∀ i, HasCompactSupport
+      (fun x : ℝ^(m + 1) => (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i) := fun i =>
+    HasCompactSupport.intro (hsupp.fderiv (𝕜 := ℝ)) (fun x hx => by
+      rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ F) hx]; rfl)
+  have hint : ∀ i, Integrable
+      (fun x : ℝ^(m + 1) => (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i) := fun i =>
+    (hcont i).integrable_of_hasCompactSupport (hcs i)
+  simp only [divergenceE]
+  rw [integral_finset_sum _ (fun i _ => hint i)]
+  refine Finset.sum_eq_zero fun i _ => ?_
+  rw [← hmp.integral_comp hme (fun x => (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i)]
+  refine integral_eq_zero_of_forall_insertNth_integral_zero i
+    (((hcont i).comp e.continuous).integrable_of_hasCompactSupport
+      ((hcs i).comp_homeomorph e.toHomeomorph)) (fun y => ?_)
+  have hchain : ∀ s, HasDerivAt (fun s' => (F (e (i.insertNth s' y))).ofLp i)
+      ((fderiv ℝ F (e (i.insertNth s y)) (EuclideanSpace.single i 1)).ofLp i) s := fun s => by
+    have h1 : HasDerivAt (fun s' => (i.insertNth s' y : Fin (m + 1) → ℝ)) (Pi.single i 1) s :=
+      hasDerivAt_insertNth i y s
+    have h2 := (hFd (e (i.insertNth s y))).hasFDerivAt.comp_hasDerivAt s
+      (e.hasFDerivAt.comp_hasDerivAt s h1)
+    exact (EuclideanSpace.proj i).hasFDerivAt.comp_hasDerivAt s h2
+  have hemb : Topology.IsClosedEmbedding (fun s => e (i.insertNth s y)) :=
+    e.toHomeomorph.isClosedEmbedding.comp (isClosedEmbedding_insertNth i y)
+  have hslicecs : HasCompactSupport (fun s' => (F (e (i.insertNth s' y))).ofLp i) :=
+    (hsupp.comp_isClosedEmbedding hemb).comp_left (g := fun w : ℝ^(m + 1) => w.ofLp i) rfl
+  have hslicecd : ContDiff ℝ 1 (fun s' => (F (e (i.insertNth s' y))).ofLp i) := by
+    exact (EuclideanSpace.proj i).contDiff.comp
+      (hF.comp (e.contDiff.comp (contDiff_insertNth i y)))
+  simp_rw [fun s => (hchain s).deriv.symm]
+  exact integral_deriv_eq_zero hslicecd hslicecs
+
 /-! ### Bounded `C¹` domains
 
 The domain of the general divergence theorem: an open bounded set whose boundary is, near each of
