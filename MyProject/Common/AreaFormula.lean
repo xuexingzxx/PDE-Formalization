@@ -1708,6 +1708,63 @@ theorem divergenceE_flatten {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)
       = divergence F (WithLp.ofLp q) := by
   rw [divergenceE_comp_cle (flattenCLE m) hF (flatten m q)]; congr 1; simp [flattenCLE]
 
+set_option linter.style.longLine false in
+/-- **The volume side of the flat divergence theorem.** The volume integral of the flat divergence
+`divergenceE` over the flattened subgraph region equals the graph theorem's iterated volume integral
+of the product divergence. Assembled from the flatten volume change-of-variables, the pointwise
+divergence bridge, the `WithLp → plain` volume bridge, and the Fubini form `setIntegral_regionBetween`
+(the region under the `C¹` graph `γ ≥ 0`). -/
+theorem setIntegral_flatten_divergence {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    (hγ0 : ∀ x, 0 ≤ γ x) {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F)
+    (hsupp : HasCompactSupport F) :
+    (∫ z in flatten m ''
+        {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)},
+        divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
+      = ∫ x, ∫ t in (0:ℝ)..(γ x), divergence F (x, t) := by
+  have hcont : Continuous (fun p => divergence F p) := by
+    simp only [divergence]
+    refine Continuous.add (continuous_finset_sum _ fun i _ => ?_) ?_
+    · exact (((contDiff_piLp_apply 2).comp (contDiff_fst.comp hF)).continuous_fderiv
+        (by norm_num)).clm_apply continuous_const
+    · exact ((contDiff_snd.comp hF).continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hcs : HasCompactSupport (fun p => divergence F p) := by
+    apply HasCompactSupport.intro (hsupp.fderiv (𝕜 := ℝ))
+    intro p hp
+    have hfp : fderiv ℝ F p = 0 := image_eq_zero_of_notMem_tsupport hp
+    simp only [divergence]
+    have h1 : ∀ i, fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0) = 0 := fun i => by
+      have hclm : fderiv ℝ (fun q => (F q).1 i) p
+          = ((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ)).comp
+              (fderiv ℝ F p) :=
+        (((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ)).hasFDerivAt.comp p
+          (hF.differentiable (by norm_num) p).hasFDerivAt).fderiv
+      rw [hclm, hfp]; simp
+    have h2 : fderiv ℝ (fun q => (F q).2) p (0, 1) = 0 := by
+      have hclm : fderiv ℝ (fun q => (F q).2) p
+          = (ContinuousLinearMap.snd ℝ (ℝ^(m + 1)) ℝ).comp (fderiv ℝ F p) :=
+        ((ContinuousLinearMap.snd ℝ (ℝ^(m + 1)) ℝ).hasFDerivAt.comp p
+          (hF.differentiable (by norm_num) p).hasFDerivAt).fderiv
+      rw [hclm, hfp]; simp
+    simp [h1, h2]
+  have hint : IntegrableOn (fun p => divergence F p) (regionBetween (fun _ => (0:ℝ)) γ univ) :=
+    (hcont.integrable_of_hasCompactSupport hcs).integrableOn
+  rw [setIntegral_flatten_image]
+  simp_rw [divergenceE_flatten (hF.differentiable (by norm_num))]
+  rw [setIntegral_ofLp]
+  have hset : WithLp.ofLp ''
+      {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}
+      = regionBetween (fun _ => (0:ℝ)) γ univ := by
+    ext q
+    simp only [Set.mem_image, Set.mem_setOf_eq, regionBetween, Set.mem_univ, true_and]
+    constructor
+    · rintro ⟨p, hp, rfl⟩; exact hp
+    · intro hq; exact ⟨WithLp.toLp 2 q, hq, rfl⟩
+  rw [hset, setIntegral_regionBetween hγ.continuous.measurable MeasurableSet.univ hint,
+    setIntegral_univ]
+  refine integral_congr_ae (.of_forall fun x => ?_)
+  dsimp only
+  rw [intervalIntegral.integral_of_le (hγ0 x), integral_Ioc_eq_integral_Ioo]
+
 /-! ### Bounded `C¹` domains
 
 The domain of the general divergence theorem: an open bounded set whose boundary is, near each of
