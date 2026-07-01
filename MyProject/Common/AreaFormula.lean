@@ -1684,6 +1684,30 @@ theorem setIntegral_flatten_image_μHE {m : ℕ} (g : (ℝ^(m + 2)) → ℝ)
     (flatten m).toHomeomorph.measurableEmbedding g (flatten m '' s),
     Set.preimage_image_eq s (flatten m).injective]
 
+set_option linter.style.longLine false in
+/-- **Volume change of variables `WithLp` → plain product**: the `L²`-product volume and the plain
+product volume agree (via `WithLp.volume_preserving_ofLp`), so an integral over `s ⊆ WithLp 2` of a
+plain-product function precomposed with `ofLp` equals the integral over `ofLp '' s`. -/
+theorem setIntegral_ofLp {m : ℕ} (f : (ℝ^(m + 1)) × ℝ → ℝ)
+    (s : Set (WithLp 2 ((ℝ^(m + 1)) × ℝ))) :
+    ∫ p in s, f (WithLp.ofLp p) ∂(volume : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ)))
+      = ∫ q in WithLp.ofLp '' s, f q ∂(volume : Measure ((ℝ^(m + 1)) × ℝ)) := by
+  have hemb : MeasurableEmbedding (WithLp.ofLp : WithLp 2 ((ℝ^(m + 1)) × ℝ) → _) :=
+    (WithLp.linearEquiv 2 ℝ ((ℝ^(m + 1)) × ℝ)).toContinuousLinearEquiv.toHomeomorph.measurableEmbedding
+  rw [← (WithLp.volume_preserving_ofLp (ℝ^(m + 1)) ℝ).setIntegral_preimage_emb hemb f
+    (WithLp.ofLp '' s), Set.preimage_image_eq s hemb.injective]
+
+set_option linter.style.longLine false in
+/-- **Pointwise divergence bridge.** The flat divergence `divergenceE` of the conjugated field
+`z ↦ Φ⁻¹(F(Φ z))` (with `Φ = flattenCLE`), precomposed with `flatten`, is the graph theorem's
+product divergence of `F`. Combined with the change-of-variables lemmas this transports the graph
+divergence theorem into flat coordinates. -/
+theorem divergenceE_flatten {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ}
+    (hF : Differentiable ℝ F) (q : WithLp 2 ((ℝ^(m + 1)) × ℝ)) :
+    divergenceE (fun z => (flattenCLE m).symm (F (flattenCLE m z))) (flatten m q)
+      = divergence F (WithLp.ofLp q) := by
+  rw [divergenceE_comp_cle (flattenCLE m) hF (flatten m q)]; congr 1; simp [flattenCLE]
+
 /-! ### Bounded `C¹` domains
 
 The domain of the general divergence theorem: an open bounded set whose boundary is, near each of
