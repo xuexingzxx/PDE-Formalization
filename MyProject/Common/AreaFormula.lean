@@ -1894,6 +1894,30 @@ unity that assembles the general divergence theorem from the local graph charts.
 theorem isCompact_frontier (h : IsBoundedC1Domain Ω) : IsCompact (frontier Ω) :=
   h.isCompact_closure.of_isClosed_subset isClosed_frontier frontier_subset_closure
 
+set_option linter.style.longLine false in
+/-- **Finite chart cover of the boundary.** The compact boundary of a bounded `C¹` domain is
+covered by finitely many chart balls, each carrying its rotation `e` and graph `γ` in which `Ω` is
+locally a subgraph. Extracted from `isCompact_frontier` and the local-graph hypothesis; this is the
+finite cover underlying the partition-of-unity assembly of the general divergence theorem. -/
+theorem exists_finite_chart_cover (h : IsBoundedC1Domain Ω) :
+    ∃ (ι : Type) (_ : Fintype ι) (c : ι → ℝ^(m + 2)) (r : ι → ℝ),
+      (∀ j, 0 < r j) ∧ (frontier Ω ⊆ ⋃ j, Metric.ball (c j) (r j)) ∧
+      (∀ j, ∃ (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (γ : (ℝ^(m + 1)) → ℝ), ContDiff ℝ 1 γ ∧
+        Ω ∩ Metric.ball (c j) (r j) =
+          {x | ((flatten m).symm (e (x - c j))).ofLp.2 < γ ((flatten m).symm (e (x - c j))).ofLp.1}
+            ∩ Metric.ball (c j) (r j)) := by
+  choose ρ hρpos e γ hchart using h.locallyGraph
+  set U : ↥(frontier Ω) → Set (ℝ^(m + 2)) := fun p => Metric.ball ↑p (ρ ↑p p.2) with hU
+  have hcover : frontier Ω ⊆ ⋃ p, U p := fun x hx =>
+    Set.mem_iUnion.2 ⟨⟨x, hx⟩, Metric.mem_ball_self (hρpos x hx)⟩
+  obtain ⟨t, ht⟩ := h.isCompact_frontier.elim_finite_subcover U
+    (fun p => Metric.isOpen_ball) hcover
+  refine ⟨↥t, inferInstance, fun j => j.1.1, fun j => ρ j.1.1 j.1.2,
+    fun j => hρpos j.1.1 j.1.2, ?_,
+    fun j => ⟨e j.1.1 j.1.2, γ j.1.1 j.1.2, (hchart j.1.1 j.1.2).1, (hchart j.1.1 j.1.2).2⟩⟩
+  refine ht.trans (Set.iUnion₂_subset fun p hp => ?_)
+  exact Set.subset_iUnion_of_subset ⟨p, hp⟩ (le_refl _)
+
 end IsBoundedC1Domain
 
 end AreaFormula
