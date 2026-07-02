@@ -46,7 +46,7 @@ Jacobian.lean`), with `μHE[m]` / `√det(DφᵀDφ)` in place of Haar measure /
 -/
 
 open MeasureTheory MeasureTheory.Measure Matrix Module Filter Topology Metric Set Asymptotics
-open scoped ENNReal NNReal RealInnerProductSpace Pointwise
+open scoped ENNReal NNReal RealInnerProductSpace Pointwise Manifold
 
 noncomputable section
 
@@ -1917,6 +1917,33 @@ theorem exists_finite_chart_cover (h : IsBoundedC1Domain Ω) :
     fun j => ⟨e j.1.1 j.1.2, γ j.1.1 j.1.2, (hchart j.1.1 j.1.2).1, (hchart j.1.1 j.1.2).2⟩⟩
   refine ht.trans (Set.iUnion₂_subset fun p hp => ?_)
   exact Set.subset_iUnion_of_subset ⟨p, hp⟩ (le_refl _)
+
+set_option linter.style.longLine false in
+/-- **Partition of unity for the domain.** A smooth partition of unity on `closure Ω` subordinate to
+the cover `{Ω} ∪ {chart balls}` (indexed by `Option ι`: `none` ↦ the interior `Ω`, `some j` ↦ the
+`j`-th boundary chart ball). This is the device that splits a field into an interior piece plus
+boundary-chart pieces for the partition-of-unity assembly of the general divergence theorem. -/
+theorem exists_smoothPartitionOfUnity (h : IsBoundedC1Domain Ω) :
+    ∃ (ι : Type) (_ : Fintype ι) (c : ι → ℝ^(m + 2)) (r : ι → ℝ),
+      (∀ j, 0 < r j) ∧
+      (∀ j, ∃ (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (γ : (ℝ^(m + 1)) → ℝ), ContDiff ℝ 1 γ ∧
+        Ω ∩ Metric.ball (c j) (r j) =
+          {x | ((flatten m).symm (e (x - c j))).ofLp.2 < γ ((flatten m).symm (e (x - c j))).ofLp.1}
+            ∩ Metric.ball (c j) (r j)) ∧
+      ∃ f : SmoothPartitionOfUnity (Option ι) (𝓘(ℝ, ℝ^(m + 2))) (ℝ^(m + 2)) (closure Ω),
+        f.IsSubordinate (fun i => i.elim Ω (fun j => Metric.ball (c j) (r j))) := by
+  obtain ⟨ι, hFin, c, r, hr, hcov, hcharts⟩ := h.exists_finite_chart_cover
+  refine ⟨ι, hFin, c, r, hr, hcharts, ?_⟩
+  set U : Option ι → Set (ℝ^(m + 2)) := fun i => i.elim Ω (fun j => Metric.ball (c j) (r j)) with hUdef
+  have hUopen : ∀ i, IsOpen (U i) := by rintro (_ | j); exacts [h.isOpen, Metric.isOpen_ball]
+  have hcovcl : closure Ω ⊆ ⋃ i, U i := fun x hx => by
+    by_cases hxΩ : x ∈ Ω
+    · exact Set.mem_iUnion.2 ⟨none, hxΩ⟩
+    · have hxf : x ∈ frontier Ω := ⟨hx, fun hc => hxΩ (h.isOpen.interior_eq ▸ hc)⟩
+      obtain ⟨j, hxj⟩ := Set.mem_iUnion.1 (hcov hxf)
+      exact Set.mem_iUnion.2 ⟨some j, hxj⟩
+  exact SmoothPartitionOfUnity.exists_isSubordinate (𝓘(ℝ, ℝ^(m + 2))) isClosed_closure U hUopen
+    hcovcl
 
 end IsBoundedC1Domain
 
