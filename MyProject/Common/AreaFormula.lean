@@ -1571,6 +1571,18 @@ theorem divergenceE_comp_isometry {n : ℕ} (e : (ℝ^n) ≃ₗᵢ[ℝ] (ℝ^n))
       = e.toLinearEquiv.symm.conj (fderiv ℝ F (e x)).toLinearMap := rfl
   rw [hconj, LinearMap.trace_conj']
 
+/-- The divergence is additive over finite sums of vector fields — the linearity building block for
+the partition-of-unity decomposition `div (Σⱼ gⱼ) = Σⱼ div gⱼ`. -/
+theorem divergenceE_finset_sum {n : ℕ} {κ : Type*} (s : Finset κ) (g : κ → (ℝ^n) → (ℝ^n))
+    {x : ℝ^n} (hg : ∀ j ∈ s, DifferentiableAt ℝ (g j) x) :
+    divergenceE (fun y => ∑ j ∈ s, g j y) x = ∑ j ∈ s, divergenceE (g j) x := by
+  simp only [divergenceE]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun i _ => ?_
+  rw [fderiv_fun_sum hg]
+  simp only [ContinuousLinearMap.coe_sum', Finset.sum_apply]
+  exact map_sum (EuclideanSpace.proj i) (fun c => fderiv ℝ (g c) x (EuclideanSpace.single i 1)) s
+
 set_option linter.style.longLine false in
 /-- **The graph theorem's product divergence is also the trace of the Jacobian.** This identifies
 the base × height product divergence `∑ᵢ ∂ᵢFᵢ + ∂ₜF₂` with the basis-free trace, matching
