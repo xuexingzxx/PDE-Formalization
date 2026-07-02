@@ -1117,6 +1117,19 @@ area-element square root cancelled against the unit normal's denominator. -/
 def graphNormal (γ : (ℝ^m) → ℝ) (x : ℝ^m) : WithLp 2 ((ℝ^m) × ℝ) :=
   (Real.sqrt (1 + ‖gradient γ x‖ ^ 2))⁻¹ • WithLp.toLp 2 (-gradient γ x, (1 : ℝ))
 
+/-- The upward graph normal `graphNormal γ x` is a **unit** vector — it is genuinely the unit normal
+to the graph, the local model for the outward normal of a bounded `C¹` domain. -/
+theorem norm_graphNormal (γ : (ℝ^m) → ℝ) (x : ℝ^m) : ‖graphNormal γ x‖ = 1 := by
+  have hpos : (0:ℝ) < Real.sqrt (1 + ‖gradient γ x‖ ^ 2) := Real.sqrt_pos.mpr (by positivity)
+  have hnorm : ‖WithLp.toLp 2 ((-gradient γ x : ℝ^m), (1:ℝ))‖
+      = Real.sqrt (1 + ‖gradient γ x‖ ^ 2) := by
+    rw [WithLp.prod_norm_eq_of_L2]
+    congr 1
+    change ‖(-gradient γ x : ℝ^m)‖ ^ 2 + ‖(1:ℝ)‖ ^ 2 = 1 + ‖gradient γ x‖ ^ 2
+    rw [norm_neg, norm_one]; ring
+  rw [graphNormal, norm_smul, hnorm, Real.norm_eq_abs, abs_inv, abs_of_pos hpos,
+    inv_mul_cancel₀ hpos.ne']
+
 /-- The upward unit normal of a `C¹` graph depends continuously on the base point. -/
 theorem continuous_graphNormal {γ : (ℝ^m) → ℝ} (hγ : ContDiff ℝ 1 γ) :
     Continuous (graphNormal γ) := by
