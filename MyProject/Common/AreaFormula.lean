@@ -2331,6 +2331,169 @@ theorem divergence_theorem_flat_bottomless {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ
   ring
 
 
+
+/-- Translation invariance of the canonical divergence. -/
+theorem divergenceE_comp_translation {n : ℕ} {F : (ℝ^n) → (ℝ^n)} (hF : Differentiable ℝ F)
+    (c : ℝ^n) (x : ℝ^n) :
+    divergenceE (fun y => F (y + c)) x = divergenceE F (x + c) := by
+  simp only [divergenceE]
+  refine Finset.sum_congr rfl fun i _ => ?_
+  have hfd : HasFDerivAt (fun y : ℝ^n => F (y + c)) (fderiv ℝ F (x + c)) x := by
+    have h1 : HasFDerivAt (fun y : ℝ^n => y + c) (ContinuousLinearMap.id ℝ (ℝ^n)) x :=
+      (hasFDerivAt_id x).add_const c
+    simpa using (hF (x + c)).hasFDerivAt.comp x h1
+  rw [hfd.fderiv]
+
+/-- Divergence of the active transport of `V` by the affine rigid motion `x ↦ e (x - c)` equals the
+divergence of `V`, transported: `div (e ∘ V ∘ (e⁻¹ · + c)) (e (x - c)) = div V x`. -/
+theorem divergenceE_transport_affine {n : ℕ} (e : (ℝ^n) ≃ₗᵢ[ℝ] (ℝ^n)) (c : ℝ^n)
+    {V : (ℝ^n) → (ℝ^n)} (hV : Differentiable ℝ V) (x : ℝ^n) :
+    divergenceE (fun z => e (V (e.symm z + c))) (e (x - c)) = divergenceE V x := by
+  have hH : Differentiable ℝ (fun y : ℝ^n => V (y + c)) := hV.comp (differentiable_id.add_const c)
+  have h1 : divergenceE (fun z => e (V (e.symm z + c))) (e (x - c))
+      = divergenceE (fun y => V (y + c)) (e.symm (e (x - c))) := by
+    have hkey := divergenceE_comp_isometry e.symm (F := fun y => V (y + c)) hH (e (x - c))
+    simpa using hkey
+  rw [h1, e.symm_apply_apply, divergenceE_comp_translation hV c (x - c), sub_add_cancel]
+
+/-- **General-field form of the bottomless subgraph divergence theorem.** For an arbitrary
+compactly-supported `C¹` field `G` on `ℝᵐ⁺²`. -/
+theorem divergence_theorem_flat_bottomless' {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    (hγ0 : ∀ x, 0 ≤ γ x) {G : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hG : ContDiff ℝ 1 G)
+    (hGsupp : HasCompactSupport G) :
+    (∫ z in flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1},
+        divergenceE G z)
+      = ∫ z in flatten m '' (graphFun γ '' univ),
+          (⟪G z, flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
+            ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have hFcd : ContDiff ℝ 1 (fun q => flattenCLE m (G ((flattenCLE m).symm q))) :=
+    (flattenCLE m).contDiff.comp (hG.comp (flattenCLE m).symm.contDiff)
+  have hFcs : HasCompactSupport (fun q => flattenCLE m (G ((flattenCLE m).symm q))) :=
+    (hGsupp.comp_isClosedEmbedding (flattenCLE m).symm.toHomeomorph.isClosedEmbedding).comp_left
+      (g := ⇑(flattenCLE m)) (map_zero _)
+  have key := divergence_theorem_flat_bottomless hγ hγ0
+    (F := fun q => flattenCLE m (G ((flattenCLE m).symm q))) hFcd hFcs
+  simpa only [ContinuousLinearEquiv.symm_apply_apply] using key
+
+/-- Change of variables for a volume integral under the affine rigid motion `x ↦ e (x - c)`. -/
+theorem setIntegral_rigid_image {n : ℕ} (e : (ℝ^n) ≃ₗᵢ[ℝ] (ℝ^n)) (c : ℝ^n)
+    (g : (ℝ^n) → ℝ) (s : Set (ℝ^n)) :
+    ∫ z in (fun x => e (x - c)) '' s, g z = ∫ x in s, g (e (x - c)) := by
+  have hmp : MeasurePreserving (fun x : ℝ^n => e (x - c)) :=
+    (LinearIsometryEquiv.measurePreserving e).comp (measurePreserving_sub_right volume c)
+  have hemb : MeasurableEmbedding (fun x : ℝ^n => e (x - c)) :=
+    e.toHomeomorph.measurableEmbedding.comp (measurableEmbedding_subRight c)
+  rw [← hmp.setIntegral_preimage_emb hemb g ((fun x => e (x - c)) '' s),
+    Set.preimage_image_eq s hemb.injective]
+
+/-- The affine rigid motion `x ↦ e (x - c)` preserves the `(m+1)`-dim surface measure `μHE`. -/
+theorem measurePreserving_rigid_μHE {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2)) :
+    MeasurePreserving (fun x : ℝ^(m + 2) => e (x - c))
+      (μHE[m + 1] : Measure (ℝ^(m + 2))) (μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have hiso : Isometry (fun x : ℝ^(m + 2) => e (x - c)) :=
+    e.isometry.comp (IsometryEquiv.subRight c).isometry
+  have hsurj : Function.Surjective (fun x : ℝ^(m + 2) => e (x - c)) :=
+    fun y => ⟨e.symm y + c, by simp⟩
+  refine ⟨hiso.continuous.measurable, ?_⟩
+  ext t ht
+  rw [Measure.map_apply hiso.continuous.measurable ht,
+    ← hiso.euclideanHausdorffMeasure_image ((fun x => e (x - c)) ⁻¹' t),
+    Set.image_preimage_eq t hsurj]
+
+/-- Change of variables for a `μHE` surface integral under the affine rigid motion `x ↦ e (x - c)`. -/
+theorem setIntegral_rigid_image_μHE {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
+    (g : (ℝ^(m + 2)) → ℝ) (s : Set (ℝ^(m + 2))) :
+    ∫ z in (fun x => e (x - c)) '' s, g z ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+      = ∫ x in s, g (e (x - c)) ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have hemb : MeasurableEmbedding (fun x : ℝ^(m + 2) => e (x - c)) :=
+    e.toHomeomorph.measurableEmbedding.comp (measurableEmbedding_subRight c)
+  rw [← (measurePreserving_rigid_μHE e c).setIntegral_preimage_emb hemb g
+      ((fun x => e (x - c)) '' s),
+    Set.preimage_image_eq s hemb.injective]
+
+/-- The physical subgraph (in the chart frame) is the rigid image of the flat subgraph. -/
+theorem rigid_image_subgraph {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
+    (γ : (ℝ^(m + 1)) → ℝ) :
+    (fun x : ℝ^(m + 2) => e (x - c)) ''
+        {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+      = flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1} := by
+  have hsurj : Function.Surjective (fun x : ℝ^(m + 2) => e (x - c)) :=
+    fun y => ⟨e.symm y + c, by simp⟩
+  have hS : {x : ℝ^(m + 2) |
+        ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+      = (fun x => e (x - c)) ⁻¹'
+          (flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1}) := by
+    rw [LinearIsometryEquiv.image_eq_preimage_symm]; rfl
+  rw [hS, Set.image_preimage_eq _ hsurj]
+
+/-- **Chart flux (milestone 3b): the single-chart divergence theorem.** For a compactly-supported
+`C¹` field `V` and a chart with rotation `e` about center `c` in which `Ω` is the subgraph
+`{height < γ}`, the volume integral of `div V` over the physical subgraph equals the flux over the
+physical graph, with outward normal `ν x = e⁻¹ (flatten (graphNormal γ (base))). -/
+theorem chart_flux {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
+    {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ) (hγ0 : ∀ x, 0 ≤ γ x)
+    {V : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hV : ContDiff ℝ 1 V) (hVsupp : HasCompactSupport V) :
+    (∫ x in {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1},
+        divergenceE V x)
+      = ∫ x in (fun x => e (x - c)) ⁻¹' (flatten m '' (graphFun γ '' univ)),
+          (⟪V x, e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1))⟫ : ℝ)
+            ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  set G : (ℝ^(m + 2)) → (ℝ^(m + 2)) := fun z => e (V (e.symm z + c)) with hG
+  have hshift : Topology.IsClosedEmbedding (fun z : ℝ^(m + 2) => e.symm z + c) :=
+    (Homeomorph.addRight c).isClosedEmbedding.comp e.symm.toHomeomorph.isClosedEmbedding
+  have hGcd : ContDiff ℝ 1 G :=
+    e.toContinuousLinearEquiv.contDiff.comp
+      (hV.comp (e.symm.toContinuousLinearEquiv.contDiff.add contDiff_const))
+  have hGcs : HasCompactSupport G :=
+    (hVsupp.comp_isClosedEmbedding hshift).comp_left (g := ⇑e) (map_zero _)
+  -- volume side: physical subgraph integral = flat subgraph integral
+  have hvol : (∫ x in {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1},
+        divergenceE V x)
+      = ∫ z in flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1},
+        divergenceE G z := by
+    rw [← rigid_image_subgraph e c γ, setIntegral_rigid_image e c (fun z => divergenceE G z) _]
+    exact integral_congr_ae (Filter.Eventually.of_forall fun x =>
+      (divergenceE_transport_affine e c (hV.differentiable (by norm_num)) x).symm)
+  -- flux side: flat graph flux = physical graph flux
+  have hflux : (∫ z in flatten m '' (graphFun γ '' univ),
+        (⟪G z, flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      = ∫ x in (fun x => e (x - c)) ⁻¹' (flatten m '' (graphFun γ '' univ)),
+          (⟪V x, e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1))⟫ : ℝ)
+            ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+    have hsurj : Function.Surjective (fun x : ℝ^(m + 2) => e (x - c)) :=
+      fun y => ⟨e.symm y + c, by simp⟩
+    have himg : flatten m '' (graphFun γ '' univ)
+        = (fun x => e (x - c)) '' ((fun x => e (x - c)) ⁻¹' (flatten m '' (graphFun γ '' univ))) :=
+      (Set.image_preimage_eq _ hsurj).symm
+    calc (∫ z in flatten m '' (graphFun γ '' univ),
+            (⟪G z, flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
+              ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+        = ∫ z in (fun x => e (x - c)) '' ((fun x => e (x - c)) ⁻¹' (flatten m '' (graphFun γ '' univ))),
+            (⟪G z, flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
+              ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by rw [← himg]
+      _ = ∫ x in (fun x => e (x - c)) ⁻¹' (flatten m '' (graphFun γ '' univ)),
+            (⟪G (e (x - c)),
+                flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1)⟫ : ℝ)
+              ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) :=
+          setIntegral_rigid_image_μHE e c
+            (fun z => (⟪G z, flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)) _
+      _ = ∫ x in (fun x => e (x - c)) ⁻¹' (flatten m '' (graphFun γ '' univ)),
+            (⟪V x, e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1))⟫ : ℝ)
+              ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+          refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+          have hGAx : G (e (x - c)) = e (V x) := by
+            simp only [hG, e.symm_apply_apply, sub_add_cancel]
+          have hinner := e.inner_map_map (V x)
+            (e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1)))
+          rw [e.apply_symm_apply] at hinner
+          show (⟪G (e (x - c)),
+              flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1)⟫ : ℝ)
+            = ⟪V x, e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1))⟫
+          rw [hGAx]; exact hinner
+  rw [hvol, divergence_theorem_flat_bottomless' hγ hγ0 hGcd hGcs]
+  exact hflux
+
 end AreaFormula
 
 end
