@@ -1972,6 +1972,365 @@ theorem exists_smoothPartitionOfUnity (h : IsBoundedC1Domain Ω) :
 
 end IsBoundedC1Domain
 
+set_option linter.style.longLine false
+
+/-- The integral of a single diagonal partial `∂ᵢFᵢ` of a compactly-supported `C¹` field over all
+of `ℝᵐ⁺¹` vanishes (the per-coordinate interior divergence-zero; the atom behind the half-space
+slab term of the chart flux). -/
+theorem integral_component_deriv_eq_zero {m : ℕ} {F : (ℝ^(m + 1)) → (ℝ^(m + 1))}
+    (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) (i : Fin (m + 1)) :
+    ∫ x, (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i = 0 := by
+  have hFd : Differentiable ℝ F := hF.differentiable (by norm_num)
+  set e : (Fin (m + 1) → ℝ) ≃L[ℝ] ℝ^(m + 1) :=
+    (PiLp.continuousLinearEquiv 2 ℝ (fun _ : Fin (m + 1) => ℝ)).symm with he
+  have hmp : MeasureTheory.MeasurePreserving e := PiLp.volume_preserving_toLp (Fin (m + 1))
+  have hme : MeasurableEmbedding e := e.toHomeomorph.measurableEmbedding
+  have hcont : Continuous
+      (fun x : ℝ^(m + 1) => (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i) :=
+    (EuclideanSpace.proj i).continuous.comp
+      ((hF.continuous_fderiv (by norm_num)).clm_apply continuous_const)
+  have hcs : HasCompactSupport
+      (fun x : ℝ^(m + 1) => (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i) :=
+    HasCompactSupport.intro (hsupp.fderiv (𝕜 := ℝ)) (fun x hx => by
+      rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ F) hx]; rfl)
+  rw [← hmp.integral_comp hme (fun x => (fderiv ℝ F x (EuclideanSpace.single i 1)).ofLp i)]
+  refine integral_eq_zero_of_forall_insertNth_integral_zero i
+    ((hcont.comp e.continuous).integrable_of_hasCompactSupport
+      (hcs.comp_homeomorph e.toHomeomorph)) (fun y => ?_)
+  have hchain : ∀ s, HasDerivAt (fun s' => (F (e (i.insertNth s' y))).ofLp i)
+      ((fderiv ℝ F (e (i.insertNth s y)) (EuclideanSpace.single i 1)).ofLp i) s := fun s => by
+    have h1 : HasDerivAt (fun s' => (i.insertNth s' y : Fin (m + 1) → ℝ)) (Pi.single i 1) s :=
+      hasDerivAt_insertNth i y s
+    have h2 := (hFd (e (i.insertNth s y))).hasFDerivAt.comp_hasDerivAt s
+      (e.hasFDerivAt.comp_hasDerivAt s h1)
+    exact (EuclideanSpace.proj i).hasFDerivAt.comp_hasDerivAt s h2
+  have hemb : Topology.IsClosedEmbedding (fun s => e (i.insertNth s y)) :=
+    e.toHomeomorph.isClosedEmbedding.comp (isClosedEmbedding_insertNth i y)
+  have hslicecs : HasCompactSupport (fun s' => (F (e (i.insertNth s' y))).ofLp i) :=
+    (hsupp.comp_isClosedEmbedding hemb).comp_left (g := fun w : ℝ^(m + 1) => w.ofLp i) rfl
+  have hslicecd : ContDiff ℝ 1 (fun s' => (F (e (i.insertNth s' y))).ofLp i) := by
+    exact (EuclideanSpace.proj i).contDiff.comp
+      (hF.comp (e.contDiff.comp (contDiff_insertNth i y)))
+  simp_rw [fun s => (hchain s).deriv.symm]
+  exact integral_deriv_eq_zero hslicecd hslicecs
+
+/-- Base-slice horizontal zero: at fixed height `t`, `∫ₓ ∂ᵢFᵢ(x,t) dx = 0`. Reduces to
+`integral_component_deriv_eq_zero` on the base-slice field `x ↦ (F(x,t)).1`. -/
+theorem integral_base_slice_deriv_eq_zero {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ}
+    (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) (i : Fin (m + 1)) (t : ℝ) :
+    ∫ x, fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0) = 0 := by
+  have hslice_cd : ContDiff ℝ 1 (fun x : ℝ^(m + 1) => (F (x, t)).1) :=
+    (contDiff_fst.comp hF).comp (contDiff_id.prodMk contDiff_const)
+  have hslice_cs : HasCompactSupport (fun x : ℝ^(m + 1) => (F (x, t)).1) :=
+    HasCompactSupport.intro (hsupp.image continuous_fst) (fun x hx => by
+      rw [image_eq_zero_of_notMem_tsupport (f := F) (fun hmem => hx ⟨(x, t), hmem, rfl⟩)]; rfl)
+  have hcomp : ∀ x : ℝ^(m + 1),
+      fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0)
+        = (fderiv ℝ (fun x' => (F (x', t)).1) x (EuclideanSpace.single i 1)).ofLp i := by
+    intro x
+    have hL : fderiv ℝ (fun q => (F q).1 i) (x, t)
+        = ((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ)).comp
+            (fderiv ℝ F (x, t)) :=
+      (((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ)).hasFDerivAt.comp
+        (x, t) (hF.differentiable (by norm_num) (x, t)).hasFDerivAt).fderiv
+    have hslice_fderiv : HasFDerivAt (fun x' : ℝ^(m + 1) => ((x', t) : (ℝ^(m + 1)) × ℝ))
+        ((ContinuousLinearMap.id ℝ (ℝ^(m + 1))).prod 0) x :=
+      (hasFDerivAt_id x).prodMk (hasFDerivAt_const t x)
+    have hR : fderiv ℝ (fun x' : ℝ^(m + 1) => (F (x', t)).1) x
+        = (ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ).comp
+            ((fderiv ℝ F (x, t)).comp ((ContinuousLinearMap.id ℝ (ℝ^(m + 1))).prod 0)) :=
+      ((ContinuousLinearMap.fst ℝ (ℝ^(m + 1)) ℝ).hasFDerivAt.comp x
+        ((hF.differentiable (by norm_num) (x, t)).hasFDerivAt.comp x hslice_fderiv)).fderiv
+    rw [hL, hR]; rfl
+  simp_rw [hcomp]
+  exact integral_component_deriv_eq_zero hslice_cd hslice_cs i
+
+/-- Slab horizontal zero: `∫ₓ ∫_{t≤0} ∂ᵢFᵢ(x,t) = 0` (Fubini + the base-slice atom). -/
+theorem integral_Iic_base_deriv_eq_zero {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F)
+    (hsupp : HasCompactSupport F) (i : Fin (m + 1)) :
+    ∫ x, ∫ t in Set.Iic (0:ℝ), fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0) = 0 := by
+  have hcont : Continuous (fun p : (ℝ^(m+1)) × ℝ => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0)) :=
+    ((contDiff_piLp_apply 2).comp (contDiff_fst.comp hF)).continuous_fderiv (by norm_num) |>.clm_apply continuous_const
+  have hcs : HasCompactSupport (fun p : (ℝ^(m+1)) × ℝ => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0)) := by
+    apply HasCompactSupport.intro (((hsupp.comp_left (g := fun w : (ℝ^(m+1)) × ℝ => w.1 i) (by simp)).fderiv (𝕜 := ℝ)))
+    intro p hp
+    rw [image_eq_zero_of_notMem_tsupport (f := fun p => fderiv ℝ (fun q => (F q).1 i) p) (fun hmem => hp hmem)]
+    rfl
+  have hint : Integrable (Function.uncurry (fun (x : ℝ^(m+1)) (t : ℝ) => fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0))) (volume.prod (volume.restrict (Set.Iic (0:ℝ)))) := by
+    have hfull := hcont.integrable_of_hasCompactSupport (μ := volume) hcs
+    rw [Measure.volume_eq_prod] at hfull
+    have hmeq : (volume : Measure (ℝ^(m + 1))).prod (volume.restrict (Set.Iic (0:ℝ)))
+        = ((volume : Measure (ℝ^(m + 1))).prod volume).restrict (Set.univ ×ˢ Set.Iic 0) := by
+      rw [← Measure.prod_restrict, Measure.restrict_univ]
+    rw [hmeq]
+    exact hfull.restrict
+  rw [MeasureTheory.integral_integral_swap hint]
+  simp_rw [integral_base_slice_deriv_eq_zero hF hsupp i, integral_zero]
+
+/-- Slab vertical: `∫ₓ ∫_{t≤0} ∂ₜF₂(x,t) = ∫ₓ F₂(x,0)` via the compact-support FTC over `Iic`. -/
+theorem integral_Iic_vert_deriv_eq {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ}
+    (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) :
+    ∫ x, ∫ t in Set.Iic (0:ℝ), fderiv ℝ (fun q => (F q).2) (x, t) (0, 1) = ∫ x, (F (x, 0)).2 := by
+  refine integral_congr_ae (.of_forall fun x => ?_)
+  have hsl_cd : ContDiff ℝ 1 (fun t' : ℝ => (F (x, t')).2) :=
+    (contDiff_snd.comp hF).comp (contDiff_const.prodMk contDiff_id)
+  have hsl_cs : HasCompactSupport (fun t' : ℝ => (F (x, t')).2) :=
+    HasCompactSupport.intro (hsupp.image continuous_snd) (fun t' ht' => by
+      rw [image_eq_zero_of_notMem_tsupport (f := F) (fun hmem => ht' ⟨(x, t'), hmem, rfl⟩)]; rfl)
+  have hchain : ∀ t, fderiv ℝ (fun q => (F q).2) (x, t) (0, 1)
+      = deriv (fun t' => (F (x, t')).2) t := fun t => by
+    have hsl_fderiv : HasFDerivAt (fun t' : ℝ => ((x, t') : (ℝ^(m + 1)) × ℝ))
+        ((0 : ℝ →L[ℝ] (ℝ^(m + 1))).prod (ContinuousLinearMap.id ℝ ℝ)) t :=
+      (hasFDerivAt_const x t).prodMk (hasFDerivAt_id t)
+    have : HasDerivAt (fun t' => (F (x, t')).2)
+        (fderiv ℝ (fun q => (F q).2) (x, t) (0, 1)) t := by
+      have h2 : Differentiable ℝ (fun q => (F q).2) := (contDiff_snd.comp hF).differentiable (by norm_num)
+      exact (h2 (x, t)).hasFDerivAt.comp_hasDerivAt t (hsl_fderiv.hasDerivAt)
+    exact (this.deriv).symm
+  simp_rw [hchain]
+  exact HasCompactSupport.integral_Iic_deriv_eq hsl_cd hsl_cs 0
+
+/-- **Half-space slab divergence theorem** (iterated form): `∫ₓ ∫_{t≤0} div F = ∫ₓ F₂(x,0)`.
+Swap the divergence integral (Fubini), reduce each height-slice to its vertical part via
+`integral_base_slice_deriv_eq_zero`, and swap back for the `Iic` fundamental theorem of calculus. -/
+theorem integral_Iic_divergence_eq {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ}
+    (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) :
+    ∫ x, ∫ t in Set.Iic (0:ℝ), divergence F (x, t) = ∫ x, (F (x, 0)).2 := by
+  -- continuity + compact support of the divergence and of the vertical partial
+  have huc : ∀ i, ContDiff ℝ 1 (fun q => (F q).1 i) :=
+    fun i => (contDiff_piLp_apply 2).comp (contDiff_fst.comp hF)
+  have hvc : ContDiff ℝ 1 (fun q => (F q).2) := contDiff_snd.comp hF
+  have hHcont : ∀ i, Continuous (fun p : (ℝ^(m+1)) × ℝ => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0)) :=
+    fun i => ((huc i).continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hVcont : Continuous (fun p : (ℝ^(m+1)) × ℝ => fderiv ℝ (fun q => (F q).2) p (0, 1)) :=
+    (hvc.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hHcs : ∀ i, HasCompactSupport (fun p : (ℝ^(m+1)) × ℝ => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0)) :=
+    fun i => HasCompactSupport.intro ((hsupp.comp_left (g := fun w : (ℝ^(m+1)) × ℝ => w.1 i) (by simp)).fderiv (𝕜 := ℝ))
+      (fun p hp => by rw [image_eq_zero_of_notMem_tsupport (f := fun p => fderiv ℝ (fun q => (F q).1 i) p) hp]; rfl)
+  have hVcs : HasCompactSupport (fun p : (ℝ^(m+1)) × ℝ => fderiv ℝ (fun q => (F q).2) p (0, 1)) :=
+    HasCompactSupport.intro ((hsupp.comp_left (g := fun w : (ℝ^(m+1)) × ℝ => w.2) rfl).fderiv (𝕜 := ℝ))
+      (fun p hp => by rw [image_eq_zero_of_notMem_tsupport (f := fun p => fderiv ℝ (fun q => (F q).2) p) hp]; rfl)
+  have hdivcont : Continuous (fun p => divergence F p) := by
+    simp only [divergence]
+    exact (continuous_finset_sum _ fun i _ => hHcont i).add hVcont
+  have hdivcs : HasCompactSupport (fun p => divergence F p) := by
+    apply HasCompactSupport.intro (hsupp.fderiv (𝕜 := ℝ))
+    intro p hp
+    have hfp : fderiv ℝ F p = 0 := image_eq_zero_of_notMem_tsupport hp
+    simp only [divergence]
+    have h1 : ∀ i, fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0) = 0 := fun i => by
+      have hclm : fderiv ℝ (fun q => (F q).1 i) p = ((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m+1)) ℝ)).comp (fderiv ℝ F p) :=
+        (((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m+1)) ℝ)).hasFDerivAt.comp p (hF.differentiable (by norm_num) p).hasFDerivAt).fderiv
+      rw [hclm, hfp]; simp
+    have h2 : fderiv ℝ (fun q => (F q).2) p (0, 1) = 0 := by
+      have hclm : fderiv ℝ (fun q => (F q).2) p = (ContinuousLinearMap.snd ℝ (ℝ^(m+1)) ℝ).comp (fderiv ℝ F p) :=
+        ((ContinuousLinearMap.snd ℝ (ℝ^(m+1)) ℝ).hasFDerivAt.comp p (hF.differentiable (by norm_num) p).hasFDerivAt).fderiv
+      rw [hclm, hfp]; simp
+    simp [h1, h2]
+  -- integrability on the restricted product, for both Fubini swaps
+  have hrestr : ∀ (g : (ℝ^(m+1)) × ℝ → ℝ), Continuous g → HasCompactSupport g →
+      Integrable (Function.uncurry (fun (x : ℝ^(m+1)) (t : ℝ) => g (x, t))) (volume.prod (volume.restrict (Set.Iic (0:ℝ)))) := by
+    intro g hg hgcs
+    have hfull := hg.integrable_of_hasCompactSupport (μ := volume) hgcs
+    rw [Measure.volume_eq_prod] at hfull
+    have hmeq : (volume : Measure (ℝ^(m + 1))).prod (volume.restrict (Set.Iic (0:ℝ)))
+        = ((volume : Measure (ℝ^(m + 1))).prod volume).restrict (Set.univ ×ˢ Set.Iic 0) := by
+      rw [← Measure.prod_restrict, Measure.restrict_univ]
+    rw [hmeq]; exact hfull.restrict
+  rw [MeasureTheory.integral_integral_swap (hrestr _ hdivcont hdivcs)]
+  have hslice : ∀ t, ∫ x, divergence F (x, t) = ∫ x, fderiv ℝ (fun q => (F q).2) (x, t) (0, 1) := by
+    intro t
+    have hHint : ∀ i, Integrable
+        (fun x : ℝ^(m + 1) => fderiv ℝ (fun q => (F q).1 i) (x, t) (EuclideanSpace.single i 1, 0)) := fun i =>
+      ((hHcont i).comp (continuous_id.prodMk continuous_const)).integrable_of_hasCompactSupport (μ := volume)
+        (HasCompactSupport.intro ((hHcs i).image continuous_fst) (fun x hx =>
+          image_eq_zero_of_notMem_tsupport
+            (f := fun p => fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0))
+            (fun hmem => hx ⟨(x, t), hmem, rfl⟩)))
+    have hVint : Integrable
+        (fun x : ℝ^(m + 1) => fderiv ℝ (fun q => (F q).2) (x, t) (0, 1)) :=
+      (hVcont.comp (continuous_id.prodMk continuous_const)).integrable_of_hasCompactSupport (μ := volume)
+        (HasCompactSupport.intro (hVcs.image continuous_fst) (fun x hx =>
+          image_eq_zero_of_notMem_tsupport
+            (f := fun p => fderiv ℝ (fun q => (F q).2) p (0, 1))
+            (fun hmem => hx ⟨(x, t), hmem, rfl⟩)))
+    simp only [divergence]
+    rw [integral_add (integrable_finset_sum _ (fun i _ => hHint i)) hVint,
+      integral_finset_sum _ (fun i _ => hHint i)]
+    simp_rw [integral_base_slice_deriv_eq_zero hF hsupp]
+    simp
+  simp_rw [hslice]
+  rw [← MeasureTheory.integral_integral_swap (hrestr _ hVcont hVcs)]
+  exact integral_Iic_vert_deriv_eq hF hsupp
+
+/-- The product divergence of a `C¹` field is continuous. -/
+theorem continuous_divergence {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F) :
+    Continuous (fun p => divergence F p) := by
+  simp only [divergence]
+  refine (continuous_finset_sum _ fun i _ => ?_).add
+    ((((contDiff_snd.comp hF).continuous_fderiv (by norm_num)).clm_apply continuous_const))
+  exact (((contDiff_piLp_apply 2).comp (contDiff_fst.comp hF)).continuous_fderiv (by norm_num)).clm_apply continuous_const
+
+/-- The product divergence of a `C¹` compactly-supported field is compactly supported. -/
+theorem hasCompactSupport_divergence {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ}
+    (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) : HasCompactSupport (fun p => divergence F p) := by
+  apply HasCompactSupport.intro (hsupp.fderiv (𝕜 := ℝ))
+  intro p hp
+  have hfp : fderiv ℝ F p = 0 := image_eq_zero_of_notMem_tsupport hp
+  simp only [divergence]
+  have h1 : ∀ i, fderiv ℝ (fun q => (F q).1 i) p (EuclideanSpace.single i 1, 0) = 0 := fun i => by
+    have hclm : fderiv ℝ (fun q => (F q).1 i) p = ((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m+1)) ℝ)).comp (fderiv ℝ F p) :=
+      (((EuclideanSpace.proj i).comp (ContinuousLinearMap.fst ℝ (ℝ^(m+1)) ℝ)).hasFDerivAt.comp p (hF.differentiable (by norm_num) p).hasFDerivAt).fderiv
+    rw [hclm, hfp]; simp
+  have h2 : fderiv ℝ (fun q => (F q).2) p (0, 1) = 0 := by
+    have hclm : fderiv ℝ (fun q => (F q).2) p = (ContinuousLinearMap.snd ℝ (ℝ^(m+1)) ℝ).comp (fderiv ℝ F p) :=
+      ((ContinuousLinearMap.snd ℝ (ℝ^(m+1)) ℝ).hasFDerivAt.comp p (hF.differentiable (by norm_num) p).hasFDerivAt).fderiv
+    rw [hclm, hfp]; simp
+  simp [h1, h2]
+
+/-- **The flat half-space slab.** Transfer of the product slab to flat coordinates. -/
+theorem setIntegral_flatten_slab {m : ℕ} {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ}
+    (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) :
+    (∫ z in flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Iic (0:ℝ)},
+        divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
+      = ∫ x, (F (x, 0)).2 := by
+  have hint : Integrable (Function.uncurry (fun (x : ℝ^(m+1)) (t : ℝ) => divergence F (x, t)))
+      (volume.prod (volume.restrict (Set.Iic (0:ℝ)))) := by
+    have hfull := (continuous_divergence hF).integrable_of_hasCompactSupport (μ := volume) (hasCompactSupport_divergence hF hsupp)
+    rw [Measure.volume_eq_prod] at hfull
+    have hmeq : (volume : Measure (ℝ^(m + 1))).prod (volume.restrict (Set.Iic (0:ℝ)))
+        = ((volume : Measure (ℝ^(m + 1))).prod volume).restrict (Set.univ ×ˢ Set.Iic 0) := by
+      rw [← Measure.prod_restrict, Measure.restrict_univ]
+    rw [hmeq]; exact hfull.restrict
+  rw [setIntegral_flatten_image]
+  simp_rw [divergenceE_flatten (hF.differentiable (by norm_num))]
+  rw [setIntegral_ofLp]
+  have hset : WithLp.ofLp '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Iic (0:ℝ)}
+      = Set.univ ×ˢ Set.Iic (0:ℝ) := by
+    ext q
+    simp only [Set.mem_image, Set.mem_setOf_eq, Set.mem_prod, Set.mem_univ, true_and, Set.mem_Iic]
+    constructor
+    · rintro ⟨p, hp, rfl⟩; exact hp
+    · intro hq; exact ⟨WithLp.toLp 2 q, hq, rfl⟩
+  rw [hset]
+  have hfub : ∫ q in Set.univ ×ˢ Set.Iic (0:ℝ), divergence F q ∂(volume : Measure ((ℝ^(m+1)) × ℝ))
+      = ∫ x, ∫ t in Set.Iic (0:ℝ), divergence F (x, t) := by
+    have hm : (volume : Measure ((ℝ^(m + 1)) × ℝ)).restrict (Set.univ ×ˢ Set.Iic (0:ℝ))
+        = volume.prod (volume.restrict (Set.Iic 0)) := by
+      rw [Measure.volume_eq_prod, ← Measure.prod_restrict, Measure.restrict_univ]
+    rw [hm]; exact integral_prod _ hint
+  rw [hfub]
+  exact integral_Iic_divergence_eq hF hsupp
+
+/-- Continuity of the canonical (flat) divergence of a `C¹` field. -/
+theorem continuous_divergenceE {n : ℕ} {G : (ℝ^n) → (ℝ^n)} (hG : ContDiff ℝ 1 G) :
+    Continuous (fun x => divergenceE G x) := by
+  simp only [divergenceE]
+  exact continuous_finset_sum _ fun i _ =>
+    (EuclideanSpace.proj i).continuous.comp
+      ((hG.continuous_fderiv (by norm_num)).clm_apply continuous_const)
+
+/-- Compact support of the canonical divergence of a compactly-supported `C¹` field. -/
+theorem hasCompactSupport_divergenceE {n : ℕ} {G : (ℝ^n) → (ℝ^n)}
+    (_hG : ContDiff ℝ 1 G) (hGs : HasCompactSupport G) :
+    HasCompactSupport (fun x => divergenceE G x) :=
+  HasCompactSupport.intro (hGs.fderiv (𝕜 := ℝ)) (fun x hx => by
+    simp only [divergenceE]
+    rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ G) hx]
+    simp)
+
+/-- **Bottomless subgraph divergence theorem** (milestone 3a): the flux of a compactly-supported
+`C¹` field over the full strict subgraph `{height < γ}` (with `γ ≥ 0`) equals the surface integral
+over the graph — the two "bottom face" terms of the slab and the finite-window subgraph cancel. -/
+theorem divergence_theorem_flat_bottomless {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    (hγ0 : ∀ x, 0 ≤ γ x) {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F)
+    (hsupp : HasCompactSupport F) :
+    (∫ z in flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1},
+        divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
+      = ∫ z in flatten m '' (graphFun γ '' univ),
+          (⟪(flattenCLE m).symm (F (flattenCLE m z)),
+              flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
+            ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  set G : (ℝ^(m + 2)) → (ℝ^(m + 2)) := fun w => (flattenCLE m).symm (F (flattenCLE m w)) with hGdef
+  have hGcd : ContDiff ℝ 1 G :=
+    (flattenCLE m).symm.contDiff.comp (hF.comp (flattenCLE m).contDiff)
+  have hGcs : HasCompactSupport G :=
+    (hsupp.comp_isClosedEmbedding (flattenCLE m).toHomeomorph.isClosedEmbedding).comp_left
+      (g := ⇑(flattenCLE m).symm) (map_zero _)
+  have hGint : Integrable (fun z => divergenceE G z) :=
+    (continuous_divergenceE hGcd).integrable_of_hasCompactSupport
+      (hasCompactSupport_divergenceE hGcd hGcs)
+  -- the flat hyperplane {height = 0} is null
+  have hofLpmeas : Measurable (WithLp.ofLp : WithLp 2 ((ℝ^(m + 1)) × ℝ) → (ℝ^(m + 1)) × ℝ) :=
+    (WithLp.volume_preserving_ofLp (ℝ^(m + 1)) ℝ).measurable
+  have hmeasS : MeasurableSet {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 = 0} :=
+    (measurableSet_singleton (0 : ℝ)).preimage (measurable_snd.comp hofLpmeas)
+  have hnull0 : (volume : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ)))
+      {p | (WithLp.ofLp p).2 = 0} = 0 := by
+    rw [show {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 = 0}
+          = WithLp.ofLp ⁻¹' (Prod.snd ⁻¹' ({0} : Set ℝ)) from rfl,
+        (WithLp.volume_preserving_ofLp (ℝ^(m + 1)) ℝ).measure_preimage
+          ((measurableSet_singleton (0 : ℝ)).preimage measurable_snd).nullMeasurableSet,
+        show (Prod.snd ⁻¹' ({0} : Set ℝ) : Set ((ℝ^(m + 1)) × ℝ)) = Set.univ ×ˢ ({0} : Set ℝ)
+          from by ext q; simp,
+        Measure.volume_eq_prod, Measure.prod_prod, Real.volume_singleton, mul_zero]
+  have hflatnull : (volume : Measure (ℝ^(m + 2)))
+      (flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 = 0}) = 0 := by
+    rw [LinearIsometryEquiv.image_eq_preimage_symm,
+        (LinearIsometryEquiv.measurePreserving (flatten m).symm).measure_preimage
+          hmeasS.nullMeasurableSet]
+    exact hnull0
+  -- {height < γ} ⊆ {height ≤ 0} ∪ {0 < height < γ}, up to the null hyperplane
+  have hsub : {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1}
+      ⊆ {p | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)}
+        ∪ {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)} := by
+    intro p hp
+    by_cases h : (WithLp.ofLp p).2 ≤ 0
+    · exact Or.inl h
+    · exact Or.inr ⟨not_le.mp h, hp⟩
+  have hae : flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1}
+      =ᵐ[volume] flatten m '' ({p | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)}
+        ∪ {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}) := by
+    rw [MeasureTheory.ae_eq_set]
+    refine ⟨?_, ?_⟩
+    · rw [← Set.image_diff (flatten m).injective, Set.diff_eq_empty.mpr hsub, Set.image_empty]
+      exact measure_empty
+    · refine measure_mono_null ?_ hflatnull
+      rw [← Set.image_diff (flatten m).injective]
+      refine Set.image_mono ?_
+      intro p hp
+      simp only [Set.mem_diff, Set.mem_union, Set.mem_setOf_eq, Set.mem_Iic, Set.mem_Ioo,
+        not_lt] at hp ⊢
+      rcases hp.1 with h | h
+      · exact le_antisymm h (le_trans (hγ0 _) hp.2)
+      · exact absurd h.2 (not_lt.mpr hp.2)
+  -- disjointness and measurability of the two pieces
+  have hS01 : Disjoint {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)}
+      {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)} :=
+    Set.disjoint_left.mpr fun p h0 h1 => absurd h1.1 (not_lt.mpr h0)
+  have hdisj : Disjoint (flatten m '' {p | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)})
+      (flatten m '' {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}) :=
+    Set.disjoint_image_of_injective (flatten m).injective hS01
+  have hmeasS1 : MeasurableSet {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) |
+      (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)} := by
+    have hc2 : Measurable (fun p : WithLp 2 ((ℝ^(m + 1)) × ℝ) => (WithLp.ofLp p).2) :=
+      measurable_snd.comp hofLpmeas
+    have hcγ : Measurable (fun p : WithLp 2 ((ℝ^(m + 1)) × ℝ) => γ (WithLp.ofLp p).1) :=
+      (hγ.continuous.measurable).comp (measurable_fst.comp hofLpmeas)
+    have : {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}
+        = {p | 0 < (WithLp.ofLp p).2} ∩ {p | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1} := by
+      ext p; simp [Set.mem_Ioo]
+    rw [this]
+    exact (measurableSet_lt measurable_const hc2).inter (measurableSet_lt hc2 hcγ)
+  have hmeasImg1 : MeasurableSet (flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) |
+      (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}) :=
+    (flatten m).toHomeomorph.measurableEmbedding.measurableSet_image.mpr hmeasS1
+  rw [setIntegral_congr_set hae, Set.image_union,
+      setIntegral_union hdisj hmeasImg1 hGint.integrableOn hGint.integrableOn, hGdef,
+      setIntegral_flatten_slab hF hsupp, divergence_theorem_flat hγ hγ0 hF hsupp]
+  ring
+
+
 end AreaFormula
 
 end
