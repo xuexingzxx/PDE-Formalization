@@ -2494,6 +2494,93 @@ theorem chart_flux {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c
   rw [hvol, divergence_theorem_flat_bottomless' hγ hγ0 hGcd hGcs]
   exact hflux
 
+
+/-- In the product `ℝᵐ⁺¹ × ℝ`, the frontier of the open subgraph `{q.2 < γ q.1}` is the graph
+`{q.2 = γ q.1}` — the height coordinate is free, so every graph point is a limit of subgraph points. -/
+theorem frontier_subgraph_prod {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : Continuous γ) :
+    frontier {q : (ℝ^(m + 1)) × ℝ | q.2 < γ q.1} = {q | q.2 = γ q.1} := by
+  apply Set.Subset.antisymm
+  · exact frontier_lt_subset_eq continuous_snd (hγ.comp continuous_fst)
+  · intro q hq
+    rw [Set.mem_setOf_eq] at hq
+    rw [frontier_eq_closure_inter_closure]
+    refine ⟨?_, ?_⟩
+    · refine mem_closure_iff_seq_limit.mpr
+        ⟨fun n => (q.1, γ q.1 - 1 / ((n : ℝ) + 1)), fun n => ?_, ?_⟩
+      · have hpos : (0 : ℝ) < 1 / ((n : ℝ) + 1) := by
+          have hn : (0 : ℝ) < (n : ℝ) + 1 := by have := Nat.cast_nonneg (α := ℝ) n; linarith
+          exact div_pos one_pos hn
+        show γ q.1 - 1 / ((n : ℝ) + 1) < γ q.1
+        linarith
+      · have h0 : Filter.Tendsto (fun n : ℕ => (1 : ℝ) / ((n : ℝ) + 1)) Filter.atTop (nhds 0) :=
+          tendsto_one_div_add_atTop_nhds_zero_nat
+        have h2 : Filter.Tendsto (fun n : ℕ => γ q.1 - 1 / ((n : ℝ) + 1)) Filter.atTop
+            (nhds (γ q.1)) := by
+          simpa using (tendsto_const_nhds (x := γ q.1)).sub h0
+        have hlim : Filter.Tendsto
+            (fun n : ℕ => ((q.1, γ q.1 - 1 / ((n : ℝ) + 1)) : (ℝ^(m + 1)) × ℝ))
+            Filter.atTop (nhds (q.1, γ q.1)) := tendsto_const_nhds.prodMk_nhds h2
+        have hqeq : ((q.1, γ q.1) : (ℝ^(m + 1)) × ℝ) = q := by rw [← hq]
+        rwa [hqeq] at hlim
+    · apply subset_closure
+      rw [Set.mem_compl_iff, Set.mem_setOf_eq, not_lt, hq]
+
+/-- **Chart boundary is the graph.** In a boundary chart with rotation `e` about `c`, the frontier
+of the physical subgraph `{height < γ}` is the physical graph `{height = γ}`. -/
+theorem chart_frontier {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
+    {γ : (ℝ^(m + 1)) → ℝ} (hγ : Continuous γ) :
+    frontier {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1} := by
+  let R : (ℝ^(m + 2)) ≃ₜ (ℝ^(m + 2)) :=
+    { toFun := fun x => e (x - c), invFun := fun z => e.symm z + c,
+      left_inv := fun x => by simp, right_inv := fun z => by simp,
+      continuous_toFun := e.continuous.comp (continuous_id.sub continuous_const),
+      continuous_invFun := e.symm.continuous.add continuous_const }
+  let Φ : (ℝ^(m + 2)) ≃ₜ ((ℝ^(m + 1)) × ℝ) :=
+    (R.trans (flatten m).symm.toHomeomorph).trans (WithLp.homeomorphProd 2 (ℝ^(m + 1)) ℝ)
+  have hsub : {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+      = Φ ⁻¹' {q : (ℝ^(m + 1)) × ℝ | q.2 < γ q.1} := rfl
+  have hgr : {x | ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1}
+      = Φ ⁻¹' {q : (ℝ^(m + 1)) × ℝ | q.2 = γ q.1} := rfl
+  rw [hsub, hgr, ← Homeomorph.preimage_frontier, frontier_subgraph_prod hγ]
+
+/-- **Frontier is local on an open set.** If `s` and `t` agree on an open `U`, their frontiers
+agree on `U`. -/
+theorem frontier_inter_open_eq {X : Type*} [TopologicalSpace X] {s t U : Set X} (hU : IsOpen U)
+    (h : s ∩ U = t ∩ U) : frontier s ∩ U = frontier t ∩ U := by
+  have sub : ∀ a b : Set X, a ∩ U = b ∩ U → closure a ∩ U ⊆ closure b := by
+    rintro a b hab x ⟨hxc, hxU⟩
+    rw [_root_.mem_closure_iff]
+    intro o ho hxo
+    obtain ⟨y, hyoU, hya⟩ := _root_.mem_closure_iff.mp hxc (o ∩ U) (ho.inter hU) ⟨hxo, hxU⟩
+    exact ⟨y, hyoU.1, (hab ▸ Set.mem_inter hya hyoU.2 : y ∈ b ∩ U).1⟩
+  have cl : ∀ a b : Set X, a ∩ U = b ∩ U → closure a ∩ U = closure b ∩ U := fun a b hab =>
+    Set.Subset.antisymm (fun x hx => ⟨sub a b hab hx, hx.2⟩) (fun x hx => ⟨sub b a hab.symm hx, hx.2⟩)
+  have hc : sᶜ ∩ U = tᶜ ∩ U := by
+    ext x
+    simp only [Set.mem_inter_iff, Set.mem_compl_iff]
+    constructor
+    · rintro ⟨hxs, hxU⟩
+      exact ⟨fun hxt => hxs (h.symm ▸ Set.mem_inter hxt hxU : x ∈ s ∩ U).1, hxU⟩
+    · rintro ⟨hxt, hxU⟩
+      exact ⟨fun hxs => hxt (h ▸ Set.mem_inter hxs hxU : x ∈ t ∩ U).1, hxU⟩
+  rw [frontier_eq_closure_inter_closure, frontier_eq_closure_inter_closure,
+    show closure s ∩ closure sᶜ ∩ U = (closure s ∩ U) ∩ (closure sᶜ ∩ U) from by ext x; simp; tauto,
+    cl s t h, cl sᶜ tᶜ hc,
+    show (closure t ∩ U) ∩ (closure tᶜ ∩ U) = closure t ∩ closure tᶜ ∩ U from by ext x; simp; tauto]
+
+/-- **The boundary of the domain is the chart graph.** In a boundary chart, `frontier Ω ∩ ball`
+equals the physical graph `{height = γ}` intersected with the ball. -/
+theorem chart_frontier_domain {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
+    {γ : (ℝ^(m + 1)) → ℝ} (hγ : Continuous γ) {Ω : Set (ℝ^(m + 2))} {r : ℝ}
+    (hchart : Ω ∩ Metric.ball c r
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c r) :
+    frontier Ω ∩ Metric.ball c r
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c r := by
+  rw [frontier_inter_open_eq Metric.isOpen_ball hchart, chart_frontier e c hγ]
+
 end AreaFormula
 
 end
