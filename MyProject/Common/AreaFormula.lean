@@ -2581,6 +2581,105 @@ theorem chart_frontier_domain {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(
         ∩ Metric.ball c r := by
   rw [frontier_inter_open_eq Metric.isOpen_ball hchart, chart_frontier e c hγ]
 
+
+/-- If `f` is supported in `B` and `s`, `t` agree on `B`, then `∫_s f = ∫_t f`. -/
+theorem setIntegral_eq_of_support_subset {X E : Type*} [MeasurableSpace X]
+    [NormedAddCommGroup E] [NormedSpace ℝ E] {μ : Measure X} {s t B : Set X} {f : X → E}
+    (hs : MeasurableSet s) (ht : MeasurableSet t) (hf : Function.support f ⊆ B)
+    (hst : s ∩ B = t ∩ B) :
+    ∫ x in s, f x ∂μ = ∫ x in t, f x ∂μ := by
+  classical
+  rw [← integral_indicator hs, ← integral_indicator ht]
+  refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+  by_cases hxB : x ∈ B
+  · by_cases hxs : x ∈ s
+    · have hxt : x ∈ t := (hst ▸ Set.mem_inter hxs hxB : x ∈ t ∩ B).1
+      rw [Set.indicator_of_mem hxs, Set.indicator_of_mem hxt]
+    · have hxt : x ∉ t := fun hh => hxs (hst.symm ▸ Set.mem_inter hh hxB : x ∈ s ∩ B).1
+      rw [Set.indicator_of_notMem hxs, Set.indicator_of_notMem hxt]
+  · have hfx : f x = 0 := by by_contra hh; exact hxB (hf (Function.mem_support.mpr hh))
+    rw [Set.indicator_apply, Set.indicator_apply, hfx]; simp
+
+/-- The physical graph (preimage of the flat graph under the chart rigid motion) is the level set
+`{height = γ(base)}`. -/
+theorem physical_graph_eq {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
+    (γ : (ℝ^(m + 1)) → ℝ) :
+    (fun x => e (x - c)) ⁻¹' (flatten m '' (graphFun γ '' univ))
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1} := by
+  have hofLp : ∀ y : ℝ^(m + 1), (graphFun γ y).ofLp = (y, γ y) := fun y => rfl
+  ext x
+  simp only [Set.mem_preimage, Set.mem_image, Set.mem_setOf_eq, Set.mem_univ, true_and]
+  constructor
+  · rintro ⟨p, ⟨y, rfl⟩, hpe⟩
+    have hpsy : (flatten m).symm (e (x - c)) = graphFun γ y := by
+      rw [← hpe, LinearIsometryEquiv.symm_apply_apply]
+    rw [hpsy, hofLp]
+  · intro hx
+    refine ⟨graphFun γ ((flatten m).symm (e (x - c))).ofLp.1, ⟨_, rfl⟩, ?_⟩
+    have hg : graphFun γ ((flatten m).symm (e (x - c))).ofLp.1 = (flatten m).symm (e (x - c)) := by
+      apply WithLp.ofLp_injective
+      rw [hofLp]
+      exact Prod.ext rfl hx.symm
+    rw [hg, LinearIsometryEquiv.apply_symm_apply]
+
+/-- **Chart term of the assembly.** For a field `V` supported inside a boundary chart ball, the
+single-chart divergence theorem in the domain `Ω`: `∫_Ω divergenceE V = ∫_{∂Ω} ⟪V, ν⟫ dμHE`. -/
+theorem chart_term {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
+    {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ) (hγ0 : ∀ x, 0 ≤ γ x)
+    {Ω : Set (ℝ^(m + 2))} (hΩ : MeasurableSet Ω) {r : ℝ}
+    (hchart : Ω ∩ Metric.ball c r
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c r)
+    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))}
+    (hν : ∀ x ∈ frontier Ω ∩ Metric.ball c r,
+      ν x = e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1)))
+    {V : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hV : ContDiff ℝ 1 V) (hVsupp : HasCompactSupport V)
+    (hVball : tsupport V ⊆ Metric.ball c r) :
+    ∫ x in Ω, divergenceE V x
+      = ∫ x in frontier Ω, (⟪V x, ν x⟫ : ℝ) ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have hψ : Continuous (fun x : ℝ^(m + 2) => (flatten m).symm (e (x - c))) :=
+    (flatten m).symm.continuous.comp (e.continuous.comp (continuous_id.sub continuous_const))
+  have hofLpc : Continuous (WithLp.ofLp : WithLp 2 ((ℝ^(m + 1)) × ℝ) → (ℝ^(m + 1)) × ℝ) :=
+    (WithLp.homeomorphProd 2 (ℝ^(m + 1)) ℝ).continuous
+  have hheight : Continuous (fun x : ℝ^(m + 2) => ((flatten m).symm (e (x - c))).ofLp.2) :=
+    continuous_snd.comp (hofLpc.comp hψ)
+  have hgbase : Continuous (fun x : ℝ^(m + 2) => γ ((flatten m).symm (e (x - c))).ofLp.1) :=
+    hγ.continuous.comp (continuous_fst.comp (hofLpc.comp hψ))
+  have hsubmeas : MeasurableSet {x : ℝ^(m + 2) |
+      ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1} :=
+    measurableSet_lt hheight.measurable hgbase.measurable
+  have hgraphmeas : MeasurableSet {x : ℝ^(m + 2) |
+      ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1} :=
+    (isClosed_eq hheight hgbase).measurableSet
+  have hfrontmeas : MeasurableSet (frontier Ω) := isClosed_frontier.measurableSet
+  have hVsub : Function.support V ⊆ Metric.ball c r := subset_trans (subset_tsupport V) hVball
+  have hdivsup : Function.support (fun x => divergenceE V x) ⊆ Metric.ball c r := by
+    refine subset_trans (fun x hx => ?_) hVball
+    by_contra hxts
+    have hV0 : V =ᶠ[nhds x] 0 := notMem_tsupport_iff_eventuallyEq.mp hxts
+    have hfd : fderiv ℝ V x = 0 := by rw [hV0.fderiv_eq]; simp
+    exact hx (by simp [divergenceE, hfd])
+  have hVsupI : Function.support (fun x => (⟪V x,
+      e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1))⟫ : ℝ))
+      ⊆ Metric.ball c r := by
+    refine subset_trans (fun x hx => ?_) hVsub
+    simp only [Function.mem_support, ne_eq] at hx ⊢
+    exact fun h => hx (by rw [h, inner_zero_left])
+  have hvol : ∫ x in Ω, divergenceE V x
+      = ∫ x in {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1},
+        divergenceE V x :=
+    setIntegral_eq_of_support_subset hΩ hsubmeas hdivsup hchart
+  have hflux := chart_flux e c hγ hγ0 hV hVsupp
+  rw [physical_graph_eq e c γ] at hflux
+  rw [hvol, hflux,
+    setIntegral_eq_of_support_subset hgraphmeas hfrontmeas hVsupI
+      (chart_frontier_domain e c hγ.continuous hchart).symm]
+  refine setIntegral_congr_fun hfrontmeas (fun x hx => ?_)
+  by_cases hxball : x ∈ Metric.ball c r
+  · rw [hν x ⟨hx, hxball⟩]
+  · have hV0 : V x = 0 := image_eq_zero_of_notMem_tsupport (fun hmem => hxball (hVball hmem))
+    simp [hV0]
+
 end AreaFormula
 
 end
