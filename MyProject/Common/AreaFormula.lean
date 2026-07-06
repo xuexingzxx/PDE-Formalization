@@ -2239,11 +2239,67 @@ theorem hasCompactSupport_divergenceE {n : ℕ} {G : (ℝ^n) → (ℝ^n)}
     rw [image_eq_zero_of_notMem_tsupport (f := fderiv ℝ G) hx]
     simp)
 
-/-- **Bottomless subgraph divergence theorem** (milestone 3a): the flux of a compactly-supported
-`C¹` field over the full strict subgraph `{height < γ}` (with `γ ≥ 0`) equals the surface integral
-over the graph — the two "bottom face" terms of the slab and the finite-window subgraph cancel. -/
+/-- Split of an `Iic` integral through `0`: `∫_{Iic b} g = ∫_{Iic 0} g + ∫₀^b g` (any sign of `b`),
+the oriented additivity of the integral over the half-line. -/
+theorem integral_Iic_split {g : ℝ → ℝ} (hg : Integrable g) (b : ℝ) :
+    ∫ t in Set.Iic b, g t = (∫ t in Set.Iic (0 : ℝ), g t) + ∫ t in (0 : ℝ)..b, g t := by
+  have h : (∫ t in Set.Iic b, g t) - (∫ t in Set.Iic (0 : ℝ), g t) = ∫ t in (0 : ℝ)..b, g t :=
+    intervalIntegral.integral_Iic_sub_Iic (a := (0 : ℝ)) hg.integrableOn hg.integrableOn
+  rw [← h]; ring
+
+/-- Fubini over the region below a graph `{p.2 < γ p.1}` (no sign condition on `γ`). -/
+theorem setIntegral_below {m : ℕ} {γ : (ℝ^m) → ℝ} (hγ : Measurable γ) {h : (ℝ^m) × ℝ → ℝ}
+    (hint : IntegrableOn h {p : (ℝ^m) × ℝ | p.2 < γ p.1}) :
+    ∫ p in {p : (ℝ^m) × ℝ | p.2 < γ p.1}, h p ∂(volume : Measure ((ℝ^m) × ℝ))
+      = ∫ x, ∫ t in Set.Iio (γ x), h (x, t) := by
+  have hmS : MeasurableSet {p : (ℝ^m) × ℝ | p.2 < γ p.1} :=
+    measurableSet_lt measurable_snd (hγ.comp measurable_fst)
+  have hint' : Integrable ({p : (ℝ^m) × ℝ | p.2 < γ p.1}.indicator h) :=
+    (integrable_indicator_iff hmS).mpr hint
+  rw [← integral_indicator hmS, Measure.volume_eq_prod,
+    integral_prod _ (by rw [← Measure.volume_eq_prod]; exact hint')]
+  refine integral_congr_ae (.of_forall fun x => ?_)
+  have hfun : (fun t => {p : (ℝ^m) × ℝ | p.2 < γ p.1}.indicator h (x, t))
+      = (Set.Iio (γ x)).indicator (fun t => h (x, t)) := by
+    funext t
+    by_cases htI : t ∈ Set.Iio (γ x)
+    · rw [Set.indicator_of_mem htI,
+        Set.indicator_of_mem (show (x, t) ∈ {p : (ℝ^m) × ℝ | p.2 < γ p.1} from htI)]
+    · rw [Set.indicator_of_notMem htI,
+        Set.indicator_of_notMem (show (x, t) ∉ {p : (ℝ^m) × ℝ | p.2 < γ p.1} from
+          fun hmem => htI hmem)]
+  change ∫ t, {p : (ℝ^m) × ℝ | p.2 < γ p.1}.indicator h (x, t) = ∫ t in Set.Iio (γ x), h (x, t)
+  rw [hfun, integral_indicator measurableSet_Iio]
+
+/-- Volume side of the bottomless (full-subgraph) divergence theorem, arbitrary `γ`: the flat
+divergence over the full subgraph equals the iterated integral `∫ₓ ∫_{Iio(γx)} divergence F`. -/
+theorem setIntegral_flatten_divergence_full {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F) (hsupp : HasCompactSupport F) :
+    (∫ z in flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1},
+        divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
+      = ∫ x, ∫ t in Set.Iio (γ x), divergence F (x, t) := by
+  have hcont : Continuous (fun p => divergence F p) := continuous_divergence hF
+  have hcs : HasCompactSupport (fun p => divergence F p) := hasCompactSupport_divergence hF hsupp
+  have hint : IntegrableOn (fun p => divergence F p) {p : (ℝ^(m + 1)) × ℝ | p.2 < γ p.1} :=
+    (hcont.integrable_of_hasCompactSupport hcs).integrableOn
+  rw [setIntegral_flatten_image]
+  simp_rw [divergenceE_flatten (hF.differentiable (by norm_num))]
+  rw [setIntegral_ofLp]
+  have hset : WithLp.ofLp '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1}
+      = {p : (ℝ^(m + 1)) × ℝ | p.2 < γ p.1} := by
+    ext q
+    simp only [Set.mem_image, Set.mem_setOf_eq]
+    constructor
+    · rintro ⟨p, hp, rfl⟩; exact hp
+    · intro hq; exact ⟨WithLp.toLp 2 q, hq, rfl⟩
+  rw [hset, setIntegral_below hγ.continuous.measurable hint]
+
+/-- **Bottomless subgraph divergence theorem** (arbitrary `γ`, no sign condition): the flux of a
+compactly-supported `C¹` field over the full strict subgraph `{height < γ}` equals the surface
+integral over the graph. Proved via the iterated form `∫ₓ ∫_{Iic(γx)} = slab + graph` using the
+oriented `Iic` split, so `γ` may take any sign. -/
 theorem divergence_theorem_flat_bottomless {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
-    (hγ0 : ∀ x, 0 ≤ γ x) {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F)
+    {F : (ℝ^(m + 1)) × ℝ → (ℝ^(m + 1)) × ℝ} (hF : ContDiff ℝ 1 F)
     (hsupp : HasCompactSupport F) :
     (∫ z in flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1},
         divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
@@ -2251,84 +2307,41 @@ theorem divergence_theorem_flat_bottomless {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ
           (⟪(flattenCLE m).symm (F (flattenCLE m z)),
               flatten m (graphNormal γ ((flatten m).symm z).ofLp.1)⟫ : ℝ)
             ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
-  set G : (ℝ^(m + 2)) → (ℝ^(m + 2)) := fun w => (flattenCLE m).symm (F (flattenCLE m w)) with hGdef
-  have hGcd : ContDiff ℝ 1 G :=
-    (flattenCLE m).symm.contDiff.comp (hF.comp (flattenCLE m).contDiff)
-  have hGcs : HasCompactSupport G :=
-    (hsupp.comp_isClosedEmbedding (flattenCLE m).toHomeomorph.isClosedEmbedding).comp_left
-      (g := ⇑(flattenCLE m).symm) (map_zero _)
-  have hGint : Integrable (fun z => divergenceE G z) :=
-    (continuous_divergenceE hGcd).integrable_of_hasCompactSupport
-      (hasCompactSupport_divergenceE hGcd hGcs)
-  -- the flat hyperplane {height = 0} is null
-  have hofLpmeas : Measurable (WithLp.ofLp : WithLp 2 ((ℝ^(m + 1)) × ℝ) → (ℝ^(m + 1)) × ℝ) :=
-    (WithLp.volume_preserving_ofLp (ℝ^(m + 1)) ℝ).measurable
-  have hmeasS : MeasurableSet {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 = 0} :=
-    (measurableSet_singleton (0 : ℝ)).preimage (measurable_snd.comp hofLpmeas)
-  have hnull0 : (volume : Measure (WithLp 2 ((ℝ^(m + 1)) × ℝ)))
-      {p | (WithLp.ofLp p).2 = 0} = 0 := by
-    rw [show {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 = 0}
-          = WithLp.ofLp ⁻¹' (Prod.snd ⁻¹' ({0} : Set ℝ)) from rfl,
-        (WithLp.volume_preserving_ofLp (ℝ^(m + 1)) ℝ).measure_preimage
-          ((measurableSet_singleton (0 : ℝ)).preimage measurable_snd).nullMeasurableSet,
-        show (Prod.snd ⁻¹' ({0} : Set ℝ) : Set ((ℝ^(m + 1)) × ℝ)) = Set.univ ×ˢ ({0} : Set ℝ)
-          from by ext q; simp,
-        Measure.volume_eq_prod, Measure.prod_prod, Real.volume_singleton, mul_zero]
-  have hflatnull : (volume : Measure (ℝ^(m + 2)))
-      (flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 = 0}) = 0 := by
-    rw [LinearIsometryEquiv.image_eq_preimage_symm,
-        (LinearIsometryEquiv.measurePreserving (flatten m).symm).measure_preimage
-          hmeasS.nullMeasurableSet]
-    exact hnull0
-  -- {height < γ} ⊆ {height ≤ 0} ∪ {0 < height < γ}, up to the null hyperplane
-  have hsub : {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1}
-      ⊆ {p | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)}
-        ∪ {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)} := by
-    intro p hp
-    by_cases h : (WithLp.ofLp p).2 ≤ 0
-    · exact Or.inl h
-    · exact Or.inr ⟨not_le.mp h, hp⟩
-  have hae : flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1}
-      =ᵐ[volume] flatten m '' ({p | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)}
-        ∪ {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}) := by
-    rw [MeasureTheory.ae_eq_set]
-    refine ⟨?_, ?_⟩
-    · rw [← Set.image_diff (flatten m).injective, Set.diff_eq_empty.mpr hsub, Set.image_empty]
-      exact measure_empty
-    · refine measure_mono_null ?_ hflatnull
-      rw [← Set.image_diff (flatten m).injective]
-      refine Set.image_mono ?_
-      intro p hp
-      simp only [Set.mem_diff, Set.mem_union, Set.mem_setOf_eq, Set.mem_Iic, Set.mem_Ioo,
-        not_lt] at hp ⊢
-      rcases hp.1 with h | h
-      · exact le_antisymm h (le_trans (hγ0 _) hp.2)
-      · exact absurd h.2 (not_lt.mpr hp.2)
-  -- disjointness and measurability of the two pieces
-  have hS01 : Disjoint {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)}
-      {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)} :=
-    Set.disjoint_left.mpr fun p h0 h1 => absurd h1.1 (not_lt.mpr h0)
-  have hdisj : Disjoint (flatten m '' {p | (WithLp.ofLp p).2 ∈ Set.Iic (0 : ℝ)})
-      (flatten m '' {p | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}) :=
-    Set.disjoint_image_of_injective (flatten m).injective hS01
-  have hmeasS1 : MeasurableSet {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) |
-      (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)} := by
-    have hc2 : Measurable (fun p : WithLp 2 ((ℝ^(m + 1)) × ℝ) => (WithLp.ofLp p).2) :=
-      measurable_snd.comp hofLpmeas
-    have hcγ : Measurable (fun p : WithLp 2 ((ℝ^(m + 1)) × ℝ) => γ (WithLp.ofLp p).1) :=
-      (hγ.continuous.measurable).comp (measurable_fst.comp hofLpmeas)
-    have : {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}
-        = {p | 0 < (WithLp.ofLp p).2} ∩ {p | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1} := by
-      ext p; simp [Set.mem_Ioo]
-    rw [this]
-    exact (measurableSet_lt measurable_const hc2).inter (measurableSet_lt hc2 hcγ)
-  have hmeasImg1 : MeasurableSet (flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) |
-      (WithLp.ofLp p).2 ∈ Set.Ioo 0 (γ (WithLp.ofLp p).1)}) :=
-    (flatten m).toHomeomorph.measurableEmbedding.measurableSet_image.mpr hmeasS1
-  rw [setIntegral_congr_set hae, Set.image_union,
-      setIntegral_union hdisj hmeasImg1 hGint.integrableOn hGint.integrableOn, hGdef,
-      setIntegral_flatten_slab hF hsupp, divergence_theorem_flat hγ hγ0 hF hsupp]
-  ring
+  have hgcont : Continuous (fun p => divergence F p) := continuous_divergence hF
+  have hgcs : HasCompactSupport (fun p => divergence F p) := hasCompactSupport_divergence hF hsupp
+  have hgint : ∀ x, Integrable (fun t => divergence F (x, t)) := fun x =>
+    (hgcont.comp (continuous_const.prodMk continuous_id)).integrable_of_hasCompactSupport
+      (HasCompactSupport.intro (hgcs.image continuous_snd) (fun t ht =>
+        image_eq_zero_of_notMem_tsupport (f := fun p => divergence F p)
+          (fun hmem => ht ⟨(x, t), hmem, rfl⟩)))
+  have hsplit : ∀ x, ∫ t in Set.Iio (γ x), divergence F (x, t)
+      = (∫ t in Set.Iic (0 : ℝ), divergence F (x, t)) + ∫ t in (0 : ℝ)..(γ x), divergence F (x, t) :=
+    fun x => by
+      rw [setIntegral_congr_set Iio_ae_eq_Iic, integral_Iic_split (hgint x) (γ x)]
+  have hprodint : Integrable (Function.uncurry fun (x : ℝ^(m + 1)) (t : ℝ) => divergence F (x, t))
+      (volume.prod (volume.restrict (Set.Iic (0 : ℝ)))) := by
+    have hfull := hgcont.integrable_of_hasCompactSupport (μ := volume) hgcs
+    rw [Measure.volume_eq_prod] at hfull
+    have hmeq : (volume : Measure (ℝ^(m + 1))).prod (volume.restrict (Set.Iic (0 : ℝ)))
+        = ((volume : Measure (ℝ^(m + 1))).prod volume).restrict (Set.univ ×ˢ Set.Iic 0) := by
+      rw [← Measure.prod_restrict, Measure.restrict_univ]
+    rw [hmeq]; exact hfull.restrict
+  have hInt1 : Integrable (fun x => ∫ t in Set.Iic (0 : ℝ), divergence F (x, t)) :=
+    hprodint.integral_prod_left
+  have hInt2 : Integrable (fun x => ∫ t in (0 : ℝ)..(γ x), divergence F (x, t)) := by
+    refine (intervalIntegral.continuous_parametric_intervalIntegral_of_continuous hgcont
+      hγ.continuous).integrable_of_hasCompactSupport ?_
+    apply HasCompactSupport.intro (hgcs.image continuous_fst)
+    intro x hx
+    have hz : ∀ t, divergence F (x, t) = 0 := fun t =>
+      image_eq_zero_of_notMem_tsupport (f := fun p => divergence F p)
+        (fun hmem => hx ⟨(x, t), hmem, rfl⟩)
+    simp [hz]
+  rw [setIntegral_flatten_divergence_full hγ hF hsupp]
+  simp_rw [hsplit]
+  rw [integral_add hInt1 hInt2, integral_Iic_divergence_eq hF hsupp,
+    divergence_theorem_graph hγ hF hsupp, ← setIntegral_flatten_flux]
+  abel
 
 
 
@@ -2359,7 +2372,7 @@ theorem divergenceE_transport_affine {n : ℕ} (e : (ℝ^n) ≃ₗᵢ[ℝ] (ℝ^
 /-- **General-field form of the bottomless subgraph divergence theorem.** For an arbitrary
 compactly-supported `C¹` field `G` on `ℝᵐ⁺²`. -/
 theorem divergence_theorem_flat_bottomless' {m : ℕ} {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
-    (hγ0 : ∀ x, 0 ≤ γ x) {G : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hG : ContDiff ℝ 1 G)
+    {G : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hG : ContDiff ℝ 1 G)
     (hGsupp : HasCompactSupport G) :
     (∫ z in flatten m '' {p : WithLp 2 ((ℝ^(m + 1)) × ℝ) | (WithLp.ofLp p).2 < γ (WithLp.ofLp p).1},
         divergenceE G z)
@@ -2371,7 +2384,7 @@ theorem divergence_theorem_flat_bottomless' {m : ℕ} {γ : (ℝ^(m + 1)) → �
   have hFcs : HasCompactSupport (fun q => flattenCLE m (G ((flattenCLE m).symm q))) :=
     (hGsupp.comp_isClosedEmbedding (flattenCLE m).symm.toHomeomorph.isClosedEmbedding).comp_left
       (g := ⇑(flattenCLE m)) (map_zero _)
-  have key := divergence_theorem_flat_bottomless hγ hγ0
+  have key := divergence_theorem_flat_bottomless hγ
     (F := fun q => flattenCLE m (G ((flattenCLE m).symm q))) hFcd hFcs
   simpa only [ContinuousLinearEquiv.symm_apply_apply] using key
 
@@ -2431,7 +2444,7 @@ theorem rigid_image_subgraph {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m
 `{height < γ}`, the volume integral of `div V` over the physical subgraph equals the flux over the
 physical graph, with outward normal `ν x = e⁻¹ (flatten (graphNormal γ (base))). -/
 theorem chart_flux {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
-    {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ) (hγ0 : ∀ x, 0 ≤ γ x)
+    {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
     {V : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hV : ContDiff ℝ 1 V) (hVsupp : HasCompactSupport V) :
     (∫ x in {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1},
         divergenceE V x)
@@ -2491,7 +2504,7 @@ theorem chart_flux {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c
               flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1)⟫ : ℝ)
             = ⟪V x, e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1))⟫
           rw [hGAx]; exact hinner
-  rw [hvol, divergence_theorem_flat_bottomless' hγ hγ0 hGcd hGcs]
+  rw [hvol, divergence_theorem_flat_bottomless' hγ hGcd hGcs]
   exact hflux
 
 
@@ -2625,7 +2638,7 @@ theorem physical_graph_eq {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 
 /-- **Chart term of the assembly.** For a field `V` supported inside a boundary chart ball, the
 single-chart divergence theorem in the domain `Ω`: `∫_Ω divergenceE V = ∫_{∂Ω} ⟪V, ν⟫ dμHE`. -/
 theorem chart_term {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c : ℝ^(m + 2))
-    {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ) (hγ0 : ∀ x, 0 ≤ γ x)
+    {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
     {Ω : Set (ℝ^(m + 2))} (hΩ : MeasurableSet Ω) {r : ℝ}
     (hchart : Ω ∩ Metric.ball c r
       = {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
@@ -2669,7 +2682,7 @@ theorem chart_term {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c
       = ∫ x in {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1},
         divergenceE V x :=
     setIntegral_eq_of_support_subset hΩ hsubmeas hdivsup hchart
-  have hflux := chart_flux e c hγ hγ0 hV hVsupp
+  have hflux := chart_flux e c hγ hV hVsupp
   rw [physical_graph_eq e c γ] at hflux
   rw [hvol, hflux,
     setIntegral_eq_of_support_subset hgraphmeas hfrontmeas hVsupI
