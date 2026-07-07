@@ -2693,6 +2693,104 @@ theorem chart_term {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c
   · have hV0 : V x = 0 := image_eq_zero_of_notMem_tsupport (fun hmem => hxball (hVball hmem))
     simp [hV0]
 
+
+/-- An **outward unit normal** for a bounded `C¹` domain `Ω`: a continuous field `ν` that, in every
+subgraph chart (rotation `e` about `c` in which `Ω` is `{height < γ}`), agrees on the boundary with
+the transported upward graph normal `e⁻¹ (flatten (graphNormal γ (base)))`. -/
+structure IsOutwardNormal {m : ℕ} (Ω : Set (ℝ^(m + 2))) (ν : (ℝ^(m + 2)) → (ℝ^(m + 2))) : Prop where
+  continuous : Continuous ν
+  eq_chart : ∀ (c : ℝ^(m + 2)) (r : ℝ) (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (γ : (ℝ^(m + 1)) → ℝ),
+    ContDiff ℝ 1 γ →
+    Ω ∩ Metric.ball c r
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c r →
+    ∀ x ∈ frontier Ω ∩ Metric.ball c r,
+      ν x = e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1))
+
+/-- **The general divergence theorem (Gauss–Green) on a bounded `C¹` domain.** -/
+theorem divergence_theorem {m : ℕ} {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
+    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν)
+    {F : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hF : ContDiff ℝ 1 F)
+    (hμfin : (μHE[m + 1] : Measure (ℝ^(m + 2))) (frontier Ω) < ⊤) :
+    ∫ x in Ω, divergenceE F x
+      = ∫ x in frontier Ω, (⟪F x, ν x⟫ : ℝ) ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  classical
+  obtain ⟨ι, hFin, c, r, hr, hcharts, f, hsub⟩ := hΩ.exists_smoothPartitionOfUnity
+  -- the pieces of the partition
+  set V : Option ι → (ℝ^(m + 2)) → (ℝ^(m + 2)) := fun i x => f i x • F x with hVdef
+  have hUbdd : ∀ i : Option ι, Bornology.IsBounded (i.elim Ω (fun j => Metric.ball (c j) (r j))) := by
+    rintro (_ | j)
+    · exact hΩ.isBounded
+    · exact Metric.isBounded_ball
+  have hζcd : ∀ i, ContDiff ℝ 1 (⇑(f i)) := fun i => by
+    have h := (f i).contMDiff; rw [contMDiff_iff_contDiff] at h; exact h.of_le (mod_cast le_top)
+  have hζcs : ∀ i, HasCompactSupport (⇑(f i)) := fun i =>
+    Metric.isCompact_iff_isClosed_bounded.mpr ⟨isClosed_tsupport _, (hUbdd i).subset (hsub i)⟩
+  have hVcd : ∀ i, ContDiff ℝ 1 (V i) := fun i => (hζcd i).smul hF
+  have hVcs : ∀ i, HasCompactSupport (V i) := fun i => (hζcs i).smul_right
+  have hsum1 : ∀ x ∈ closure Ω, ∑ i, f i x = 1 := fun x hx => by
+    have h := f.sum_eq_one hx; rwa [finsum_eq_sum_of_fintype] at h
+  -- the volume-side decomposition: ∫_Ω div F = ∑ᵢ ∫_Ω div (V i)
+  have hFeq : ∀ x ∈ Ω, divergenceE F x = divergenceE (fun y => ∑ i, V i y) x := fun x hx => by
+    have hEq : F =ᶠ[nhds x] (fun y => ∑ i, V i y) := by
+      filter_upwards [hΩ.isOpen.mem_nhds hx] with y hy
+      simp only [hVdef, ← Finset.sum_smul, hsum1 y (subset_closure hy), one_smul]
+    simp only [divergenceE]; rw [hEq.fderiv_eq]
+  have hdecomp : ∫ x in Ω, divergenceE F x = ∑ i, ∫ x in Ω, divergenceE (V i) x := by
+    rw [setIntegral_congr_fun hΩ.measurableSet hFeq]
+    have hpt : ∀ x, divergenceE (fun y => ∑ i, V i y) x = ∑ i, divergenceE (V i) x := fun x =>
+      divergenceE_finset_sum _ _ (fun i _ => (hVcd i).differentiable (by norm_num) x)
+    simp_rw [hpt]
+    rw [integral_finset_sum]
+    exact fun i _ => ((continuous_divergenceE (hVcd i)).integrable_of_hasCompactSupport
+      (hasCompactSupport_divergenceE (hVcd i) (hVcs i))).integrableOn
+  have hFrmeas : MeasurableSet (frontier Ω) := isClosed_frontier.measurableSet
+  have hVtsupp : ∀ i, tsupport (V i) ⊆ i.elim Ω (fun j => Metric.ball (c j) (r j)) := fun i =>
+    subset_trans (closure_mono (Function.support_smul_subset_left (⇑(f i)) F)) (hsub i)
+  have hfrΩ : ∀ x ∈ frontier Ω, x ∉ Ω := fun x hx hxΩ =>
+    (show x ∈ closure Ω \ interior Ω from hx).2 (hΩ.isOpen.interior_eq.symm ▸ hxΩ)
+  -- each piece: ∫_Ω div (V i) = ∫_{frontier} ⟪V i, ν⟫
+  have hdivsupp : ∀ i, Function.support (fun x => divergenceE (V i) x)
+      ⊆ i.elim Ω (fun j => Metric.ball (c j) (r j)) := fun i => by
+    refine subset_trans (fun x hx => ?_) (hVtsupp i)
+    by_contra hxts
+    have hVe : V i =ᶠ[nhds x] 0 := notMem_tsupport_iff_eventuallyEq.mp hxts
+    have hfd : fderiv ℝ (V i) x = 0 := by rw [hVe.fderiv_eq]; simp
+    exact hx (by simp [divergenceE, hfd])
+  have hchart_i : ∀ i, ∫ x in Ω, divergenceE (V i) x
+      = ∫ x in frontier Ω, (⟪V i x, ν x⟫ : ℝ) ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+    rintro (_ | j)
+    · have hL : ∫ x in Ω, divergenceE (V none) x = 0 := by
+        rw [setIntegral_eq_of_support_subset hΩ.measurableSet MeasurableSet.univ (hdivsupp none)
+          (by simp), setIntegral_univ]
+        exact integral_divergenceE_eq_zero (hVcd none) (hVcs none)
+      have hR : ∫ x in frontier Ω, (⟪V none x, ν x⟫ : ℝ) ∂μHE[m + 1] = 0 := by
+        refine setIntegral_eq_zero_of_forall_eq_zero (fun x hx => ?_)
+        have : V none x = 0 :=
+          image_eq_zero_of_notMem_tsupport (fun hmem => hfrΩ x hx (hVtsupp none hmem))
+        rw [this, inner_zero_left]
+      rw [hL, hR]
+    · obtain ⟨e, γ, hγcd, hchartj⟩ := hcharts j
+      exact chart_term e (c j) hγcd hΩ.measurableSet hchartj
+        (hν.eq_chart (c j) (r j) e γ hγcd hchartj) (hVcd (some j)) (hVcs (some j)) (hVtsupp (some j))
+  -- surface measure of the boundary is finite (so the flux pieces are integrable)
+  haveI : IsFiniteMeasure ((μHE[m + 1] : Measure (ℝ^(m + 2))).restrict (frontier Ω)) :=
+    ⟨by rw [Measure.restrict_apply_univ]; exact hμfin⟩
+  have hfluxint : ∀ i, IntegrableOn (fun x => (⟪V i x, ν x⟫ : ℝ)) (frontier Ω)
+      (μHE[m + 1] : Measure (ℝ^(m + 2))) := fun i =>
+    ((hVcd i).continuous.inner hν.continuous).integrable_of_hasCompactSupport
+      (μ := (μHE[m + 1]).restrict (frontier Ω))
+      (HasCompactSupport.intro (hVcs i) (fun x hx => by
+        rw [image_eq_zero_of_notMem_tsupport hx, inner_zero_left]))
+  -- assemble
+  rw [hdecomp]
+  simp_rw [hchart_i]
+  rw [← integral_finset_sum _ (fun i _ => hfluxint i)]
+  refine setIntegral_congr_fun hFrmeas (fun x hx => ?_)
+  rw [← sum_inner]
+  congr 1
+  simp only [hVdef, ← Finset.sum_smul, hsum1 x (frontier_subset_closure hx), one_smul]
+
 end AreaFormula
 
 end
