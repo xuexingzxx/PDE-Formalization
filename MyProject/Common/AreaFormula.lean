@@ -2694,6 +2694,76 @@ theorem chart_term {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (c
     simp [hV0]
 
 
+/-- The surface measure of one boundary chart's graph piece is finite. -/
+theorem surfaceMeasure_graphSet_lt_top {m : ℕ} (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2)))
+    (c : ℝ^(m + 2)) {γ : (ℝ^(m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ) (r : ℝ) :
+    (μHE[m + 1] : Measure (ℝ^(m + 2)))
+        ({x | ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1}
+          ∩ Metric.ball c r) < ⊤ := by
+  have hofLp : ∀ y : ℝ^(m + 1), (graphFun γ y).ofLp = (y, γ y) := fun y => rfl
+  have hgfcont : Continuous (graphFun γ) :=
+    (WithLp.prodContinuousLinearEquiv 2 ℝ (ℝ^(m + 1)) ℝ).symm.continuous.comp
+      (continuous_id.prodMk hγ.continuous)
+  have hmeasSet : MeasurableSet
+      (flatten m '' (graphFun γ '' Metric.closedBall (0 : ℝ^(m + 1)) r)) :=
+    (flatten m).toHomeomorph.measurableEmbedding.measurableSet_image.mpr
+      ((isCompact_closedBall _ _).image hgfcont).isClosed.measurableSet
+  have hsubset : {x : ℝ^(m + 2) |
+        ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c r
+      ⊆ (fun x => e (x - c)) ⁻¹'
+          (flatten m '' (graphFun γ '' Metric.closedBall (0 : ℝ^(m + 1)) r)) := by
+    rintro x ⟨hxg, hxb⟩
+    have hbase : ‖((flatten m).symm (e (x - c))).ofLp.1‖ ≤ r := by
+      calc ‖((flatten m).symm (e (x - c))).ofLp.1‖
+          ≤ ‖(flatten m).symm (e (x - c))‖ := ((flatten m).symm (e (x - c))).norm_fst_le
+        _ = ‖e (x - c)‖ := (flatten m).symm.norm_map _
+        _ = ‖x - c‖ := e.norm_map _
+        _ ≤ r := by rw [← dist_eq_norm]; exact le_of_lt (Metric.mem_ball.mp hxb)
+    have hgf : (flatten m).symm (e (x - c)) = graphFun γ ((flatten m).symm (e (x - c))).ofLp.1 := by
+      apply WithLp.ofLp_injective 2
+      rw [hofLp]
+      exact Prod.ext rfl hxg
+    refine ⟨graphFun γ ((flatten m).symm (e (x - c))).ofLp.1,
+      ⟨_, Metric.mem_closedBall.mpr (by rw [dist_zero_right]; exact hbase), rfl⟩, ?_⟩
+    rw [← hgf, LinearIsometryEquiv.apply_symm_apply]
+  calc (μHE[m + 1] : Measure (ℝ^(m + 2)))
+        ({x | ((flatten m).symm (e (x - c))).ofLp.2 = γ ((flatten m).symm (e (x - c))).ofLp.1}
+          ∩ Metric.ball c r)
+      ≤ μHE[m + 1] ((fun x => e (x - c)) ⁻¹'
+          (flatten m '' (graphFun γ '' Metric.closedBall (0 : ℝ^(m + 1)) r))) := measure_mono hsubset
+    _ = μHE[m + 1] (flatten m '' (graphFun γ '' Metric.closedBall (0 : ℝ^(m + 1)) r)) :=
+        (measurePreserving_rigid_μHE e c).measure_preimage hmeasSet.nullMeasurableSet
+    _ = μHE[m + 1] (graphFun γ '' Metric.closedBall (0 : ℝ^(m + 1)) r) :=
+        (flatten m).isometry.euclideanHausdorffMeasure_image _
+    _ = ∫⁻ x in Metric.closedBall (0 : ℝ^(m + 1)) r,
+          ENNReal.ofReal (Real.sqrt (1 + ‖gradient γ x‖ ^ 2)) ∂volume :=
+        area_formula_graph hγ measurableSet_closedBall
+    _ < ⊤ := by
+        obtain ⟨C, hC⟩ := (isCompact_closedBall (0 : ℝ^(m + 1)) r).exists_bound_of_continuousOn
+          (continuous_graph_integrand hγ).continuousOn
+        calc ∫⁻ x in Metric.closedBall (0 : ℝ^(m + 1)) r,
+                ENNReal.ofReal (Real.sqrt (1 + ‖gradient γ x‖ ^ 2)) ∂volume
+            ≤ ∫⁻ _ in Metric.closedBall (0 : ℝ^(m + 1)) r, ENNReal.ofReal C ∂volume := by
+              refine setLIntegral_mono measurable_const (fun x hx => ENNReal.ofReal_le_ofReal ?_)
+              exact le_trans (le_abs_self _) (by rw [← Real.norm_eq_abs]; exact hC x hx)
+          _ = ENNReal.ofReal C * volume (Metric.closedBall (0 : ℝ^(m + 1)) r) := setLIntegral_const _ _
+          _ < ⊤ := ENNReal.mul_lt_top ENNReal.ofReal_lt_top measure_closedBall_lt_top
+
+/-- The surface measure of the boundary of a bounded `C¹` domain is finite. -/
+theorem surfaceMeasure_frontier_lt_top {m : ℕ} {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω) :
+    (μHE[m + 1] : Measure (ℝ^(m + 2))) (frontier Ω) < ⊤ := by
+  obtain ⟨ι, _fin, c, r, hr, hcov, hcharts⟩ := hΩ.exists_finite_chart_cover
+  have hcover : frontier Ω = ⋃ j, frontier Ω ∩ Metric.ball (c j) (r j) := by
+    rw [← Set.inter_iUnion]; exact (Set.inter_eq_left.mpr hcov).symm
+  rw [hcover]
+  refine lt_of_le_of_lt (measure_iUnion_le _) ?_
+  rw [tsum_fintype]
+  refine ENNReal.sum_lt_top.mpr (fun j _ => ?_)
+  obtain ⟨e, γ, hγ, hchart⟩ := hcharts j
+  rw [chart_frontier_domain e (c j) hγ.continuous hchart]
+  exact surfaceMeasure_graphSet_lt_top e (c j) hγ (r j)
+
 /-- An **outward unit normal** for a bounded `C¹` domain `Ω`: a continuous field `ν` that, in every
 subgraph chart (rotation `e` about `c` in which `Ω` is `{height < γ}`), agrees on the boundary with
 the transported upward graph normal `e⁻¹ (flatten (graphNormal γ (base)))`. -/
@@ -2710,11 +2780,11 @@ structure IsOutwardNormal {m : ℕ} (Ω : Set (ℝ^(m + 2))) (ν : (ℝ^(m + 2))
 /-- **The general divergence theorem (Gauss–Green) on a bounded `C¹` domain.** -/
 theorem divergence_theorem {m : ℕ} {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
     {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν)
-    {F : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hF : ContDiff ℝ 1 F)
-    (hμfin : (μHE[m + 1] : Measure (ℝ^(m + 2))) (frontier Ω) < ⊤) :
+    {F : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hF : ContDiff ℝ 1 F) :
     ∫ x in Ω, divergenceE F x
       = ∫ x in frontier Ω, (⟪F x, ν x⟫ : ℝ) ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
   classical
+  have hμfin := surfaceMeasure_frontier_lt_top hΩ
   obtain ⟨ι, hFin, c, r, hr, hcharts, f, hsub⟩ := hΩ.exists_smoothPartitionOfUnity
   -- the pieces of the partition
   set V : Option ι → (ℝ^(m + 2)) → (ℝ^(m + 2)) := fun i x => f i x • F x with hVdef
