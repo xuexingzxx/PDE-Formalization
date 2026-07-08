@@ -296,6 +296,9 @@ already exists in Mathlib}.
   Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{PDE/Transport.lean} \\
   Average integral & \texttt{MeasureTheory.average} (\texttt{average}) & \texttt{PDE/Laplace.lean} \\
   Hausdorff measure & \texttt{Measure.hausdorffMeasure} & \texttt{PDE/Laplace.lean} \\
+  Surface ($d$-dim Euclidean Hausdorff) measure & \texttt{Measure.euclideanHausdorffMeasure} (\texttt{μHE}) & \texttt{Common/AreaFormula.lean} \\
+  Smooth partition of unity & \texttt{SmoothPartitionOfUnity} & \texttt{Common/AreaFormula.lean} \\
+  Linear isometry equiv & \texttt{LinearIsometryEquiv} & \texttt{Common/AreaFormula.lean} \\
   Volume of unit ball & \texttt{EuclideanSpace.volume\_ball} & \texttt{PDE/Laplace.lean} \\
   Open / closed ball & \texttt{Metric.ball}, \texttt{Metric.closedBall} & \texttt{PDE/Laplace.lean} \\
   Sphere & \texttt{Metric.sphere} & \texttt{PDE/Laplace.lean} \\
@@ -354,6 +357,13 @@ already exists in Mathlib}.
   \texttt{MemWkp}                   & membership in $W^{k,p}(U)$ (all $D^\alpha u$, $|\alpha|\le k$) & \texttt{Sobolev/Higher.lean} \\
   \texttt{DerivIdx}                 & finite index of derivative sequences of length $\le k$ & \texttt{Sobolev/Higher.lean} \\
   \texttt{wkpSpace}                 & $W^{k,p}(\mathbb{R}^n)$ as a closed \texttt{PiLp}\,$p$ submodule & \texttt{Sobolev/Higher.lean} \\
+  \texttt{jacobian}                 & $\operatorname{jac}(M)=\sqrt{\det(M^{\!\top}M)}$ of a linear map & \texttt{Common/AreaFormula.lean} \\
+  \texttt{graphFun} / \texttt{graphFun'} & graph map $y\mapsto(y,g\,y)$ and its derivative CLM & \texttt{Common/AreaFormula.lean} \\
+  \texttt{graphNormal}              & upward unit normal $(-\nabla\gamma,1)/\sqrt{1+\|\nabla\gamma\|^2}$ & \texttt{Common/AreaFormula.lean} \\
+  \texttt{divergence} / \texttt{divergenceE} & product / canonical (trace) divergence & \texttt{Common/AreaFormula.lean} \\
+  \texttt{flatten} / \texttt{flattenCLE} & isometry \& CLE $\mathbb{R}^{m+1}\!\times\!\mathbb{R}\cong\mathbb{R}^{m+2}$ & \texttt{Common/AreaFormula.lean} \\
+  \texttt{IsBoundedC1Domain}        & bounded $C^1$ domain (boundary locally a graph) & \texttt{Common/AreaFormula.lean} \\
+  \texttt{IsOutwardNormal}          & outward unit normal field (chart-compatible) & \texttt{Common/AreaFormula.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -395,13 +405,25 @@ rule in particular is a self-contained result that does not exist in Mathlib.
   \texttt{convolution\_eq\_integral\_sub} & convolution bridge $\eta\star u=\int\eta(x-y)u(y)$ & \texttt{Sobolev/Mollification.lean} \\
   \texttt{isCompact\_closure\_toLp\_image\dots} & closed-embedding Arzelà--Ascoli $L^p$-precompactness criterion & \texttt{Sobolev/FrechetKolmogorov.lean} \\
   \texttt{totallyBounded\_of\_forall\_approx} & $\varepsilon/3$ total-boundedness glue & \texttt{Sobolev/FrechetKolmogorov.lean} \\
+  \texttt{integral\_deriv\_eq\_zero} & compact-support FTC: $\int_{\mathbb{R}} f' = 0$ & \texttt{Common/Calculus.lean} \\
+  \texttt{hasDerivAt\_insertNth} / \texttt{contDiff\_insertNth} / \texttt{isClosedEmbedding\_insertNth} & coordinate-slice ($\mathrm{Fin.insertNth}$) calculus & \texttt{Common/Calculus.lean} \\
+  \texttt{integral\_eq\_zero\_of\_forall\_insertNth\_integral\_zero} & single-coordinate Fubini lift of $\int=0$ & \texttt{Common/Calculus.lean} \\
+  \texttt{integral\_horizontal\_ibp} / \texttt{\_euclidean} & multivariate horizontal integration by parts & \texttt{Common/Calculus.lean} \\
+  \texttt{area\_formula} / \texttt{area\_formula\_graph} & $\mu_H(\varphi''A)=\int_A\operatorname{jac}$; graph form & \texttt{Common/AreaFormula.lean} \\
+  \texttt{setIntegral\_image\_graph\_smul} & vector-valued change of variables over a graph & \texttt{Common/AreaFormula.lean} \\
+  \texttt{measurePreserving\_rigid\_μHE} & rigid motions preserve the surface measure $\mu_H$ & \texttt{Common/AreaFormula.lean} \\
+  \texttt{integral\_Iic\_split} & oriented $\mathrm{Iic}$-additivity of a 1-D integral & \texttt{Common/AreaFormula.lean} \\
+  \texttt{divergence\_theorem} & Gauss--Green on a bounded $C^1$ domain (Chapter~6) & \texttt{Common/AreaFormula.lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
 The \texttt{leibniz\_integral} family is the strongest candidate for upstreaming to Mathlib
 (it is fully general and fills a genuine library gap); the Gaussian moments and radial-power
-calculus are also natural Mathlib additions.
+calculus, the horizontal integration-by-parts toolchain
+(\texttt{integral\_horizontal\_ibp}, built from the compact-support FTC and the
+$\mathrm{Fin.insertNth}$ coordinate-slice lemmas), and the area formula / surface-measure
+apparatus of Chapter~6 are also natural Mathlib additions.
 
 \subsection{Definitions removed after review}
 
@@ -1591,6 +1613,21 @@ analytic core of the maximum principle, \texttt{deriv\_deriv\_nonpos\_of\_isLoca
 ($g''(t)\le 0$ at a local max) and \texttt{laplacian\_nonpos\_of\_isLocalMax} ($\Delta f\le 0$
 at an interior local max of a $C^2$ function).
 
+\paragraph{Horizontal integration by parts (for the divergence theorem).}
+The Gauss--Green development of Chapter~6 rests on a multivariate integration-by-parts identity
+built here from scratch, since Mathlib has no ``$\int_{\mathbb{R}^{m+1}}\partial_{x_i}(fg)=0$'' in
+usable form. The chain is: the compact-support fundamental theorem of calculus
+\texttt{integral\_deriv\_eq\_zero} ($\int_{\mathbb{R}} f' = 0$ for $f\in C^1_c$); the coordinate-slice
+calculus along $\mathrm{Fin.insertNth}\,i$ (\texttt{hasDerivAt\_insertNth},
+\texttt{contDiff\_insertNth}, \texttt{continuous\_insertNth}, \texttt{isClosedEmbedding\_insertNth}),
+which lets one differentiate and integrate in the single free coordinate $x_i$; the single-coordinate
+Fubini lift \texttt{integral\_eq\_zero\_of\_forall\_insertNth\_integral\_zero} (a function whose
+integral over every $x_i$-slice vanishes integrates to $0$); and finally the horizontal IBP itself in
+three progressively packaged forms --- \texttt{integral\_horizontal\_ibp},
+\texttt{integral\_horizontal\_ibp'} (rearranged), and \texttt{integral\_horizontal\_ibp\_euclidean}
+(bridged to the \texttt{EuclideanSpace} base so it composes with $\operatorname{div}_E$). These
+supply the $\partial_{x_i}$ (flux) half of the graph Gauss--Green theorem (\S6.3).
+
 \subsection{Status Summary}
 
 \begin{center}
@@ -1615,6 +1652,10 @@ at an interior local max of a $C^2$ function).
   \texttt{laplacian\_integral\_eq} & Laplacian under the integral sign & \textcolor{mathgreen}{\checkmark} \\
   \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \textcolor{mathgreen}{\checkmark} \\
   \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f \le 0$ at an interior local max & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integral\_deriv\_eq\_zero} & compact-support FTC: $\int_{\mathbb{R}} f' = 0$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{hasDerivAt\_insertNth} etc. & coordinate-slice ($\mathrm{Fin.insertNth}$) calculus & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integral\_eq\_zero\_of\_forall\_insertNth\_integral\_zero} & single-coordinate Fubini lift & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integral\_horizontal\_ibp} / \texttt{\_euclidean} & multivariate horizontal integration by parts & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
