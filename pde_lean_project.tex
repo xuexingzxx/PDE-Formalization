@@ -2831,23 +2831,30 @@ and Poincar\'e--Wirtinger inequalities, and the classical Laplacian representati
 \paragraph{Comparison with the textbook.}
 Evans does \emph{not} prove this theorem: the Gauss--Green formula appears in Appendix~C.2
 (Theorem~1) as a \emph{cited} known result under the single hypothesis that $\partial U$ is $C^1$.
-Even the genuine mathematical proof --- the one this chapter follows: straighten the boundary to a
-graph in a chart, run the divergence theorem on the subgraph by iterated integration and the
-fundamental theorem of calculus, and glue with a partition of unity --- is only a few pages in a
-graduate real-analysis or geometric-measure-theory text. It is short there because it takes as
-\emph{given} an entire lower edifice: the surface measure $dS$ and how it transforms under the graph
-chart, the \emph{area / change-of-variables formula}, integration by parts, the existence of a
-partition of unity, and the existence of the outward normal.
+Even a genuine proof is only a few pages, because it takes an entire lower edifice \emph{as given}.
+That edifice is exactly what the formalization must build --- which is where all the length lives:
 
-By contrast the formal development is long --- \texttt{Common/\allowbreak AreaFormula.\allowbreak lean}
-is $\approx$2870 lines across $118$ declarations, plus $\approx$270 lines of horizontal
-integration-by-parts in \texttt{Common/\allowbreak Calculus.\allowbreak lean} --- because Mathlib
-supplies essentially none of that surface layer, so it must be built from primitives. The crucial
-point is \emph{where} the length lives: the divergence theorem \emph{proper} --- the single-chart
-term and the partition-of-unity assembly, \S6.8--6.10 --- is a thin capstone. The bulk is the
-surface-measure infrastructure beneath it (the area formula, \S6.2, and the flat-coordinate transfer,
-\S6.4), i.e.\ exactly the material a textbook disposes of in one citation. The formalization is not
-mathematically deeper than the book; it is long because it must \emph{construct the foundations the
+\begin{center}
+\begin{tabular}{@{}L{4.6cm}L{3.2cm}L{6.4cm}@{}}
+  \toprule
+  \textbf{Ingredient the proof needs} & \textbf{In Evans} & \textbf{In this formalization} \\
+  \midrule
+  the Gauss--Green formula itself & stated, not proved (App.~C.2) & \textbf{proved} --- \texttt{divergence\_theorem} (\S6.0) \\
+  surface measure $dS$ on $\partial\Omega$ & assumed known & built: $\mu_H$ $+$ area formula (\S6.2) \\
+  area / change-of-variables formula & assumed known & \textbf{built from scratch} --- the largest single block (\S6.2) \\
+  multivariate integration by parts & assumed known & built: horizontal-IBP toolchain (\texttt{Calculus.\allowbreak lean}) \\
+  partition of unity & assumed known & Mathlib \texttt{SmoothPartitionOfUnity} $+$ bridge (\S6.10) \\
+  existence of the outward normal & assumed known & assumed (\texttt{IsOutwardNormal} hypothesis) \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\noindent So the raw size --- \texttt{AreaFormula.\allowbreak lean} $\approx$2870 lines across $118$
+declarations, plus $\approx$270 lines of horizontal IBP in \texttt{Calculus.\allowbreak lean} ---
+reflects \emph{not} greater mathematical depth but the missing foundation. The divergence theorem
+\emph{proper} (the chart term and partition-of-unity assembly, \S6.8--6.10) is a thin capstone; the
+bulk is the surface-measure layer beneath it (\S6.2, \S6.4) that a textbook disposes of in one
+citation. In short: the formalization is long because it must \emph{construct the foundations the
 book assumes}.
 
 \paragraph{Which basic Mathlib tools would collapse it.}
