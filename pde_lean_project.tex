@@ -1070,17 +1070,25 @@ is fully proved; only its Gauss--Green step is blocked.
   \texttt{fundamentalSolution\_norm\_integrableOn\_unitBall} & $\|\Phi\| \in L^1(B(0,1))$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} & $\int_{B(x,\varepsilon)}\|\Phi\| \to 0$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{harmonic\_weakMax}         & weak maximum principle (via perturbation) & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{green\_identity\_annulus} & Green's 2nd identity on annulus (Step 1 proved) & \textcolor{orange}{partial} \\
-  \texttt{harmonic\_sphereMeanValue} & mean value on spheres              & \textcolor{sorryred}{sorry} \\
-  \texttt{harmonic\_ballMeanValue}   & mean value on balls                & \textcolor{sorryred}{sorry} \\
-  \texttt{meanValue\_implies\_harmonic} & converse of MVP                & \textcolor{sorryred}{sorry} \\
-  \texttt{harmonic\_strongMax}       & strong maximum principle           & \textcolor{sorryred}{sorry} \\
-  \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$    & \textcolor{sorryred}{sorry} \\
-  \texttt{fundamentalSolution\_totalFlux} & total flux $= -1$ (needs sphere measure) & \textcolor{sorryred}{sorry} \\
-  \texttt{newtonianPotential\_solves\_poisson} & representation formula   & \textcolor{sorryred}{sorry} \\
+  \texttt{green\_identity\_annulus} & Green's 2nd identity on annulus (Step 1 proved; G--G via Ch.~6)$^\dagger$ & \textcolor{orange}{partial} \\
+  \texttt{harmonic\_sphereMeanValue} & mean value on spheres $^\dagger$   & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_ballMeanValue}   & mean value on balls $^\dagger$     & \textcolor{sorryred}{sorry} \\
+  \texttt{meanValue\_implies\_harmonic} & converse of MVP $^\dagger$      & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_strongMax}       & strong maximum principle $^\dagger$ & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$ $^\dagger$ & \textcolor{sorryred}{sorry} \\
+  \texttt{fundamentalSolution\_totalFlux} & total flux $= -1$ (needs sphere measure)$^\ddagger$ & \textcolor{sorryred}{sorry} \\
+  \texttt{newtonianPotential\_solves\_poisson} & representation formula $^\ddagger$ & \textcolor{sorryred}{sorry} \\
   \bottomrule
 \end{tabular}
 \end{center}
+
+\noindent{\small $^\dagger$ Still \texttt{sorry} in Lean, but no longer \emph{tool}-blocked: the
+Gauss--Green step (Green's identity on a ball/annulus) is now supplied by
+\texttt{divergence\_theorem} (Chapter~6); closing these needs only the domain-instantiation plumbing
+(exhibiting the ball/annulus as an \texttt{IsBoundedC1Domain} with its outward normal).
+\quad $^\ddagger$ Additionally needs the exact flux constant $\int_{\partial B(0,\varepsilon)}d\sigma
+= n\omega_n\varepsilon^{n-1}$, now derivable in principle from the Chapter~6 \texttt{area\_formula}
+but not yet formalized.}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 3: Heat Equation (Evans §2.3)}
