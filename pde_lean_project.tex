@@ -437,7 +437,6 @@ The following were initially defined but later found to be redundant:
   \texttt{laplacian} & Duplicate of \texttt{Laplacian.laplacian} & \texttt{Δ} (Mathlib) \\
   \texttt{unitBallVol} & Never used; Mathlib has \texttt{EuclideanSpace.volume\_ball} & \texttt{EuclideanSpace.volume\_ball} \\
   \texttt{laplacian\_eq\_mathlib} & Only needed due to duplicate \texttt{laplacian} & deleted \\
-  \texttt{laplacian\_const\_mul} & Duplicate of \texttt{InnerProductSpace.laplacian\_smul} & Mathlib directly \\
   \texttt{fderiv\_spacetime} & Bridge lemma no longer needed & deleted \\
   \texttt{fderiv\_transport\_dir} & Inlined into \texttt{evansFormula\_unique}; local notation didn't export & deleted \\
   \texttt{inner\_spatialGradient} & Bridge lemma no longer needed & deleted \\
@@ -578,20 +577,20 @@ The solution is the composition $u = g\circ\Phi$, where $\Phi(x,t) = x - tb$ is 
 differentiable, so $u$ is differentiable whenever $g$ is.
 \end{proof}
 
-\begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (sorry)}]
+\begin{lstlisting}[caption={Spatial gradient pulls back along charFlow (proved)}]
 lemma spatialGradient_evansFormula (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) (p : Rn x R) :
     spatialGradient (evansFormula b g) p = gradient g (charFlow b p) := by
   simp only [spatialGradient, evansFormula, Function.comp, charFlow_apply]
-  sorry
+  ... -- chain rule through the affine charFlow; fully proved in Transport.lean
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Time derivative equals minus inner product with b (sorry)}]
+\begin{lstlisting}[caption={Time derivative equals minus inner product with b (proved)}]
 lemma timeDerivative_evansFormula (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) (p : Rn x R) :
     timeDerivative (evansFormula b g) p = -<gradient g (charFlow b p), b>_R := by
   simp only [timeDerivative, evansFormula, Function.comp, charFlow_apply]
-  sorry
+  ... -- chain rule; fully proved in Transport.lean
 \end{lstlisting}
 
 Both follow from the chain rule: $x \mapsto x - tb$ has spatial derivative the identity,
@@ -601,7 +600,7 @@ Substituting these two identities into $u_t + b\cdot Du$ gives
 $-\langle\nabla g, b\rangle + \langle b, \nabla g\rangle = 0$, so the formula solves the
 transport equation:
 
-\begin{lstlisting}[caption={Existence (proved modulo two chain rule lemmas)}]
+\begin{lstlisting}[caption={Existence (proved)}]
 theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
     (hg : Differentiable R g) :
     IsTransportSolution b (evansFormula b g) := by
@@ -611,7 +610,7 @@ theorem evansFormula_solves_transport (b : Rn) (g : Rn -> R)
   simp [real_inner_comm]
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Uniqueness via characteristics (sorry)}]
+\begin{lstlisting}[caption={Uniqueness via characteristics (proved)}]
 theorem evansFormula_unique (b : Rn) (g : Rn -> R)
     (u : Rn x R -> R)
     (hu_pde  : IsTransportSolution b u)
@@ -1005,7 +1004,7 @@ theorem harmonic_weakMax (hn : 1 <= n) (hU : IsOpen U)
     (hbdd : Bornology.IsBounded U) (hu : IsHarmonic U u)
     (hu_c2 : ContDiff R 2 u) :
     ForAll x in U, u x <= sSup (u '' frontier U)
--- still sorry (need mean value property -> Stokes):
+-- still sorry (via mean value property; Gauss-Green now available, Chapter 6):
 theorem harmonic_strongMax ... : ForAll x in U, u x = u x0
 theorem harmonic_smooth    ... : ContDiffOn R Top u U
 \end{lstlisting}
