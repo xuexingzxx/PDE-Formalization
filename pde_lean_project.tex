@@ -436,6 +436,38 @@ calculus, the horizontal integration-by-parts toolchain
 $\mathrm{Fin.insertNth}$ coordinate-slice lemmas), and the area formula / surface-measure
 apparatus of Chapter~6 are also natural Mathlib additions.
 
+\subsection{Upstreaming candidates for Mathlib}
+
+Several results here are general enough to contribute back. They sort into three tiers by
+readiness. (Each should be re-checked against current Mathlib before a PR --- the library moves
+quickly, and some may have landed since.)
+
+\begin{center}
+\begin{tabular}{@{}L{4.8cm}L{6.2cm}L{3.4cm}@{}}
+  \toprule
+  \textbf{Contribution} & \textbf{Mathlib gap it fills} & \textbf{Readiness} \\
+  \midrule
+  \multicolumn{3}{@{}l@{}}{\footnotesize\emph{Tier 1 --- clean and general; PR essentially as-is}} \\
+  \texttt{leibniz\_integral} & combined Leibniz rule (variable limit \emph{and} parameter); Mathlib has the two halves separately & ready \\
+  \texttt{integrable\_*\_exp\_neg\_mul\_norm\_sq} & $n$-dim Gaussian moments $\|z\|^k e^{-c\|z\|^2}$ ($k=0,1,2$); only base $+$ 1-D exist & ready \\
+  \texttt{laplacian\_norm\_rpow\_eq} / \texttt{laplacian\_norm\_sq} / \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & radial-power derivative and Laplacian formulas & ready \\
+  \texttt{tendsto\_eLpNorm\_translate\_sub} & $L^p$-continuity of translation $\|u(\cdot+t)-u\|_p\to0$ & ready \\
+  \texttt{rpow\_lintegral\_weighted\_le} & weighted Jensen in $\mathbb{R}_{\ge0}^\infty$ & ready \\
+  \texttt{integral\_deriv\_eq\_zero} / \texttt{integral\_horizontal\_ibp} & compact-support FTC and multivariate integration by parts & ready \\
+  \midrule
+  \multicolumn{3}{@{}l@{}}{\footnotesize\emph{Tier 2 --- flagship; high value, need generalization/restatement first}} \\
+  \texttt{area\_formula} $+$ surface measure & no area formula / $C^1$-hypersurface surface measure in Mathlib & generalize past the graph form \\
+  \texttt{divergence\_theorem} & Gauss--Green on a bounded $C^1$ domain (Mathlib: box only) & construct $\nu$ to drop \texttt{IsOutwardNormal}; maybe manifold phrasing \\
+  Meyers--Serrin ($H=W$) $+$ $L^p$ mollification & named density theorem absent & decouple from project defs \\
+  \texttt{rellich\_kondrachov} $+$ Fréchet--Kolmogorov criterion & named $L^p$-compactness theorems absent & match Mathlib's Sobolev interface (check overlap) \\
+  \midrule
+  \multicolumn{3}{@{}l@{}}{\footnotesize\emph{Tier 3 --- not PRs; Mathlib gaps worth filing as issues}} \\
+  \texttt{EuclideanSpace} product isometry & $\mathbb{R}^a\times\mathbb{R}^b\simeq_{\ell i}\mathbb{R}^{a+b}$ (measure-preserving) is missing --- forces \texttt{flatten} & file issue \\
+  real-bilinear inner-product CLM & \texttt{innerSL} is conjugate-linear, blocking \texttt{fderiv} --- forces \texttt{realInnerBiL} & file issue \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
 \subsection{Definitions removed after review}
 
 The following were initially defined but later found to be redundant:
