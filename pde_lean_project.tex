@@ -2447,6 +2447,27 @@ and $F$ is $C^1$.  No sign conditions, no compact support (the partition of unit
 finiteness assumption on the surface measure (it is a theorem).  The ambient dimension is written
 $m+2$ so that the boundary dimension $m+1$ is a successor, which the graph machinery needs.
 
+\begin{remark}[Scope --- what is and is not gained, and what a caller must supply]
+The result is deliberately strong where it counts, and it is worth being explicit about both sides.
+\emph{Strengths.} (i) The regularity demand is minimal: $F$ need only be $C^1$ (not $C^2$), and it
+is \emph{not} required to be compactly supported --- the partition of unity manufactures that
+internally (\S6.10). (ii) It holds on \emph{any} bounded $C^1$ domain, not a special shape; in
+particular a ball or an annulus qualifies, which is exactly what the Laplace representation formula
+(Chapter~2) needs, and where Mathlib offers only the rectangular box. (iii) It is
+\emph{unconditional}: the earlier development carried a side hypothesis $\mu_H(\partial\Omega)<\infty$,
+which \S6.11 discharges as a theorem, so no finiteness assumption is imposed on the caller.
+\emph{Caveats a caller must know.} (a) The outward normal $\nu$ is an \emph{input}, not an output:
+the theorem \emph{consumes} a field satisfying \texttt{IsOutwardNormal} but does \emph{not} construct
+one or prove that a continuous outward normal exists on a general $C^1$ domain. A downstream user
+(e.g.\ for a ball/annulus) must exhibit $\nu$ and verify \texttt{IsOutwardNormal} against the charts
+--- this is precisely the ``plumbing'' referred to in the Chapter~2 status notes. (b) The
+\texttt{IsBoundedC1Domain} charts straighten the boundary by a global \emph{rigid} change of frame
+(a \texttt{LinearIsometryEquiv} $e$) followed by reading it as a graph --- the standard ``$C^1$
+graph after rotation'' notion, not an arbitrary curvilinear chart. (c) The divergence on the
+statement is the canonical trace divergence \texttt{divergenceE} on \texttt{EuclideanSpace}; the
+sup-normed internal \texttt{divergence} of the graph computation never appears in the public API.
+\end{remark}
+
 The remainder of the chapter is the proof, built strictly bottom-up.  The dependency chain is
 \[
   \text{area formula}\to\text{flux identity}\to\underbrace{\text{graph Gauss--Green}}_{\text{one local model}}
@@ -2805,6 +2826,71 @@ and Poincar\'e--Wirtinger inequalities, and the classical Laplacian representati
 \end{tabular}
 \end{center}
 
+\subsection{6.13 Why the formal proof is long, and how Mathlib could shorten it}
+
+\paragraph{Comparison with the textbook.}
+Evans does \emph{not} prove this theorem: the Gauss--Green formula appears in Appendix~C.2
+(Theorem~1) as a \emph{cited} known result under the single hypothesis that $\partial U$ is $C^1$.
+Even the genuine mathematical proof --- the one this chapter follows: straighten the boundary to a
+graph in a chart, run the divergence theorem on the subgraph by iterated integration and the
+fundamental theorem of calculus, and glue with a partition of unity --- is only a few pages in a
+graduate real-analysis or geometric-measure-theory text. It is short there because it takes as
+\emph{given} an entire lower edifice: the surface measure $dS$ and how it transforms under the graph
+chart, the \emph{area / change-of-variables formula}, integration by parts, the existence of a
+partition of unity, and the existence of the outward normal.
+
+By contrast the formal development is long --- \texttt{Common/\allowbreak AreaFormula.\allowbreak lean}
+is $\approx$2870 lines across $118$ declarations, plus $\approx$270 lines of horizontal
+integration-by-parts in \texttt{Common/\allowbreak Calculus.\allowbreak lean} --- because Mathlib
+supplies essentially none of that surface layer, so it must be built from primitives. The crucial
+point is \emph{where} the length lives: the divergence theorem \emph{proper} --- the single-chart
+term and the partition-of-unity assembly, \S6.8--6.10 --- is a thin capstone. The bulk is the
+surface-measure infrastructure beneath it (the area formula, \S6.2, and the flat-coordinate transfer,
+\S6.4), i.e.\ exactly the material a textbook disposes of in one citation. The formalization is not
+mathematically deeper than the book; it is long because it must \emph{construct the foundations the
+book assumes}.
+
+\paragraph{Which basic Mathlib tools would collapse it.}
+With any of the following in Mathlib the proof would shrink to a fraction of its size; they are
+listed by impact, with the parts of this chapter they would eliminate.
+
+\begin{enumerate}
+  \item \textbf{An area / coarea formula for $C^1$ maps} (or even just $\mu_H$ of a $C^1$ graph
+    $=\int\sqrt{1+\|\nabla\gamma\|^2}$). This removes \S6.2 outright --- the largest single block,
+    currently built by covering into near-linear cells via the inverse function theorem, applying
+    the linear image formula on each cell, and passing to the limit --- and makes the
+    surface-measure finiteness of \S6.11 immediate.
+  \item \textbf{A first-class \texttt{EuclideanSpace} product/concatenation isometry}
+    $\mathbb{R}^a\times\mathbb{R}^b\simeq_{\ell i}\mathbb{R}^{a+b}$ registered as volume- and
+    $\mu_H$-preserving. The graph computation is forced onto the plain product
+    $\mathbb{R}^{m+1}\times\mathbb{R}$, which carries the \emph{sup norm} and is \emph{not} an
+    inner-product space; that is the sole reason for the internal second divergence \texttt{divergence}
+    and for the hand-built isometry \texttt{flatten}/\texttt{flattenCLE}. This tool deletes that entire
+    duality: \S6.4 (\texttt{divergence\_theorem\_flat}, \texttt{divergenceE\_flatten}) and the
+    \texttt{flatten}-transport steps in \S6.6 and \S6.11 disappear.
+  \item \textbf{Multivariate integration by parts} --- a usable
+    ``$\int_{\mathbb{R}^n}\partial_{x_i}(fg)=0$ for compactly supported $C^1$''. This erases the
+    whole horizontal-IBP toolchain in \texttt{Common/\allowbreak Calculus.\allowbreak lean}
+    (compact-support FTC, the $\mathrm{Fin.insertNth}$ coordinate-slice lemmas, the Fubini lift, and
+    the three \texttt{integral\_horizontal\_ibp} forms) that supplies the $\partial_{x_i}$ half of the
+    graph theorem (\S6.3) and \texttt{integral\_divergenceE\_eq\_zero} (\S6.1).
+  \item \textbf{The $C^1$ implicit function theorem for level sets / a hypersurface normal bundle.}
+    This is the one tool that would improve the \emph{statement}, not merely the proof: it would let
+    the theorem \emph{construct} the outward normal from the charts and prove it exists, so
+    \texttt{IsOutwardNormal} could be dropped as a hypothesis and \texttt{divergence\_theorem} would
+    take only $(\Omega,F)$ (cf.\ the Scope remark in \S6.0).
+  \item \textbf{Ergonomic support:} $\mu_H$ isometry-invariance for the \emph{normalized} measure
+    (removing the hand proofs \texttt{measurePreserving\_rigid\_μHE} and
+    \texttt{flatten}.\allowbreak\texttt{euclideanHausdorffMeasure\_image}, \S6.4/6.6/6.11), and a
+    $C^1$ partition of unity subordinate to an open cover of a compact set returning \texttt{ContDiff}
+    functions directly (cleaning up the \texttt{SmoothPartitionOfUnity}-over-\texttt{Option} bridge of
+    \S6.10).
+\end{enumerate}
+
+Items 1--3 are the three from-scratch pillars; supplying them would roughly halve the development.
+Item~4 would strengthen the theorem itself. A full \textbf{Stokes theorem for $C^1$
+manifolds-with-boundary} would of course subsume the entire \S6.3--6.10 pipeline, but that is less a
+\emph{tool} than the endpoint --- it is Gauss--Green already.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Resources}
