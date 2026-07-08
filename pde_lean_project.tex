@@ -55,6 +55,21 @@
 \newunicodechar{⟪}{\ensuremath{\langle\!\langle}}
 \newunicodechar{‖}{\ensuremath{\|}}
 \newunicodechar{·}{\ensuremath{\cdot}}
+\newunicodechar{μ}{\ensuremath{\mu}}
+\newunicodechar{ν}{\ensuremath{\nu}}
+\newunicodechar{ψ}{\ensuremath{\psi}}
+\newunicodechar{ζ}{\ensuremath{\zeta}}
+\newunicodechar{Φ}{\ensuremath{\Phi}}
+\newunicodechar{√}{\ensuremath{\sqrt{\,}}}
+\newunicodechar{∘}{\ensuremath{\circ}}
+\newunicodechar{≃}{\ensuremath{\simeq}}
+\newunicodechar{⋃}{\ensuremath{\bigcup}}
+\newunicodechar{∩}{\ensuremath{\cap}}
+\newunicodechar{∪}{\ensuremath{\cup}}
+\newunicodechar{⊤}{\ensuremath{\top}}
+\newunicodechar{η}{\ensuremath{\eta}}
+\newunicodechar{¹}{\ensuremath{{}^{1}}}
+\newunicodechar{²}{\ensuremath{{}^{2}}}
 \newunicodechar{×}{\ensuremath{\times}}
 
 % ── Colors ────────────────────────────────────────────────────────────────────
@@ -415,12 +430,15 @@ The following were initially defined but later found to be redundant:
   \toprule
   \textbf{Object} & \textbf{Needed for} & \textbf{Notes} \\
   \midrule
-  Stokes theorem on spherical domains
-    & Green's identity, Poisson representation
-    & Main blocker; Mathlib only has rectangular domains \\
+  Stokes / Gauss--Green on curved domains
+    & Green's identity, Poisson representation, Sobolev trace/extension
+    & \emph{Resolved}: the general divergence theorem on a bounded $C^1$ domain is now proved,
+      sorry-free and unconditional (\texttt{divergence\_theorem}, \texttt{Common/AreaFormula.lean});
+      see Chapter~6.  A ball/annulus is a bounded $C^1$ domain, so this supersedes the
+      rectangular-box-only divergence theorem in Mathlib \\
   Green's second identity on annular domains
     & Poisson representation formula
-    & Depends on Stokes \\
+    & Now reachable from \texttt{divergence\_theorem} (Chapter~6); specialization to spheres pending \\
   $n$-dimensional polar/spherical coordinates
     & $\int_{B(0,1)} \|x\|^p\,dx < \infty$, integrability of $\Phi$
     & \emph{Resolved}: Mathlib's \texttt{integrable\_fun\_norm\_addHaar} reduces a radial
@@ -2306,6 +2324,414 @@ subsection) and Poincar\'e inequality, and the Rellich--Kondrachov compactness t
     extension operator.
   \item \textbf{Morrey} and \textbf{trace} theorems.
 \end{enumerate}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Chapter 6: Surface Measure and the General Divergence Theorem}
+% ══════════════════════════════════════════════════════════════════════════════
+
+Everything in this chapter lives in \texttt{Common/AreaFormula.lean}.  It is a self-contained
+multi-week development whose endpoint is the \textbf{general Gauss--Green (divergence) theorem}
+on a bounded $C^1$ domain --- a result Mathlib does not have (its only divergence theorem is on a
+rectangular box, \texttt{MeasureTheory.integral\_divergence\_of\_hasFDerivAt\_off\_countable}).
+
+\begin{remark}[Why this is the linchpin]
+A survey of Evans' text shows the same missing ingredient behind the Sobolev \emph{trace} theorem,
+the \emph{extension} operator, the bounded-domain \emph{Rellich--Kondrachov} and
+\emph{Poincar\'e--Wirtinger} inequalities, and the classical \emph{representation formula} for the
+Laplacian: all of them integrate against surface measure on a curved boundary and use Gauss--Green
+there.  Mathlib has no surface measure on a $C^1$ hypersurface and no manifold Stokes theorem, so
+this had to be built from scratch.  The chosen route --- the \emph{area formula} --- is the most
+tractable door: it produces the surface measure directly as a pushforward of Lebesgue measure and
+never needs the theory of integration on manifolds.
+\end{remark}
+
+Throughout, $\mathbb{R}^k$ abbreviates \texttt{EuclideanSpace R (Fin k)} (the listings write
+\texttt{R\^{}k}), $\langle\cdot,\cdot\rangle$ is the real inner product, and the surface measure is the
+dimension-normalized Euclidean Hausdorff measure $\mu_H^{[d]}$
+(\texttt{Measure.euclideanHausdorffMeasure}, written \texttt{muHE[d]}), which coincides with
+Lebesgue \texttt{volume} on any $d$-dimensional inner-product space.
+
+\subsection{6.0 The final statement}
+
+\begin{theorem}[General divergence theorem]
+Let $\Omega\subseteq\mathbb{R}^{m+2}$ be a bounded $C^1$ domain, $\nu$ an outward unit normal
+field on it, and $F:\mathbb{R}^{m+2}\to\mathbb{R}^{m+2}$ of class $C^1$.  Then
+\[
+  \int_{\Omega}\operatorname{div}F\,dx \;=\; \int_{\partial\Omega}\langle F,\nu\rangle\,d\mu_H .
+\]
+\end{theorem}
+
+\begin{lstlisting}[caption={The capstone (unconditional, sorry-free)}]
+theorem divergence_theorem {m : N} {Om : Set (R^(m+2))}
+    (hOm : IsBoundedC1Domain Om) {nu : R^(m+2) -> R^(m+2)}
+    (hnu : IsOutwardNormal Om nu) {F : R^(m+2) -> R^(m+2)} (hF : ContDiff R 1 F) :
+    ∫ x in Om, divergenceE F x
+      = ∫ x in frontier Om, <F x, nu x>_R ∂(muHE[m+1] : Measure (R^(m+2)))
+\end{lstlisting}
+
+The three hypotheses are the whole story: the domain is bounded $C^1$, $\nu$ is an outward normal,
+and $F$ is $C^1$.  No sign conditions, no compact support (the partition of unity supplies it), no
+finiteness assumption on the surface measure (it is a theorem).  The ambient dimension is written
+$m+2$ so that the boundary dimension $m+1$ is a successor, which the graph machinery needs.
+
+The remainder of the chapter is the proof, built strictly bottom-up.  The dependency chain is
+\[
+  \text{area formula}\to\text{flux identity}\to\underbrace{\text{graph Gauss--Green}}_{\text{one local model}}
+  \to\text{flatten}\to\text{bottomless}\to\text{chart flux}\to\text{chart term}\to\text{PoU assembly}.
+\]
+
+\subsection{6.1 The canonical divergence and its invariance}
+
+The public divergence is the coordinate-free one on flat Euclidean space,
+\[
+  \operatorname{div}_E F(x)\;=\;\sum_i \big(\partial F(x)\,e_i\big)_i\;=\;\operatorname{tr}\!\big(DF(x)\big),
+\]
+where $e_i=$ \texttt{EuclideanSpace.single i 1}.  Writing it as a trace makes rotation/reflection
+invariance a one-line consequence of $\operatorname{tr}(e^{-1}Ae)=\operatorname{tr}A$; this is the
+property that lets a rotated chart be straightened.
+
+\begin{lstlisting}[caption={Canonical divergence, trace form, and invariance}]
+noncomputable def divergenceE {n : N} (F : R^n -> R^n) (x : R^n) : R :=
+  ∑ i, fderiv R F x (EuclideanSpace.single i 1) i
+
+theorem divergenceE_eq_trace (F) (x) : divergenceE F x = LinearMap.trace R _ (fderiv R F x)
+theorem divergenceE_comp_isometry (e : R^n =li R^n) (hF : Differentiable R F) (x) :
+    divergenceE (fun y => e.symm (F (e y))) x = divergenceE F (e x)
+\end{lstlisting}
+
+A second, \emph{internal} divergence \texttt{divergence} is used on the plain product
+$\mathbb{R}^{m+1}\times\mathbb{R}$ during the graph computation.  That space carries the sup norm and
+is \emph{not} an inner-product space, so it must never leak into the public API; the isometry
+\texttt{flatten} (\S6.4) converts between the two.  \texttt{divergenceE\_finset\_sum} (additivity of
+$\operatorname{div}_E$ over finite sums) is the linearity brick for the partition of unity, and
+\texttt{integral\_divergenceE\_eq\_zero} ($\int_{\mathbb{R}^{m+1}}\operatorname{div}_E F=0$ for
+compactly-supported $F$, via Fubini and the compact-support FTC) is the interior case of the
+assembly.
+
+\subsection{6.2 Surface measure via the area formula}
+
+The surface measure is manufactured by the \textbf{area formula}: for a $C^1$ immersion
+$\varphi:\mathbb{R}^m\to F$ injective on a measurable $A$,
+\[
+  \mu_H^{[m]}\big(\varphi(A)\big)\;=\;\int_A \operatorname{jac}(D\varphi)\,dx,
+  \qquad \operatorname{jac}(M)=\sqrt{\det(M^{\!\top}M)} .
+\]
+The proof (documented in the project's area-formula notes) covers $A$ into near-linear cells via the
+inverse function theorem, applies the linear image formula
+$\mu_H^{[m]}(L''A)=\sqrt{\det(L^{\!\top}L)}\cdot\operatorname{vol}A$ on each cell after corestricting
+to $\operatorname{range}L$, and passes to the limit.  The graph specialization and its
+change-of-variables corollary are what the divergence theorem consumes:
+
+\begin{lstlisting}[caption={Area formula (graph form) and vector-valued change of variables}]
+theorem area_formula_graph {g : R^m -> R} (hg : ContDiff R 1 g) {A} (hA : MeasurableSet A) :
+    (muHE[m] : Measure (WithLp 2 (R^m x R))) (graphFun g '' A)
+      = ∫^- x in A, ENNReal.ofReal (Real.sqrt (1 + ‖gradient g x‖^2)) ∂volume
+
+theorem setIntegral_image_graph_smul ... :
+    ∫ y in graphFun g '' A, G y ∂muHE = ∫ x in A, Real.sqrt (1+‖gradient g x‖^2) • G (graphFun g x)
+\end{lstlisting}
+
+Here \texttt{graphFun g y = toLp (y, g y)} is the graph map into $\mathrm{WithLp}\,2\,
+(\mathbb{R}^m\times\mathbb{R})$, so that the codomain is a genuine $(m{+}1)$-dimensional
+inner-product space carrying $\mu_H^{[m]}$.  Notice the area formula is an \emph{ENNReal lower
+integral} ($\int^-$); this exact shape is reused verbatim in \S6.11 to bound the boundary's surface
+measure.
+
+\subsection{6.3 The flux identity and the graph Gauss--Green theorem}
+
+The upward unit normal to the graph of $\gamma$ is
+$\nu_\gamma(x)=(-\nabla\gamma(x),1)/\sqrt{1+\|\nabla\gamma(x)\|^2}$.  Feeding it through the graph
+change of variables makes the $\sqrt{1+\|\nabla\gamma\|^2}$ from the surface measure cancel the one
+in the denominator of $\nu_\gamma$, producing the clean \textbf{flux identity}
+\[
+  \int_{\operatorname{graph}\gamma}\langle V,\nu_\gamma\rangle\,d\mu_H
+    \;=\;\int_A\Big(V_2(x,\gamma x)-\big\langle V_1(x,\gamma x),\nabla\gamma(x)\big\rangle\Big)\,dx .
+\]
+
+\begin{lstlisting}[caption={Graph normal and the graph Gauss--Green theorem}]
+def graphNormal (gamma : R^m -> R) (x : R^m) : WithLp 2 (R^m x R) :=
+  (Real.sqrt (1 + ‖gradient gamma x‖^2))⁻¹ • toLp (-gradient gamma x, 1)
+
+theorem divergence_theorem_graph {m : N} {gamma : R^(m+1) -> R} (hg : ContDiff R 1 gamma)
+    {F : (R^(m+1) x R) -> (R^(m+1) x R)} (hF : ContDiff R 1 F) (hsupp : HasCompactSupport F) :
+    (∫ x, ∫ t in (0:R)..(gamma x), divergence F (x, t))
+      = (∫ y in graphFun gamma '' univ, <toLp (F y.ofLp), graphNormal gamma y.ofLp.1>_R ∂muHE[m+1])
+          - ∫ x, (F (x, 0)).2
+\end{lstlisting}
+
+This is the load-bearing \emph{local model}: the divergence theorem for the region between the plane
+$t=0$ and the graph $t=\gamma(x)$.  Its proof combines the vertical fundamental theorem of calculus
+(the $\partial_t$ part gives the two boundary terms) with a multivariate horizontal integration by
+parts (the $\partial_{x_i}$ parts give the $\langle\cdot,\nabla\gamma\rangle$ flux term).  Crucially
+the vertical integral is a \emph{signed} interval integral $\int_0^{\gamma x}$, so
+\textbf{no hypothesis $\gamma\ge 0$ is needed} --- a point that becomes decisive in \S6.5.
+
+\subsection{6.4 Flattening to canonical coordinates}
+
+The graph theorem speaks about the plain product $\mathbb{R}^{m+1}\times\mathbb{R}$; the public
+theorem must speak about flat $\mathbb{R}^{m+2}$ with $\operatorname{div}_E$.  The bridge is the
+volume- and surface-measure-preserving linear isometry
+\[
+  \texttt{flatten } m : \mathrm{WithLp}\,2\,(\mathbb{R}^{m+1}\times\mathbb{R})\;\simeq_{\ell i}\;\mathbb{R}^{m+2},
+  \qquad
+  \texttt{flattenCLE } m : \mathbb{R}^{m+2}\;\simeq_{L}\;(\mathbb{R}^{m+1}\times\mathbb{R}),
+\]
+built from an orthonormal-basis identification.  \texttt{flatten} is automatically
+\texttt{MeasurePreserving} for \texttt{volume}, and by hand (via
+\texttt{Isometry.euclideanHausdorffMeasure\_image}) for $\mu_H^{[m+1]}$; \texttt{flattenCLE} is the
+continuous-linear equivalence used to conjugate the field.  Transferring both sides of the graph
+theorem through \texttt{flatten} gives the flat theorem:
+
+\begin{lstlisting}[caption={Flat-coordinate divergence theorem}]
+theorem divergence_theorem_flat {m : N} {gamma} (hg : ContDiff R 1 gamma)
+    (hg0 : ∀ x, 0 ≤ gamma x) {F} (hF : ContDiff R 1 F) (hsupp : HasCompactSupport F) :
+    (∫ z in flatten m '' {p | (ofLp p).2 ∈ Ioo 0 (gamma (ofLp p).1)},
+        divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
+      = (∫ z in flatten m '' (graphFun gamma '' univ),
+            <(flattenCLE m).symm (F (flattenCLE m z)),
+                flatten m (graphNormal gamma ((flatten m).symm z).ofLp.1)>_R ∂muHE[m+1])
+          - ∫ x, (F (x, 0)).2
+\end{lstlisting}
+
+The pointwise divergence bridge is \texttt{divergenceE\_flatten}:
+$\operatorname{div}_E(\Phi^{-1}\!\circ F\circ\Phi)(\texttt{flatten }q)=\operatorname{div}(F)(\texttt{ofLp }q)$
+with $\Phi=\texttt{flattenCLE}$, a one-line trace conjugation.  This intermediate form still carries
+the finite window $\{0<\text{height}<\gamma\}$ and the hypothesis $\gamma\ge0$, both of which the
+next step removes.
+
+\subsection{6.5 The bottomless subgraph theorem (arbitrary $\gamma$)}
+
+The public assembly needs the divergence theorem over the \emph{whole} strict subgraph
+$\{\text{height}<\gamma(\text{base})\}$, and it needs it for \emph{arbitrary} $\gamma$: a boundary
+chart centered at a boundary point $x_0$ has $\gamma(0)=0$, so $\gamma$ genuinely dips negative
+nearby, and any $\gamma\ge0$ hypothesis is fatal.  The resolution is to work with the
+\emph{iterated} integral and the oriented additivity of the one-dimensional integral,
+\[
+  \int_{(-\infty,\,b]} g \;=\;\int_{(-\infty,\,0]} g \;+\;\int_0^{b} g\qquad(\text{any sign of }b),
+\]
+so that the full subgraph splits as (half-space slab) $+$ (finite window) with the window handled by
+the \emph{signed} graph theorem of \S6.3 --- neither piece needs $\gamma\ge0$.
+
+\begin{lstlisting}[caption={Oriented Iic-additivity, Fubini below a graph, and the bottomless theorem}]
+theorem integral_Iic_split {g : R -> R} (hg : Integrable g) (b : R) :
+    ∫ t in Iic b, g t = (∫ t in Iic (0:R), g t) + ∫ t in (0:R)..b, g t
+
+theorem setIntegral_below {m : N} {gamma} (hg : Measurable gamma) {h} (hint : ...) :
+    ∫ p in {p | p.2 < gamma p.1}, h p ∂volume = ∫ x, ∫ t in Iio (gamma x), h (x, t)
+
+theorem divergence_theorem_flat_bottomless {m : N} {gamma} (hg : ContDiff R 1 gamma)
+    {F} (hF : ContDiff R 1 F) (hsupp : HasCompactSupport F) :
+    (∫ z in flatten m '' {p | (ofLp p).2 < gamma (ofLp p).1},
+        divergenceE (fun w => (flattenCLE m).symm (F (flattenCLE m w))) z)
+      = ∫ z in flatten m '' (graphFun gamma '' univ),
+          <..., flatten m (graphNormal gamma ((flatten m).symm z).ofLp.1)>_R ∂muHE[m+1]
+\end{lstlisting}
+
+The proof transfers the volume side to the iterated form
+$\int_x\int_{(-\infty,\gamma x)}\operatorname{div}F$ (via \texttt{setIntegral\_below}), splits each
+inner integral by \texttt{integral\_Iic\_split}, and recognizes the two resulting pieces as the slab
+$\int_x\int_{(-\infty,0]}\operatorname{div}F=\int_x F_2(x,0)$
+(\texttt{integral\_Iic\_divergence\_eq}) and the graph theorem
+$\int_x\int_0^{\gamma x}\operatorname{div}F=\text{flux}-\int_x F_2(x,0)$; the two boundary terms
+cancel and only the flux survives.  \texttt{integral\_Iic\_split} itself is a rearrangement of
+Mathlib's \texttt{intervalIntegral.integral\_Iic\_sub\_Iic}.
+
+\begin{remark}[A day lost to a parser, not to mathematics]
+The naive statement \texttt{Iic 0, g + $\int$ 0..b, g} parses as \texttt{Iic 0, (g + $\int$ 0..b, g)}
+--- the integral binder has very low precedence and silently swallows the \texttt{+}.  For a long
+time this masqueraded as a bogus ``\texttt{$\int$ default} vs \texttt{$\int$ $\partial$volume} are
+not defeq'' failure.  Two lessons for the file: always parenthesize
+\texttt{($\int$ x in s, f x) + \dots}; and to align a Mathlib lemma stated with $\partial\mu$ to a
+default-measure goal, bind it with an explicit type ascription (\texttt{have h : <default form> := lemma})
+so the definitional check does the conversion, then close with \texttt{rw [<- h]; ring}.
+\end{remark}
+
+\subsection{6.6 Chart flux: the rigid-motion transfer}
+
+A boundary chart presents $\Omega$ near $x_0$ as the subgraph in the rotated/translated frame
+$x\mapsto\texttt{flatten}^{-1}(e(x-c))$.  Let $A(x)=e(x-c)$ be that affine isometry.  A field $V$
+living in physical coordinates is \emph{actively transported} to $G(z)=e\big(V(e^{-1}z+c)\big)$: the
+outer $e$ is essential, because a passive transport $V\circ A^{-1}$ would \emph{not} preserve the
+divergence, whereas conjugation does,
+\[
+  \operatorname{div}_E G\big(A(x)\big)=\operatorname{tr}\!\big(e\,DV(x)\,e^{-1}\big)=\operatorname{div}_E V(x).
+\]
+Changing variables under $A$ on the volume integral, and under $A$ again on the $\mu_H$ surface
+integral (both are isometries, hence measure-preserving via
+\texttt{measurePreserving\_rigid\_muHE}), turns \S6.5 into the single-chart flux identity.  The
+inner-product transport $\langle e\,a,w\rangle=\langle a,e^{-1}w\rangle$ produces the outward normal
+$\nu(x)=e^{-1}\big(\texttt{flatten}(\texttt{graphNormal}\,\gamma\,(\operatorname{base}(x)))\big)$.
+
+\begin{lstlisting}[caption={Divergence under an affine isometry, and chart flux}]
+theorem divergenceE_transport_affine (e : R^n =li R^n) (c) (hV : Differentiable R V) (x) :
+    divergenceE (fun z => e (V (e.symm z + c))) (e (x - c)) = divergenceE V x
+
+theorem chart_flux (e : R^(m+2) =li R^(m+2)) (c) {gamma} (hg : ContDiff R 1 gamma)
+    {V} (hV : ContDiff R 1 V) (hVsupp : HasCompactSupport V) :
+    (∫ x in {x | height(x) < gamma (base x)}, divergenceE V x)
+      = ∫ x in (fun x => e (x-c))⁻¹' (flatten m '' (graphFun gamma '' univ)),
+          <V x, e.symm (flatten m (graphNormal gamma (base x)))>_R ∂muHE[m+1]
+\end{lstlisting}
+
+\subsection{6.7 The boundary is locally a graph}
+
+To connect \texttt{chart\_flux} (whose sets are the full physical subgraph and graph) to the actual
+domain $\Omega$, one needs $\operatorname{frontier}\Omega\cap B = \operatorname{graph}\cap B$ inside
+each chart ball $B$.  This is purely topological.  In the plain product, the frontier of the open
+subgraph is the graph, because the height coordinate is free:
+
+\begin{lstlisting}[caption={Frontier of a subgraph is the graph; locality; and the domain version}]
+theorem frontier_subgraph_prod {m : N} {gamma} (hg : Continuous gamma) :
+    frontier {q : R^(m+1) x R | q.2 < gamma q.1} = {q | q.2 = gamma q.1}
+
+theorem frontier_inter_open_eq (hU : IsOpen U) (h : s ∩ U = t ∩ U) :
+    frontier s ∩ U = frontier t ∩ U
+
+theorem chart_frontier_domain (e) (c) {gamma} (hg : Continuous gamma)
+    (hchart : Om ∩ ball c r = {subgraph} ∩ ball c r) :
+    frontier Om ∩ ball c r = {x | height x = gamma (base x)} ∩ ball c r
+\end{lstlisting}
+
+The $\subseteq$ direction of \texttt{frontier\_subgraph\_prod} is Mathlib's
+\texttt{frontier\_lt\_subset\_eq}; the $\supseteq$ direction approximates each graph point
+$(q_1,\gamma q_1)$ from below by $(q_1,\gamma q_1-\tfrac1n)$.  The level set is lifted to physical
+coordinates through the chart homeomorphism $\Psi(x)=(\texttt{flatten}^{-1}(e(x-c))).\texttt{ofLp}$
+with \texttt{Homeomorph.preimage\_frontier}, and \texttt{frontier\_inter\_open\_eq} (frontier is a
+local notion on an open set) transfers the identity from the subgraph to $\Omega$ itself, using only
+the chart equation $\Omega\cap B=\{\text{subgraph}\}\cap B$.
+
+\subsection{6.8 The chart term}
+
+Combining \S6.6 and \S6.7 with two support-localization steps gives the divergence theorem for a
+field supported inside one chart ball --- but now phrased over $\Omega$ and $\partial\Omega$:
+
+\begin{lstlisting}[caption={Single-chart divergence theorem in the domain}]
+theorem chart_term (e) (c) {gamma} (hg : ContDiff R 1 gamma) {Om} (hOm : MeasurableSet Om) {r}
+    (hchart : Om ∩ ball c r = {subgraph} ∩ ball c r) {nu}
+    (hnu : ∀ x ∈ frontier Om ∩ ball c r, nu x = e.symm (flatten (graphNormal gamma (base x))))
+    {V} (hV : ContDiff R 1 V) (hVsupp : HasCompactSupport V) (hVball : tsupport V ⊆ ball c r) :
+    ∫ x in Om, divergenceE V x = ∫ x in frontier Om, <V x, nu x>_R ∂muHE[m+1]
+\end{lstlisting}
+
+The support helper is \texttt{setIntegral\_eq\_of\_support\_subset}: $\int_s f=\int_t f$ whenever
+$\operatorname{supp}f\subseteq B$ and $s\cap B=t\cap B$ (an indicator-function argument).  It localizes
+the volume integral from $\Omega$ to the subgraph and the flux integral from the graph to
+$\partial\Omega$; the chart normal is identified with $\nu$ on $\partial\Omega\cap B$ by hypothesis
+\texttt{hnu}, and \texttt{physical\_graph\_eq} identifies \texttt{chart\_flux}'s preimage-graph with
+the level set $\{\text{height}=\gamma\}$.
+
+\subsection{6.9 The domain, the normal, and the partition of unity}
+
+\begin{lstlisting}[caption={Bounded C1 domain and outward normal}]
+structure IsBoundedC1Domain {m : N} (Om : Set (R^(m+2))) : Prop where
+  isOpen    : IsOpen Om
+  isBounded : Bornology.IsBounded Om
+  locallyGraph : ∀ x0 ∈ frontier Om, ∃ r > 0, ∃ (e : R^(m+2) =li R^(m+2)) gamma, ContDiff R 1 gamma ∧
+    Om ∩ ball x0 r = {x | height x < gamma (base x)} ∩ ball x0 r
+
+structure IsOutwardNormal {m : N} (Om : Set (R^(m+2))) (nu : R^(m+2) -> R^(m+2)) : Prop where
+  continuous : Continuous nu
+  eq_chart : ∀ c r (e : R^(m+2) =li R^(m+2)) gamma, ContDiff R 1 gamma ->
+    Om ∩ ball c r = {subgraph} ∩ ball c r ->
+    ∀ x ∈ frontier Om ∩ ball c r, nu x = e.symm (flatten m (graphNormal gamma (base x)))
+\end{lstlisting}
+
+$\partial\Omega$ is compact (a closed subset of $\overline\Omega$, which is compact because $\Omega$
+is bounded), so it is covered by \emph{finitely many} chart balls
+(\texttt{exists\_finite\_chart\_cover}, from \texttt{IsCompact.elim\_finite\_subcover}).  On that
+cover Mathlib's \texttt{SmoothPartitionOfUnity.exists\_isSubordinate} produces a smooth partition of
+unity $\{f_i\}_{i:\mathtt{Option}\,\iota}$ on $\overline\Omega$ subordinate to
+$\{\Omega\}\cup\{\text{balls}\}$ (\texttt{exists\_smoothPartitionOfUnity}): the index \texttt{none}
+is the interior patch, \texttt{some }$j$ is the $j$-th boundary chart.  \texttt{IsOutwardNormal}
+requires $\nu$ to agree with the chart normal in \emph{every} valid subgraph chart, so it applies to
+each cover chart directly.
+
+\subsection{6.10 The partition-of-unity assembly}
+
+Set $V_i=f_i\cdot F$.  Because $f_i$ is a bundled smooth map, its $C^1$-ness comes from
+\texttt{contMDiff\_iff\_contDiff}, and $\operatorname{tsupport}f_i\subseteq U_i$ is a \emph{bounded}
+closed set, hence compact --- so each $V_i$ is $C^1$ with compact support \emph{even though} $F$ is
+only $C^1$.  On the open set $\Omega$ the partition sums to one, so $F=\sum_i V_i$ there and
+(comparing Fréchet derivatives on a neighborhood, \texttt{Filter.EventuallyEq.fderiv\_eq})
+$\operatorname{div}_E F=\sum_i\operatorname{div}_E V_i$ on $\Omega$.  Hence
+\[
+  \int_\Omega\operatorname{div}_E F
+    \;=\;\sum_i\int_\Omega\operatorname{div}_E V_i .
+\]
+The $i=\mathtt{none}$ term vanishes: $V_{\mathtt{none}}$ is supported in $\Omega$, so
+$\int_\Omega\operatorname{div}_E V_{\mathtt{none}}=\int_{\mathbb{R}^{m+2}}\operatorname{div}_E
+V_{\mathtt{none}}=0$ (\texttt{integral\_divergenceE\_eq\_zero}), and its boundary flux is zero because
+$V_{\mathtt{none}}=0$ on $\partial\Omega$ (which is disjoint from the open $\Omega$).  Each
+$i=\mathtt{some}\,j$ term is exactly \texttt{chart\_term}.  Reassembling,
+\[
+  \sum_i\int_{\partial\Omega}\langle V_i,\nu\rangle
+    \;=\;\int_{\partial\Omega}\Big\langle\textstyle\sum_i V_i,\nu\Big\rangle
+    \;=\;\int_{\partial\Omega}\langle F,\nu\rangle ,
+\]
+using $\sum_i V_i=F$ on $\partial\Omega\subseteq\overline\Omega$ and \texttt{sum\_inner}.  The
+exchange of $\sum$ and $\int$ needs each $\langle V_i,\nu\rangle$ integrable against
+$\mu_H\!\restriction\!\partial\Omega$, which follows from \S6.11.
+
+\subsection{6.11 Finiteness of the surface measure}
+
+That last integrability --- and the removal of any hypothesis about it --- rests on
+$\mu_H^{[m+1]}(\partial\Omega)<\infty$.  This is a genuine theorem, proved from the same finite chart
+cover and the area formula.
+
+\begin{lstlisting}[caption={The boundary has finite surface measure}]
+theorem surfaceMeasure_graphSet_lt_top (e) (c) {gamma} (hg : ContDiff R 1 gamma) (r : R) :
+    (muHE[m+1] : Measure (R^(m+2))) ({x | height x = gamma (base x)} ∩ ball c r) < ⊤
+
+theorem surfaceMeasure_frontier_lt_top {m : N} {Om} (hOm : IsBoundedC1Domain Om) :
+    (muHE[m+1] : Measure (R^(m+2))) (frontier Om) < ⊤
+\end{lstlisting}
+
+For one chart, the graph piece inside the ball projects into the base ball of radius $r$
+($\|\operatorname{base}(x)\|\le\|x-c\|<r$ by \texttt{WithLp.norm\_fst\_le} and the chart isometries),
+so it is contained in $A^{-1}\big(\texttt{flatten}(\operatorname{graph}\gamma''\,\overline{B}(0,r))\big)$;
+transporting $\mu_H$ back through the rigid motion and \texttt{flatten} and invoking the area formula
+gives $\mu_H\le\int_{\overline B(0,r)}\sqrt{1+\|\nabla\gamma\|^2}$, which is at most (sup of the
+continuous integrand on the compact ball)$\times\operatorname{vol}(\overline B(0,r))<\infty$.  For the
+whole boundary, $\partial\Omega=\bigcup_j(\partial\Omega\cap B_j)$ over the finite cover, and
+\texttt{measure\_iUnion\_le} plus \texttt{chart\_frontier\_domain} reduce to the per-chart bound.
+With $\mu_H^{[m+1]}(\partial\Omega)<\infty$ the restricted measure is finite, so every continuous
+compactly-supported integrand --- in particular each $\langle V_i,\nu\rangle$ --- is integrable, and
+the hypothesis-free \texttt{divergence\_theorem} of \S6.0 follows.
+
+\subsection{6.12 Status}
+
+\begin{statusbox}{mathgreen}
+The general divergence theorem on a bounded $C^1$ domain is \textbf{fully proved, sorry-free, and
+unconditional}.  The multi-week programme \emph{area formula $\to$ surface measure $\to$ Gauss--Green}
+is complete.  This retires the ``Stokes / Gauss--Green on curved domains'' entry from the future-work
+list and unblocks the Sobolev trace and extension theorems, the bounded-domain Rellich--Kondrachov
+and Poincar\'e--Wirtinger inequalities, and the classical Laplacian representation formula.
+\end{statusbox}
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+  \toprule
+  \textbf{Object} & \textbf{Description} & \textbf{Status} \\
+  \midrule
+  \texttt{divergenceE} / \texttt{\_eq\_trace} / \texttt{\_comp\_isometry} & canonical divergence, trace, invariance & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{area\_formula} / \texttt{area\_formula\_graph} & surface measure of a $C^1$ image / graph & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{setIntegral\_image\_graph\_smul} & vector-valued change of variables & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{graphNormal} / \texttt{flux\_graph} & upward normal; flux identity ($\sqrt{\ }$ cancels) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{divergence\_theorem\_graph} & graph Gauss--Green (local model, signed) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{flatten} / \texttt{flattenCLE} / \texttt{divergence\_theorem\_flat} & flat-coordinate transfer & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{integral\_Iic\_split} / \texttt{setIntegral\_below} & oriented additivity; Fubini below a graph & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{divergence\_theorem\_flat\_bottomless} & full subgraph, \emph{arbitrary} $\gamma$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{divergenceE\_transport\_affine} / \texttt{chart\_flux} & rigid-motion transfer & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{frontier\_subgraph\_prod} / \texttt{chart\_frontier\_domain} & boundary is locally the graph & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{chart\_term} & single-chart divergence theorem in $\Omega$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{IsBoundedC1Domain} / \texttt{exists\_smoothPartitionOfUnity} & domain, finite cover, PoU & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{IsOutwardNormal} & outward unit normal (chart-compatible) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{surfaceMeasure\_frontier\_lt\_top} & $\mu_H(\partial\Omega)<\infty$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{divergence\_theorem} & \textbf{general Gauss--Green on a bounded $C^1$ domain} & \textcolor{mathgreen}{\checkmark} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Resources}
