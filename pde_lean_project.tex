@@ -1,4 +1,4 @@
-\documentclass[12pt, a4paper]{article}
+﻿\documentclass[12pt, a4paper]{article}
 
 % ── Packages ──────────────────────────────────────────────────────────────────
 \usepackage[margin=1in]{geometry}
@@ -9,6 +9,7 @@
 \usepackage{listings}
 \usepackage{enumitem}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
 \usepackage{datetime2}
@@ -71,6 +72,16 @@
 \newunicodechar{¹}{\ensuremath{{}^{1}}}
 \newunicodechar{²}{\ensuremath{{}^{2}}}
 \newunicodechar{×}{\ensuremath{\times}}
+
+% ── Wrapping table columns + breakable identifiers ───────────────────────────
+% Left-aligned, ragged, \footnotesize paragraph column that WRAPS long content.
+\newcolumntype{L}[1]{>{\footnotesize\raggedright\arraybackslash}p{#1}}
+% \footnotesize centered column (for the checkmark / status column).
+\newcolumntype{C}{>{\footnotesize}c}
+% Allow long \texttt{foo\_bar\_baz} identifiers to break after each underscore
+% (no visible hyphen), so they wrap inside narrow columns instead of overflowing.
+\let\origunderscore\_
+\renewcommand{\_}{\origunderscore\allowbreak}
 
 % ── Colors ────────────────────────────────────────────────────────────────────
 \definecolor{leanblue}{RGB}{41, 103, 178}
@@ -272,40 +283,40 @@ already exists in Mathlib}.
 \subsection{Objects from Mathlib (used directly)}
 
 \begin{center}
-\begin{tabular}{@{}lll@{}}
+\begin{tabular}{@{}L{4.2cm}L{7.0cm}L{3.6cm}@{}}
   \toprule
   \textbf{Mathematical object} & \textbf{Mathlib name} & \textbf{Used in} \\
   \midrule
   $\mathbb{R}^n$ & \texttt{EuclideanSpace ℝ (Fin n)} & all files \\
   $C^k$ functions & \texttt{ContDiff ℝ k} & all files \\
-  $C^k$ on a set & \texttt{ContDiffOn ℝ k} & \texttt{PDE/Laplace.lean} \\
-  Differentiability & \texttt{Differentiable ℝ} & \texttt{PDE/Transport.lean} \\
-  Differentiability at a point & \texttt{DifferentiableAt ℝ} & \texttt{PDE/Laplace.lean} \\
-  Fréchet derivative & \texttt{fderiv} & \texttt{Common/Calculus.lean} \\
-  Gradient vector & \texttt{gradient} & \texttt{Common/Calculus.lean} \\
-  Scalar derivative & \texttt{deriv} & \texttt{Common/Calculus.lean} \\
-  Laplacian $\Delta$ & \texttt{Laplacian.laplacian} (\texttt{Δ}) & \texttt{PDE/Laplace.lean} \\
-  Inner product $\langle\cdot,\cdot\rangle$ & \texttt{inner} / \texttt{⟪·,·⟫\_ℝ} & \texttt{PDE/Transport.lean} \\
-  Inner product linear map & \texttt{innerSL ℝ} & \texttt{PDE/Laplace.lean} \\
-  Continuous linear map & \texttt{ContinuousLinearMap} (\texttt{→L[ℝ]}) & \texttt{PDE/Transport.lean} \\
-  $L^p$ space & \texttt{MeasureTheory.Lp} & \texttt{Sobolev/Basic.lean} \\
-  $\ell^p$ product space & \texttt{PiLp} / \texttt{WithLp} & \texttt{Sobolev/Basic.lean} \\
-  $L^p$ membership / (semi)norm & \texttt{MemLp} / \texttt{eLpNorm} & \texttt{Sobolev/Basic.lean} \\
-  Locally integrable & \texttt{LocallyIntegrable} & \texttt{Sobolev/Basic.lean} \\
-  Lebesgue integral & \texttt{MeasureTheory.integral} & \texttt{PDE/Transport.lean} \\
-  Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{PDE/Transport.lean} \\
-  Average integral & \texttt{MeasureTheory.average} (\texttt{average}) & \texttt{PDE/Laplace.lean} \\
-  Hausdorff measure & \texttt{Measure.hausdorffMeasure} & \texttt{PDE/Laplace.lean} \\
-  Surface ($d$-dim Euclidean Hausdorff) measure & \texttt{Measure.euclideanHausdorffMeasure} (\texttt{μHE}) & \texttt{Common/AreaFormula.lean} \\
-  Smooth partition of unity & \texttt{SmoothPartitionOfUnity} & \texttt{Common/AreaFormula.lean} \\
-  Linear isometry equiv & \texttt{LinearIsometryEquiv} & \texttt{Common/AreaFormula.lean} \\
-  Volume of unit ball & \texttt{EuclideanSpace.volume\_ball} & \texttt{PDE/Laplace.lean} \\
-  Open / closed ball & \texttt{Metric.ball}, \texttt{Metric.closedBall} & \texttt{PDE/Laplace.lean} \\
-  Sphere & \texttt{Metric.sphere} & \texttt{PDE/Laplace.lean} \\
-  Frontier & \texttt{frontier} & \texttt{PDE/Laplace.lean} \\
-  Compact support & \texttt{HasCompactSupport} & \texttt{PDE/Laplace.lean} \\
-  Connected set & \texttt{IsConnected} & \texttt{PDE/Laplace.lean} \\
-  Bounded set & \texttt{Bornology.IsBounded} & \texttt{PDE/Laplace.lean} \\
+  $C^k$ on a set & \texttt{ContDiffOn ℝ k} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Differentiability & \texttt{Differentiable ℝ} & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  Differentiability at a point & \texttt{DifferentiableAt ℝ} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Fréchet derivative & \texttt{fderiv} & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  Gradient vector & \texttt{gradient} & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  Scalar derivative & \texttt{deriv} & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  Laplacian $\Delta$ & \texttt{Laplacian.laplacian} (\texttt{Δ}) & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Inner product $\langle\cdot,\cdot\rangle$ & \texttt{inner} / \texttt{⟪·,·⟫\_ℝ} & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  Inner product linear map & \texttt{innerSL ℝ} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Continuous linear map & \texttt{ContinuousLinearMap} (\texttt{→L[ℝ]}) & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  $L^p$ space & \texttt{MeasureTheory.Lp} & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  $\ell^p$ product space & \texttt{PiLp} / \texttt{WithLp} & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  $L^p$ membership / (semi)norm & \texttt{MemLp} / \texttt{eLpNorm} & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  Locally integrable & \texttt{LocallyIntegrable} & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  Lebesgue integral & \texttt{MeasureTheory.integral} & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  Interval integral & \texttt{intervalIntegral} (\texttt{∫ s in a..b}) & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  Average integral & \texttt{MeasureTheory.average} (\texttt{average}) & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Hausdorff measure & \texttt{Measure.hausdorffMeasure} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Surface ($d$-dim Euclidean Hausdorff) measure & \texttt{Measure.euclideanHausdorffMeasure} (\texttt{μHE}) & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  Smooth partition of unity & \texttt{SmoothPartitionOfUnity} & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  Linear isometry equiv & \texttt{LinearIsometryEquiv} & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  Volume of unit ball & \texttt{EuclideanSpace.volume\_ball} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Open / closed ball & \texttt{Metric.ball}, \texttt{Metric.closedBall} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Sphere & \texttt{Metric.sphere} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Frontier & \texttt{frontier} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Compact support & \texttt{HasCompactSupport} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Connected set & \texttt{IsConnected} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  Bounded set & \texttt{Bornology.IsBounded} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -313,57 +324,57 @@ already exists in Mathlib}.
 \subsection{Objects newly defined in this project}
 
 \begin{center}
-\begin{tabular}{@{}lll@{}}
+\begin{tabular}{@{}L{4.5cm}L{6.8cm}L{3.5cm}@{}}
   \toprule
   \textbf{Name} & \textbf{Description} & \textbf{File} \\
   \midrule
-  \texttt{spatialGradient}          & $Du(x,t)$: gradient of $x'\mapsto u(x',t)$ at $x$  & \texttt{Common/Calculus.lean} \\
-  \texttt{timeDerivative}           & $u_t(x,t)$: derivative of $t'\mapsto u(x,t')$ at $t$ & \texttt{Common/Calculus.lean} \\
-  \texttt{spatialLaplacian}         & $\Delta_x u(x,t)$ for spacetime functions           & \texttt{Common/Calculus.lean} \\
-  \texttt{realInnerBiL} / \texttt{realInnerL} & real inner product as $\mathbb{R}$-bilinear CLM & \texttt{Common/Calculus.lean} \\
-  \texttt{IsTransportSolution}      & predicate: $u_t + b \cdot Du = 0$                   & \texttt{PDE/Transport.lean} \\
-  \texttt{IsInhomTransportSolution} & predicate: $u_t + b \cdot Du = f$                   & \texttt{PDE/Transport.lean} \\
-  \texttt{charFlow}                 & characteristic flow $(x,t) \mapsto x - tb$          & \texttt{PDE/Transport.lean} \\
-  \texttt{evansFormula}             & solution $u(x,t) = g(x-tb)$                         & \texttt{PDE/Transport.lean} \\
-  \texttt{duhamelFormula}           & Duhamel solution with integral term                 & \texttt{PDE/Transport.lean} \\
-  \texttt{IsHarmonic}               & predicate: $\Delta u = 0$ on $U$                    & \texttt{PDE/Laplace.lean} \\
-  \texttt{IsPoissonSolution}        & predicate: $-\Delta u = f$ on $U$                   & \texttt{PDE/Laplace.lean} \\
-  \texttt{fundamentalSolution}      & $\Phi(x)$, all dimensions                           & \texttt{PDE/Laplace.lean} \\
-  \texttt{newtonianPotential}       & $\int \Phi(x-y) f(y)\,dy$                           & \texttt{PDE/Laplace.lean} \\
-  \texttt{sphereMean}               & average of $u$ over $\partial B(x,r)$               & \texttt{PDE/Laplace.lean} \\
-  \texttt{ballMean}                 & average of $u$ over $B(x,r)$                        & \texttt{PDE/Laplace.lean} \\
-  \texttt{IsHeatSolution}           & predicate: $u_t - \Delta u = 0$                     & \texttt{PDE/Heat.lean} \\
-  \texttt{IsInhomHeatSolution}      & predicate: $u_t - \Delta u = f$                     & \texttt{PDE/Heat.lean} \\
-  \texttt{heatKernel}               & fundamental solution $\Phi(x,t)$ (Gaussian)         & \texttt{PDE/Heat.lean} \\
-  \texttt{parabolicBoundary}        & parabolic boundary of $U\times[0,T]$                & \texttt{PDE/Heat.lean} \\
-  \texttt{heatSolution}             & convolution $\int \Phi(x-y,t)\,g(y)\,dy$            & \texttt{PDE/Heat.lean} \\
-  \texttt{timeDeriv} / \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension          & \texttt{PDE/Wave.lean} \\
-  \texttt{timeDeriv2} / \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension  & \texttt{PDE/Wave.lean} \\
-  \texttt{IsWaveSolution}           & predicate: $u_{tt} = u_{xx}$                        & \texttt{PDE/Wave.lean} \\
-  \texttt{dalembert}                & d'Alembert solution formula                         & \texttt{PDE/Wave.lean} \\
-  \texttt{energyDensity}            & $e = \tfrac12(u_t^2 + u_x^2)$                       & \texttt{PDE/Wave.lean} \\
-  \texttt{energyFlux}               & $p = u_t\,u_x$                                      & \texttt{PDE/Wave.lean} \\
-  \texttt{IsTestFunction}           & predicate: $\phi \in C^\infty_c(U)$                 & \texttt{Sobolev/Basic.lean} \\
-  \texttt{IsWeakDerivInDir}         & weak derivative in a direction $e$                  & \texttt{Sobolev/Basic.lean} \\
-  \texttt{MemW1p}                   & membership in $W^{1,p}(U)$                           & \texttt{Sobolev/Basic.lean} \\
-  \texttt{weakDerivSubmodule}       & single-direction $W^{1,p}$ as a submodule           & \texttt{Sobolev/Basic.lean} \\
-  \texttt{weakGradientSubmodule}    & $W^{1,p}(\mathbb{R}^n)$ in $L^p\!\times\!(L^p)^n$    & \texttt{Sobolev/Basic.lean} \\
-  \texttt{sobolevSpace}             & $W^{1,p}(\mathbb{R}^n)$ with the Sobolev norm (\texttt{PiLp}) & \texttt{Sobolev/Basic.lean} \\
-  \texttt{weakGradientSubmoduleOn}  & $W^{1,p}(U)$ over the restricted measure            & \texttt{Sobolev/Basic.lean} \\
-  \texttt{W1p}                      & $W^{1,p}(U)$ as a bundled Banach-space type         & \texttt{Sobolev/Basic.lean} \\
-  \texttt{W1p.toLpCLM} / \texttt{.weakDerivCLM} & function-value \& weak-partial operators (bounded) & \texttt{Sobolev/Basic.lean} \\
-  \texttt{dirDerivList}             & iterated directional derivative along a list of directions & \texttt{Sobolev/Higher.lean} \\
-  \texttt{IsWeakDerivList}          & iterated directional weak derivative (chained)      & \texttt{Sobolev/Higher.lean} \\
-  \texttt{MemWkp}                   & membership in $W^{k,p}(U)$ (all $D^\alpha u$, $|\alpha|\le k$) & \texttt{Sobolev/Higher.lean} \\
-  \texttt{DerivIdx}                 & finite index of derivative sequences of length $\le k$ & \texttt{Sobolev/Higher.lean} \\
-  \texttt{wkpSpace}                 & $W^{k,p}(\mathbb{R}^n)$ as a closed \texttt{PiLp}\,$p$ submodule & \texttt{Sobolev/Higher.lean} \\
-  \texttt{jacobian}                 & $\operatorname{jac}(M)=\sqrt{\det(M^{\!\top}M)}$ of a linear map & \texttt{Common/AreaFormula.lean} \\
-  \texttt{graphFun} / \texttt{graphFun'} & graph map $y\mapsto(y,g\,y)$ and its derivative CLM & \texttt{Common/AreaFormula.lean} \\
-  \texttt{graphNormal}              & upward unit normal $(-\nabla\gamma,1)/\sqrt{1+\|\nabla\gamma\|^2}$ & \texttt{Common/AreaFormula.lean} \\
-  \texttt{divergence} / \texttt{divergenceE} & product / canonical (trace) divergence & \texttt{Common/AreaFormula.lean} \\
-  \texttt{flatten} / \texttt{flattenCLE} & isometry \& CLE $\mathbb{R}^{m+1}\!\times\!\mathbb{R}\cong\mathbb{R}^{m+2}$ & \texttt{Common/AreaFormula.lean} \\
-  \texttt{IsBoundedC1Domain}        & bounded $C^1$ domain (boundary locally a graph) & \texttt{Common/AreaFormula.lean} \\
-  \texttt{IsOutwardNormal}          & outward unit normal field (chart-compatible) & \texttt{Common/AreaFormula.lean} \\
+  \texttt{spatialGradient}          & $Du(x,t)$: gradient of $x'\mapsto u(x',t)$ at $x$  & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{timeDerivative}           & $u_t(x,t)$: derivative of $t'\mapsto u(x,t')$ at $t$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{spatialLaplacian}         & $\Delta_x u(x,t)$ for spacetime functions           & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{realInnerBiL} / \texttt{realInnerL} & real inner product as $\mathbb{R}$-bilinear CLM & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{IsTransportSolution}      & predicate: $u_t + b \cdot Du = 0$                   & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  \texttt{IsInhomTransportSolution} & predicate: $u_t + b \cdot Du = f$                   & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  \texttt{charFlow}                 & characteristic flow $(x,t) \mapsto x - tb$          & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  \texttt{evansFormula}             & solution $u(x,t) = g(x-tb)$                         & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  \texttt{duhamelFormula}           & Duhamel solution with integral term                 & \texttt{PDE/\allowbreak Transport.\allowbreak lean} \\
+  \texttt{IsHarmonic}               & predicate: $\Delta u = 0$ on $U$                    & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{IsPoissonSolution}        & predicate: $-\Delta u = f$ on $U$                   & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{fundamentalSolution}      & $\Phi(x)$, all dimensions                           & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{newtonianPotential}       & $\int \Phi(x-y) f(y)\,dy$                           & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{sphereMean}               & average of $u$ over $\partial B(x,r)$               & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{ballMean}                 & average of $u$ over $B(x,r)$                        & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{IsHeatSolution}           & predicate: $u_t - \Delta u = 0$                     & \texttt{PDE/\allowbreak Heat.\allowbreak lean} \\
+  \texttt{IsInhomHeatSolution}      & predicate: $u_t - \Delta u = f$                     & \texttt{PDE/\allowbreak Heat.\allowbreak lean} \\
+  \texttt{heatKernel}               & fundamental solution $\Phi(x,t)$ (Gaussian)         & \texttt{PDE/\allowbreak Heat.\allowbreak lean} \\
+  \texttt{parabolicBoundary}        & parabolic boundary of $U\times[0,T]$                & \texttt{PDE/\allowbreak Heat.\allowbreak lean} \\
+  \texttt{heatSolution}             & convolution $\int \Phi(x-y,t)\,g(y)\,dy$            & \texttt{PDE/\allowbreak Heat.\allowbreak lean} \\
+  \texttt{timeDeriv} / \texttt{spaceDeriv} & $u_t$, $u_x$ in one space dimension          & \texttt{PDE/\allowbreak Wave.\allowbreak lean} \\
+  \texttt{timeDeriv2} / \texttt{spaceDeriv2} & $u_{tt}$, $u_{xx}$ in one space dimension  & \texttt{PDE/\allowbreak Wave.\allowbreak lean} \\
+  \texttt{IsWaveSolution}           & predicate: $u_{tt} = u_{xx}$                        & \texttt{PDE/\allowbreak Wave.\allowbreak lean} \\
+  \texttt{dalembert}                & d'Alembert solution formula                         & \texttt{PDE/\allowbreak Wave.\allowbreak lean} \\
+  \texttt{energyDensity}            & $e = \tfrac12(u_t^2 + u_x^2)$                       & \texttt{PDE/\allowbreak Wave.\allowbreak lean} \\
+  \texttt{energyFlux}               & $p = u_t\,u_x$                                      & \texttt{PDE/\allowbreak Wave.\allowbreak lean} \\
+  \texttt{IsTestFunction}           & predicate: $\phi \in C^\infty_c(U)$                 & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{IsWeakDerivInDir}         & weak derivative in a direction $e$                  & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{MemW1p}                   & membership in $W^{1,p}(U)$                           & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{weakDerivSubmodule}       & single-direction $W^{1,p}$ as a submodule           & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{weakGradientSubmodule}    & $W^{1,p}(\mathbb{R}^n)$ in $L^p\!\times\!(L^p)^n$    & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{sobolevSpace}             & $W^{1,p}(\mathbb{R}^n)$ with the Sobolev norm (\texttt{PiLp}) & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{weakGradientSubmoduleOn}  & $W^{1,p}(U)$ over the restricted measure            & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{W1p}                      & $W^{1,p}(U)$ as a bundled Banach-space type         & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{W1p.toLpCLM} / \texttt{.weakDerivCLM} & function-value \& weak-partial operators (bounded) & \texttt{Sobolev/\allowbreak Basic.\allowbreak lean} \\
+  \texttt{dirDerivList}             & iterated directional derivative along a list of directions & \texttt{Sobolev/\allowbreak Higher.\allowbreak lean} \\
+  \texttt{IsWeakDerivList}          & iterated directional weak derivative (chained)      & \texttt{Sobolev/\allowbreak Higher.\allowbreak lean} \\
+  \texttt{MemWkp}                   & membership in $W^{k,p}(U)$ (all $D^\alpha u$, $|\alpha|\le k$) & \texttt{Sobolev/\allowbreak Higher.\allowbreak lean} \\
+  \texttt{DerivIdx}                 & finite index of derivative sequences of length $\le k$ & \texttt{Sobolev/\allowbreak Higher.\allowbreak lean} \\
+  \texttt{wkpSpace}                 & $W^{k,p}(\mathbb{R}^n)$ as a closed \texttt{PiLp}\,$p$ submodule & \texttt{Sobolev/\allowbreak Higher.\allowbreak lean} \\
+  \texttt{jacobian}                 & $\operatorname{jac}(M)=\sqrt{\det(M^{\!\top}M)}$ of a linear map & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{graphFun} / \texttt{graphFun'} & graph map $y\mapsto(y,g\,y)$ and its derivative CLM & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{graphNormal}              & upward unit normal $(-\nabla\gamma,1)/\sqrt{1+\|\nabla\gamma\|^2}$ & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{divergence} / \texttt{divergenceE} & product / canonical (trace) divergence & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{flatten} / \texttt{flattenCLE} & isometry \& CLE $\mathbb{R}^{m+1}\!\times\!\mathbb{R}\cong\mathbb{R}^{m+2}$ & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{IsBoundedC1Domain}        & bounded $C^1$ domain (boundary locally a graph) & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{IsOutwardNormal}          & outward unit normal field (chart-compatible) & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -372,48 +383,48 @@ already exists in Mathlib}.
 
 Beyond the definitions above, the project contributes a set of general-purpose, chapter- and
 dimension-agnostic \emph{lemmas} that fill gaps in Mathlib's analysis library. Several were
-hoisted into \texttt{Common/Calculus.lean} so multiple chapters can share them; the combined Leibniz
+hoisted into \texttt{Common/\allowbreak Calculus.\allowbreak lean} so multiple chapters can share them; the combined Leibniz
 rule in particular is a self-contained result that does not exist in Mathlib.
 
 \begin{center}
-\begin{tabular}{@{}lll@{}}
+\begin{tabular}{@{}L{4.8cm}L{6.3cm}L{3.7cm}@{}}
   \toprule
   \textbf{Name} & \textbf{Statement} & \textbf{File} \\
   \midrule
-  \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)\,ds$ has $0$ derivative & \texttt{Common/Calculus.lean} \\
-  \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \texttt{Common/Calculus.lean} \\
-  \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $0$th $n$-dim Gaussian moment & \texttt{Common/Calculus.lean} \\
-  \texttt{integrable\_norm\_mul\_exp\dots} & $1$st $n$-dim Gaussian moment & \texttt{Common/Calculus.lean} \\
-  \texttt{integrable\_norm\_sq\_mul\_exp\dots} & $2$nd $n$-dim Gaussian moment & \texttt{Common/Calculus.lean} \\
-  \texttt{norm\_add\_sq\_le\_two} & $\|a+b\|^2 \le 2\|a\|^2 + 2\|b\|^2$ & \texttt{Common/Calculus.lean} \\
-  \texttt{norm\_smul\_clm\_le} & $\|c\cdot L\| \le \|c\|\,\|L\|$ for CLMs & \texttt{Common/Calculus.lean} \\
-  \texttt{norm\_comp\_apply\_le} & $\|(\text{apply}\,v)\circ S\| \le \|S\|\,\|v\|$ & \texttt{Common/Calculus.lean} \\
-  \texttt{fderiv\_fderiv\_apply} & second-derivative eval-bridge & \texttt{Common/Calculus.lean} \\
-  \texttt{laplacian\_integral\_eq} & $\Delta$ under the integral sign & \texttt{Common/Calculus.lean} \\
-  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$ & \texttt{Common/Calculus.lean} \\
-  \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \texttt{Common/Calculus.lean} \\
-  \texttt{laplacian\_norm\_sq} & $\Delta(\|\cdot\|^2) = 2n$ (everywhere) & \texttt{Common/Calculus.lean} \\
-  \texttt{integrableOn\_unitBall\_radial} & radial reduction of ball integrability & \texttt{Common/Calculus.lean} \\
-  \texttt{integrableOn\_norm\_rpow\_unitBall} & $\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$ & \texttt{Common/Calculus.lean} \\
-  \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \texttt{Common/Calculus.lean} \\
-  \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f\le 0$ at interior local max & \texttt{Common/Calculus.lean} \\
-  \texttt{rpow\_lintegral\_weighted\_le} & weighted Jensen in $\mathbb{R}_{\ge0}^{\infty}$ (from H\"older) & \texttt{Common/LpJensen.lean} \\
-  \texttt{eLpNorm\_le\_of\_support\_subset} & $L^p$ bound from a support inclusion & \texttt{Common/Translation.lean} \\
-  \texttt{tendsto\_eLpNorm\_translate\_sub\_continuous} & $\|u(\cdot+t)-u\|_p\to0$ (translation continuity) & \texttt{Common/Translation.lean} \\
-  \texttt{sub\_eq\_integral\_fderiv\_segment} & segment FTC $u(x+h)-u(x)=\int_0^1 Du\cdot h$ & \texttt{Sobolev/Rellich.lean} \\
-  \texttt{eLpNorm\_translate\_sub\_le\_fderiv} & $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$ & \texttt{Sobolev/Rellich.lean} \\
-  \texttt{convolution\_eq\_integral\_sub} & convolution bridge $\eta\star u=\int\eta(x-y)u(y)$ & \texttt{Sobolev/Mollification.lean} \\
-  \texttt{isCompact\_closure\_toLp\_image\dots} & closed-embedding Arzelà--Ascoli $L^p$-precompactness criterion & \texttt{Sobolev/FrechetKolmogorov.lean} \\
-  \texttt{totallyBounded\_of\_forall\_approx} & $\varepsilon/3$ total-boundedness glue & \texttt{Sobolev/FrechetKolmogorov.lean} \\
-  \texttt{integral\_deriv\_eq\_zero} & compact-support FTC: $\int_{\mathbb{R}} f' = 0$ & \texttt{Common/Calculus.lean} \\
-  \texttt{hasDerivAt\_insertNth} / \texttt{contDiff\_insertNth} / \texttt{isClosedEmbedding\_insertNth} & coordinate-slice ($\mathrm{Fin.insertNth}$) calculus & \texttt{Common/Calculus.lean} \\
-  \texttt{integral\_eq\_zero\_of\_forall\_insertNth\_integral\_zero} & single-coordinate Fubini lift of $\int=0$ & \texttt{Common/Calculus.lean} \\
-  \texttt{integral\_horizontal\_ibp} / \texttt{\_euclidean} & multivariate horizontal integration by parts & \texttt{Common/Calculus.lean} \\
-  \texttt{area\_formula} / \texttt{area\_formula\_graph} & $\mu_H(\varphi''A)=\int_A\operatorname{jac}$; graph form & \texttt{Common/AreaFormula.lean} \\
-  \texttt{setIntegral\_image\_graph\_smul} & vector-valued change of variables over a graph & \texttt{Common/AreaFormula.lean} \\
-  \texttt{measurePreserving\_rigid\_μHE} & rigid motions preserve the surface measure $\mu_H$ & \texttt{Common/AreaFormula.lean} \\
-  \texttt{integral\_Iic\_split} & oriented $\mathrm{Iic}$-additivity of a 1-D integral & \texttt{Common/AreaFormula.lean} \\
-  \texttt{divergence\_theorem} & Gauss--Green on a bounded $C^1$ domain (Chapter~6) & \texttt{Common/AreaFormula.lean} \\
+  \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)\,ds$ has $0$ derivative & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $0$th $n$-dim Gaussian moment & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{integrable\_norm\_mul\_exp\dots} & $1$st $n$-dim Gaussian moment & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{integrable\_norm\_sq\_mul\_exp\dots} & $2$nd $n$-dim Gaussian moment & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{norm\_add\_sq\_le\_two} & $\|a+b\|^2 \le 2\|a\|^2 + 2\|b\|^2$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{norm\_smul\_clm\_le} & $\|c\cdot L\| \le \|c\|\,\|L\|$ for CLMs & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{norm\_comp\_apply\_le} & $\|(\text{apply}\,v)\circ S\| \le \|S\|\,\|v\|$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{fderiv\_fderiv\_apply} & second-derivative eval-bridge & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{laplacian\_integral\_eq} & $\Delta$ under the integral sign & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} & $D(\|x\|^p) = p\|x\|^{p-2}\langle x,\cdot\rangle$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{laplacian\_norm\_rpow\_eq} & $\Delta(\|x\|^p) = p(n+p-2)\|x\|^{p-2}$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{laplacian\_norm\_sq} & $\Delta(\|\cdot\|^2) = 2n$ (everywhere) & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{integrableOn\_unitBall\_radial} & radial reduction of ball integrability & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{integrableOn\_norm\_rpow\_unitBall} & $\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{deriv\_deriv\_nonpos\_of\_isLocalMax} & $g''(t)\le 0$ at a local max & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{laplacian\_nonpos\_of\_isLocalMax} & $\Delta f\le 0$ at interior local max & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{rpow\_lintegral\_weighted\_le} & weighted Jensen in $\mathbb{R}_{\ge0}^{\infty}$ (from H\"older) & \texttt{Common/\allowbreak LpJensen.\allowbreak lean} \\
+  \texttt{eLpNorm\_le\_of\_support\_subset} & $L^p$ bound from a support inclusion & \texttt{Common/\allowbreak Translation.\allowbreak lean} \\
+  \texttt{tendsto\_eLpNorm\_translate\_sub\_continuous} & $\|u(\cdot+t)-u\|_p\to0$ (translation continuity) & \texttt{Common/\allowbreak Translation.\allowbreak lean} \\
+  \texttt{sub\_eq\_integral\_fderiv\_segment} & segment FTC $u(x+h)-u(x)=\int_0^1 Du\cdot h$ & \texttt{Sobolev/\allowbreak Rellich.\allowbreak lean} \\
+  \texttt{eLpNorm\_translate\_sub\_le\_fderiv} & $\|u(\cdot+h)-u\|_p\le\|h\|\,\|Du\|_p$ & \texttt{Sobolev/\allowbreak Rellich.\allowbreak lean} \\
+  \texttt{convolution\_eq\_integral\_sub} & convolution bridge $\eta\star u=\int\eta(x-y)u(y)$ & \texttt{Sobolev/\allowbreak Mollification.\allowbreak lean} \\
+  \texttt{isCompact\_closure\_toLp\_image\dots} & closed-embedding Arzelà--Ascoli $L^p$-precompactness criterion & \texttt{Sobolev/\allowbreak FrechetKolmogorov.\allowbreak lean} \\
+  \texttt{totallyBounded\_of\_forall\_approx} & $\varepsilon/3$ total-boundedness glue & \texttt{Sobolev/\allowbreak FrechetKolmogorov.\allowbreak lean} \\
+  \texttt{integral\_deriv\_eq\_zero} & compact-support FTC: $\int_{\mathbb{R}} f' = 0$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{hasDerivAt\_insertNth} / \texttt{contDiff\_insertNth} / \texttt{isClosedEmbedding\_insertNth} & coordinate-slice ($\mathrm{Fin.insertNth}$) calculus & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{integral\_eq\_zero\_of\_forall\_insertNth\_integral\_zero} & single-coordinate Fubini lift of $\int=0$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{integral\_horizontal\_ibp} / \texttt{\_euclidean} & multivariate horizontal integration by parts & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
+  \texttt{area\_formula} / \texttt{area\_formula\_graph} & $\mu_H(\varphi''A)=\int_A\operatorname{jac}$; graph form & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{setIntegral\_image\_graph\_smul} & vector-valued change of variables over a graph & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{measurePreserving\_rigid\_μHE} & rigid motions preserve the surface measure $\mu_H$ & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{integral\_Iic\_split} & oriented $\mathrm{Iic}$-additivity of a 1-D integral & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{divergence\_theorem} & Gauss--Green on a bounded $C^1$ domain (Chapter~6) & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -430,7 +441,7 @@ apparatus of Chapter~6 are also natural Mathlib additions.
 The following were initially defined but later found to be redundant:
 
 \begin{center}
-\begin{tabular}{@{}lll@{}}
+\begin{tabular}{@{}L{4.3cm}L{6.5cm}L{4.0cm}@{}}
   \toprule
   \textbf{Name} & \textbf{Reason removed} & \textbf{Replacement} \\
   \midrule
@@ -447,14 +458,14 @@ The following were initially defined but later found to be redundant:
 \subsection{Objects not yet in Mathlib (future work)}
 
 \begin{center}
-\begin{tabular}{@{}lll@{}}
+\begin{tabular}{@{}L{3.0cm}L{3.3cm}L{8.5cm}@{}}
   \toprule
   \textbf{Object} & \textbf{Needed for} & \textbf{Notes} \\
   \midrule
   Stokes / Gauss--Green on curved domains
     & Green's identity, Poisson representation, Sobolev trace/extension
     & \emph{Resolved}: the general divergence theorem on a bounded $C^1$ domain is now proved,
-      sorry-free and unconditional (\texttt{divergence\_theorem}, \texttt{Common/AreaFormula.lean});
+      sorry-free and unconditional (\texttt{divergence\_theorem}, \texttt{Common/\allowbreak AreaFormula.\allowbreak lean});
       see Chapter~6.  A ball/annulus is a bounded $C^1$ domain, so this supersedes the
       rectangular-box-only divergence theorem in Mathlib \\
   Green's second identity on annular domains
@@ -483,14 +494,14 @@ The following were initially defined but later found to be redundant:
     & Could be added to Mathlib \\
   Weak derivative $D^\alpha u$               & Sobolev spaces
     & \emph{Resolved}: \texttt{IsWeakDerivInDir} / iterated \texttt{IsWeakDerivList}
-      (\texttt{Sobolev/Basic.lean}, \texttt{Sobolev/Higher.lean}) \\
+      (\texttt{Sobolev/\allowbreak Basic.\allowbreak lean}, \texttt{Sobolev/\allowbreak Higher.\allowbreak lean}) \\
   Sobolev space $W^{k,p}(\Omega)$            & Evans Ch.~5
-    & \emph{Resolved}: \texttt{MemWkp}, Banach space \texttt{wkpSpace} (\texttt{Sobolev/Higher.lean}) \\
+    & \emph{Resolved}: \texttt{MemWkp}, Banach space \texttt{wkpSpace} (\texttt{Sobolev/\allowbreak Higher.\allowbreak lean}) \\
   Sobolev norm $\|\cdot\|_{W^{k,p}}$         & Evans Ch.~5
     & \emph{Resolved}: $\ell^p$ Sobolev norm via \texttt{PiLp} (\texttt{norm\_eq\_wkp}) \\
   Fréchet--Kolmogorov $L^p$-precompactness   & Rellich--Kondrachov (§5.7)
-    & \emph{Resolved}: full criterion in \texttt{Sobolev/FrechetKolmogorov.lean} +
-      \texttt{Sobolev/RellichKondrachov.lean}
+    & \emph{Resolved}: full criterion in \texttt{Sobolev/\allowbreak FrechetKolmogorov.\allowbreak lean} +
+      \texttt{Sobolev/\allowbreak RellichKondrachov.\allowbreak lean}
       (\texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous}, \texttt{rellich\_kondrachov}) \\
   Trace operator $u|_{\partial\Omega}$       & boundary value problems & \\
   \bottomrule
@@ -518,7 +529,7 @@ is given initial data. By the method of characteristics, the unique $C^1$ soluti
 \subsubsection{Definitions}
 
 The PDE predicate uses \texttt{spatialGradient} and \texttt{timeDerivative}
-from \texttt{Common/Calculus.lean}, matching Evans' notation directly:
+from \texttt{Common/\allowbreak Calculus.\allowbreak lean}, matching Evans' notation directly:
 
 \begin{lstlisting}[caption={PDE predicate}]
 def IsTransportSolution (b : Rn) (u : Rn x R -> R) : Prop :=
@@ -636,7 +647,7 @@ hence $u(x,t) = z(0) = g(x-tb)$. As $(x,t)$ was arbitrary, $u$ equals the explic
 \end{proof}
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -750,7 +761,7 @@ of $\partial_1 H$ on a compact box.
 \end{proof}
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1015,7 +1026,7 @@ The proof of the representation formula requires the following intermediate lemm
 whose status reflects the current state of Mathlib:
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Lemma} & \textbf{Blocker} & \textbf{Status} \\
   \midrule
@@ -1076,7 +1087,7 @@ is fully proved; only its Gauss--Green step is blocked.
 \subsection{Status Summary}
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1124,7 +1135,7 @@ The initial value problem for the heat (diffusion) equation:
   u &= g \quad \text{on } \mathbb{R}^n \times \{t = 0\}.
 \end{align}
 Here $u_t$ is \texttt{timeDerivative} and $\Delta u$ is the spatial Laplacian
-\texttt{spatialLaplacian}, both from \texttt{Common/Calculus.lean}.
+\texttt{spatialLaplacian}, both from \texttt{Common/\allowbreak Calculus.\allowbreak lean}.
 
 Unlike the Laplace chapter, the heat chapter avoids the three Mathlib blockers
 (Stokes on spheres, \texttt{hausdorffMeasure\_sphere}, $n$-dim polar coordinates):
@@ -1174,7 +1185,7 @@ summing gives $\Delta$ using $\sum_i \langle x, e_i\rangle^2 = |x|^2$; the const
 $(4\pi t)^{-n/2}$ factors out by linearity. The result coincides with the time derivative.
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1332,7 +1343,7 @@ both of its second derivatives equalling $\Phi''(x+t) + \Psi''(x-t)$.
 when the limits coincide.
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1391,7 +1402,7 @@ comparing gives the conservation law with no analytic side conditions --- the mi
 are manifestly symmetric for a traveling wave.
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1429,7 +1440,7 @@ superposition, this is uniqueness for the Cauchy problem --- in particular, the 
 formula gives the unique such solution of its data.
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1449,7 +1460,7 @@ $g$-terms and the interval $[x_0-t_0, x_0+t_0]$ for the integral of $h$ --- all 
 dependence interval. Disturbances therefore propagate at speed at most $1$.
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1480,7 +1491,7 @@ vanishes because $u$ solves the wave equation, and the second by the symmetry of
 partials. This is the general energy method of Evans §2.4.3, in full generality.
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1501,12 +1512,12 @@ finite propagation speed, and the symmetry of mixed partials: a complete formali
 Evans §2.4.1 and §2.4.3 in one space dimension.
 
 % ══════════════════════════════════════════════════════════════════════════════
-\section{Calculus Utilities: \texttt{Common/Calculus.lean}}
+\section{Calculus Utilities: \texttt{Common/\allowbreak Calculus.\allowbreak lean}}
 % ══════════════════════════════════════════════════════════════════════════════
 
 \subsection{Motivation}
 
-\texttt{Common/Calculus.lean} provides a shared library of spacetime calculus definitions
+\texttt{Common/\allowbreak Calculus.\allowbreak lean} provides a shared library of spacetime calculus definitions
 for functions $u : \mathbb{R}^n \times \mathbb{R} \to \mathbb{R}$, matching Evans'
 notation throughout the project.
 
@@ -1548,8 +1559,8 @@ so no differentiability hypothesis is needed in the definition itself.
 
 \subsubsection{Laplacian}
 
-The Laplacian $\Delta u$ is \textbf{not} redefined in \texttt{Common/Calculus.lean}.
-Instead, \texttt{PDE/Laplace.lean} uses Mathlib's \texttt{Laplacian.laplacian} directly
+The Laplacian $\Delta u$ is \textbf{not} redefined in \texttt{Common/\allowbreak Calculus.\allowbreak lean}.
+Instead, \texttt{PDE/\allowbreak Laplace.\allowbreak lean} uses Mathlib's \texttt{Laplacian.laplacian} directly
 (opened as \texttt{Δ}). The \texttt{spatialLaplacian} wrapper is provided for
 spacetime functions:
 
@@ -1560,7 +1571,7 @@ noncomputable def spatialLaplacian (u : Rn x R -> R) (p : Rn x R) : R :=
 
 \subsection{Differentiation Under the Integral (Leibniz Rule)}
 
-\texttt{Common/Calculus.lean} provides a fully proved \emph{combined} Leibniz rule for an integral
+\texttt{Common/\allowbreak Calculus.\allowbreak lean} provides a fully proved \emph{combined} Leibniz rule for an integral
 with a parameter-dependent integrand \emph{and} a variable upper limit:
 \[
   \frac{d}{dt'}\int_0^{t'} H(t',s)\,ds\Big|_{t'=t}
@@ -1577,7 +1588,7 @@ Step~2 of \texttt{duhamelFormula\_solves}.
 
 \subsection{Shared Analysis Toolkit}
 
-\texttt{Common/Calculus.lean} also collects the dimension- and chapter-agnostic analysis lemmas that
+\texttt{Common/\allowbreak Calculus.\allowbreak lean} also collects the dimension- and chapter-agnostic analysis lemmas that
 arose while differentiating convolutions and radial potentials, so Heat and Laplace share them
 rather than each carrying a private copy.
 
@@ -1630,7 +1641,7 @@ supply the $\partial_{x_i}$ (flux) half of the graph Gauss--Green theorem (\S6.3
 \subsection{Status Summary}
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Definition} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -1664,7 +1675,7 @@ supply the $\partial_{x_i}$ (flux) half of the graph Gauss--Green theorem (\S6.3
 % ══════════════════════════════════════════════════════════════════════════════
 
 Sobolev spaces are the \textbf{main target} of the project: all of modern PDE
-theory is phrased in their language. This chapter (\texttt{Sobolev/Basic.lean}) lays the
+theory is phrased in their language. This chapter (\texttt{Sobolev/\allowbreak Basic.\allowbreak lean}) lays the
 analytic foundations --- test functions, weak derivatives, and the space
 $W^{1,p}$ --- and proves the core results connecting classical and weak calculus and
 establishing that $W^{1,p}$ is a Banach space. Every statement below is fully proved and
@@ -2088,7 +2099,7 @@ explicitly in each lemma avoids it.
 \subsection{Status Summary}
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Object} & \textbf{Description} & \textbf{Status} \\
   \midrule
@@ -2292,7 +2303,7 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
 \subsection{Higher-order Sobolev spaces $W^{k,p}$ and $H^k$ (§5.2, §5.6)}
 
 The single-direction weak derivative of §5.2 iterates to a full higher-order theory in
-\texttt{Sobolev/Higher.lean}: iterated directional weak derivatives \texttt{IsWeakDerivList}
+\texttt{Sobolev/\allowbreak Higher.\allowbreak lean}: iterated directional weak derivatives \texttt{IsWeakDerivList}
 (chains of single-direction weak derivatives, with the classical model \texttt{dirDerivList}) and
 the classical~$\Rightarrow$~weak bridge \texttt{isWeakDerivList\_of\_contDiff}; the space
 \texttt{MemWkp}~$=W^{k,p}$ (all iterated coordinate weak derivatives of order $\le k$ lie in $L^p$)
@@ -2316,8 +2327,8 @@ norm $\|u\|^2=\sum_{|l|\le k}\int |D^l u|^2$ (\texttt{norm\_sq\_wkpSpace}).
 \subsection{Rellich--Kondrachov compactness (§5.7)}
 
 The \emph{sufficient direction} of Rellich--Kondrachov is formalized end to end across
-\texttt{Sobolev/Rellich.lean}, \texttt{Sobolev/FrechetKolmogorov.lean} and
-\texttt{Sobolev/RellichKondrachov.lean} --- this is the $L^p$-compactness criterion that Mathlib
+\texttt{Sobolev/\allowbreak Rellich.\allowbreak lean}, \texttt{Sobolev/\allowbreak FrechetKolmogorov.\allowbreak lean} and
+\texttt{Sobolev/\allowbreak RellichKondrachov.\allowbreak lean} --- this is the $L^p$-compactness criterion that Mathlib
 lacks.  The named theorem \texttt{rellich\_kondrachov}: a family of $C^1$ functions with a uniform
 $L^p$ gradient bound $\|Du_i\|_p\le M$ (and a uniform $L^p$ bound) is \emph{totally bounded in}
 $L^p(K)$ on a compact $K$ --- the compactness behind
@@ -2391,7 +2402,7 @@ subsection) and Poincar\'e inequality, and the Rellich--Kondrachov compactness t
 \section{Chapter 6: Surface Measure and the General Divergence Theorem}
 % ══════════════════════════════════════════════════════════════════════════════
 
-Everything in this chapter lives in \texttt{Common/AreaFormula.lean}.  It is a self-contained
+Everything in this chapter lives in \texttt{Common/\allowbreak AreaFormula.\allowbreak lean}.  It is a self-contained
 multi-week development whose endpoint is the \textbf{general Gauss--Green (divergence) theorem}
 on a bounded $C^1$ domain --- a result Mathlib does not have (its only divergence theorem is on a
 rectangular box, \texttt{MeasureTheory.integral\_divergence\_of\_hasFDerivAt\_off\_countable}).
@@ -2771,7 +2782,7 @@ and Poincar\'e--Wirtinger inequalities, and the classical Laplacian representati
 \end{statusbox}
 
 \begin{center}
-\begin{tabular}{@{}llc@{}}
+\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Object} & \textbf{Description} & \textbf{Status} \\
   \midrule
