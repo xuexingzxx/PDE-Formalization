@@ -971,8 +971,11 @@ $\overline U$ and continuity), giving $u(x) \le \sup_{\partial U} u + \varepsilo
 $R = \sup_{\overline U}\|\cdot\|$; letting $\varepsilon \to 0$ finishes.
 
 The remaining two results are not yet formalized. The strong maximum principle and the
-interior-regularity theorem both go through the mean value property (Evans §2.2.2), which is
-blocked by the same Stokes/surface-measure gaps as the representation formula below.
+interior-regularity theorem both go through the mean value property (Evans §2.2.2). The
+Gauss--Green step that the mean value property needs is now available (\texttt{divergence\_theorem},
+Chapter~6); what remains is the concrete instantiation of a ball/annulus as an
+\texttt{IsBoundedC1Domain} with its outward normal, plus (for the exact flux constant) the sphere
+surface-measure formula --- now derivable in principle from the Chapter~6 \texttt{area\_formula}.
 
 \begin{lstlisting}[caption={Maximum principles and regularity}]
 -- proved: weak maximum principle via the v_ε = u + ε‖·‖² perturbation
@@ -998,7 +1001,7 @@ whose status reflects the current state of Mathlib:
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
     & none --- now proved via Mathlib's $n$-dim polar integration & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_identity\_annulus}
-    & Gauss--Green on spherical annulus: needs Stokes & \textcolor{orange}{partial} \\
+    & Gauss--Green on spherical annulus: tool now available (Ch.~6); needs annulus-as-domain plumbing & \textcolor{orange}{partial} \\
   \texttt{fundamentalSolution\_totalFlux}
     & sphere Hausdorff measure $\sigma(\partial B(0,\varepsilon)) = n\omega_n\varepsilon^{n-1}$:
       \texttt{hausdorffMeasure\_sphere} not in Mathlib & \textcolor{sorryred}{sorry} \\
@@ -1010,25 +1013,31 @@ whose status reflects the current state of Mathlib:
 \end{tabular}
 \end{center}
 
-The remaining proof chain for the Poisson representation formula is blocked by two
-independent missing tools in Mathlib, each of which would require substantial
-infrastructure to develop:
+The remaining proof chain for the Poisson representation formula rested on two independent
+missing tools. \textbf{The first is now resolved}; the second is reduced to a computation that
+Chapter~6 makes possible:
 
 \begin{enumerate}
-  \item \textbf{Stokes' theorem on spherical domains.}
-    Required by \texttt{green\_identity\_annulus} (Step 2) and
-    \texttt{green\_boundary\_tendsto\_f}.
-    Mathlib's divergence theorem (\texttt{integral\_divergence\_of\_hasFDerivWithinAt\_off\_countable})
-    covers only rectangular boxes; the spherical case is not available.
+  \item \textbf{Stokes / Gauss--Green on spherical domains.} \emph{Resolved} (Chapter~6).
+    Required by \texttt{green\_identity\_annulus} (Step 2) and \texttt{green\_boundary\_tendsto\_f}.
+    Where Mathlib's divergence theorem
+    (\texttt{integral\_divergence\_of\_hasFDerivWithinAt\_off\_countable}) covers only rectangular
+    boxes, the general \texttt{divergence\_theorem} of Chapter~6 applies to any bounded $C^1$
+    domain --- in particular a ball or an annulus. What is left is not a missing \emph{tool} but
+    concrete plumbing: exhibiting $B(x,r)\setminus\overline{B(x,\varepsilon)}$ as an
+    \texttt{IsBoundedC1Domain}, constructing its (piecewise-sphere) outward normal, and specializing
+    Green's second identity from $F = v\nabla u - u\nabla v$.
 
   \item \textbf{Sphere Hausdorff measure formula.}
     Required by \texttt{fundamentalSolution\_totalFlux}:
     the computation $\int_{\partial B(0,\varepsilon)} d\sigma = n\omega_n\varepsilon^{n-1}$
-    requires \texttt{hausdorffMeasure\_sphere} or equivalent, which is not in Mathlib.
+    requires \texttt{hausdorffMeasure\_sphere} or equivalent, still not in Mathlib.
     The Evans computation (§2.2.4, p.~23) gives
     $\int_{\partial B(0,\varepsilon)} \langle\nabla\Phi, \nu\rangle\,d\sigma
-    = c_n(2-n)\varepsilon^{1-n} \cdot n\omega_n\varepsilon^{n-1} = -1$,
-    but the surface area step is unavailable.
+    = c_n(2-n)\varepsilon^{1-n} \cdot n\omega_n\varepsilon^{n-1} = -1$.
+    This surface-area constant is now derivable \emph{in principle} from the Chapter~6
+    \texttt{area\_formula} (the sphere is locally a graph), but that derivation is a self-contained
+    sub-project not yet carried out.
 \end{enumerate}
 
 A third obstruction listed in earlier drafts --- \textbf{$n$-dimensional polar coordinates} ---
@@ -2322,7 +2331,12 @@ subsection) and Poincar\'e inequality, and the Rellich--Kondrachov compactness t
   \item \textbf{Bounded-domain Rellich--Kondrachov}: transfer the compact-$K$ statement to
     $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$ on a bounded extension domain $U$ via a Sobolev
     extension operator.
-  \item \textbf{Morrey} and \textbf{trace} theorems.
+  \item \textbf{Trace theorem} $u\mapsto u|_{\partial\Omega}$, $W^{1,p}(\Omega)\to L^p(\partial\Omega)$.
+    The key estimate $\int_{\partial\Omega}|u|^p\,d\mu_H\le C\,\|u\|_{W^{1,p}(\Omega)}^p$ is a direct
+    application of the Chapter~6 \texttt{divergence\_theorem} to $|u|^p$ times a vector field
+    transverse to $\partial\Omega$, so the theorem is now \emph{unblocked}; what remains to build is
+    the trace operator itself and the $C^1$-density passage.
+  \item \textbf{Morrey} inequality ($W^{1,p}\hookrightarrow C^{0,\alpha}$ for $p>n$).
 \end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════════════
