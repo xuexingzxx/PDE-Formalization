@@ -2861,6 +2861,170 @@ theorem divergence_theorem {m : ℕ} {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1
   congr 1
   simp only [hVdef, ← Finset.sum_smul, hsum1 x (frontier_subset_closure hx), one_smul]
 
+
+/-! ### The ball is a bounded C¹ domain (gate lemma for the Laplace representation formula) -/
+
+/-- The fixed unit "height" vector: `flatten` reads off the coordinate `⟪·, heightVec⟫`. -/
+def heightVec (m : ℕ) : ℝ^(m + 2) := flatten m (WithLp.toLp 2 ((0 : ℝ^(m + 1)), (1 : ℝ)))
+
+/-- **Step A.** The height coordinate that `flatten.symm` extracts is the inner product with the
+fixed unit vector `heightVec`. -/
+lemma flatten_symm_snd (m : ℕ) (w : ℝ^(m + 2)) :
+    (((flatten m).symm w).ofLp).2 = ⟪w, heightVec m⟫ := by
+  have h := (flatten m).toLinearIsometry.inner_map_map ((flatten m).symm w)
+    (WithLp.toLp 2 ((0 : ℝ^(m + 1)), (1 : ℝ)))
+  simp only [LinearIsometryEquiv.coe_toLinearIsometry, LinearIsometryEquiv.apply_symm_apply] at h
+  have hone : (⟪((flatten m).symm w).snd, (1 : ℝ)⟫ : ℝ) = ((flatten m).symm w).snd := by
+    have h2 := real_inner_smul_left (1 : ℝ) (1 : ℝ) (((flatten m).symm w).snd)
+    simpa [real_inner_self_eq_norm_mul_norm] using h2
+  rw [heightVec, h, WithLp.prod_inner_apply]
+  simp [hone]
+
+/-- **Step B.** In `ℝⁿ⁺¹` any unit vector rotates onto any other unit vector. -/
+lemma exists_isometry_map_of_norm_one {n : ℕ} (u w : ℝ^(n + 1)) (hu : ‖u‖ = 1) (hw : ‖w‖ = 1) :
+    ∃ e : (ℝ^(n + 1)) ≃ₗᵢ[ℝ] (ℝ^(n + 1)), e u = w := by
+  have hcard : Module.finrank ℝ (ℝ^(n + 1)) = Fintype.card (Fin (n + 1)) := by
+    rw [finrank_euclideanSpace_fin, Fintype.card_fin]
+  have hon : ∀ z : ℝ^(n + 1), ‖z‖ = 1 →
+      Orthonormal ℝ (Set.restrict {(0 : Fin (n + 1))} (fun _ => z)) := by
+    intro z hz
+    rw [orthonormal_iff_ite]
+    intro i j
+    rw [Subsingleton.elim i j]
+    simp [hz]
+  obtain ⟨bu, hbu⟩ := (hon u hu).exists_orthonormalBasis_extension_of_card_eq hcard
+  obtain ⟨bw, hbw⟩ := (hon w hw).exists_orthonormalBasis_extension_of_card_eq hcard
+  refine ⟨bu.equiv bw (Equiv.refl (Fin (n + 1))), ?_⟩
+  have hbu0 : bu 0 = u := hbu 0 (by simp)
+  have hbw0 : bw 0 = w := hbw 0 (by simp)
+  rw [← hbu0, OrthonormalBasis.equiv_apply_basis, Equiv.refl_apply, hbw0]
+
+/-! ### Step D — the global `C¹` graph profile. -/
+
+/-- Transition weight: `0` for `s ≤ r²/8`, `1` for `s ≥ r²/4`, smooth in between. -/
+def ballT (r s : ℝ) : ℝ := Real.smoothTransition ((s - r ^ 2 / 8) / (r ^ 2 / 8))
+
+/-- Smooth clamp: `= s` for `s ≤ r²/8`, and `≤ r²/2` everywhere. -/
+def ballClamp (r s : ℝ) : ℝ := s * (1 - ballT r s) + r ^ 2 / 2 * ballT r s
+
+/-- The globally `C¹` graph profile whose subgraph is the ball near a boundary point. -/
+def ballProfile {m : ℕ} (r : ℝ) (b : ℝ^(m + 1)) : ℝ :=
+  Real.sqrt (r ^ 2 - ballClamp r (‖b‖ ^ 2)) - r
+
+lemma ballT_zero {r s : ℝ} (hr : 0 < r) (hs : s ≤ r ^ 2 / 8) : ballT r s = 0 := by
+  apply Real.smoothTransition.zero_of_nonpos
+  apply div_nonpos_of_nonpos_of_nonneg (by linarith) (by positivity)
+
+lemma ballClamp_eq {r s : ℝ} (hr : 0 < r) (hs : s ≤ r ^ 2 / 8) : ballClamp r s = s := by
+  rw [ballClamp, ballT_zero hr hs]; ring
+
+lemma ballClamp_le {r : ℝ} (hr : 0 < r) (s : ℝ) : ballClamp r s ≤ r ^ 2 / 2 := by
+  have hT0 : 0 ≤ ballT r s := Real.smoothTransition.nonneg _
+  have hT1 : ballT r s ≤ 1 := Real.smoothTransition.le_one _
+  by_cases hle : s ≤ r ^ 2 / 2
+  · rw [ballClamp]; nlinarith [hT0, hT1]
+  · rw [not_le] at hle
+    have hone : ballT r s = 1 := by
+      apply Real.smoothTransition.one_of_one_le
+      rw [le_div_iff₀ (by positivity)]; nlinarith
+    rw [ballClamp, hone]; ring_nf; nlinarith
+
+lemma radicand_pos {r : ℝ} (hr : 0 < r) (s : ℝ) : 0 < r ^ 2 - ballClamp r s := by
+  have := ballClamp_le hr s; nlinarith
+
+lemma contDiff_ballClamp (r : ℝ) : ContDiff ℝ 1 (ballClamp r) := by
+  have hT : ContDiff ℝ 1 (fun s : ℝ => ballT r s) := by
+    refine Real.smoothTransition.contDiff.comp ?_
+    exact (contDiff_id.sub contDiff_const).div_const _
+  exact (contDiff_id.mul (contDiff_const.sub hT)).add (contDiff_const.mul hT)
+
+lemma contDiff_ballProfile {m : ℕ} (r : ℝ) (hr : 0 < r) :
+    ContDiff ℝ 1 (ballProfile r (m := m)) := by
+  have hrad : ContDiff ℝ 1 (fun b : ℝ^(m + 1) => r ^ 2 - ballClamp r (‖b‖ ^ 2)) :=
+    contDiff_const.sub ((contDiff_ballClamp r).comp (contDiff_norm_sq ℝ))
+  have hne : ∀ b : ℝ^(m + 1), r ^ 2 - ballClamp r (‖b‖ ^ 2) ≠ 0 :=
+    fun b => (radicand_pos hr _).ne'
+  exact (hrad.sqrt hne).sub contDiff_const
+
+lemma ballProfile_eq {m : ℕ} {r : ℝ} (hr : 0 < r) (b : ℝ^(m + 1)) (hb : ‖b‖ ^ 2 ≤ r ^ 2 / 8) :
+    ballProfile r b = Real.sqrt (r ^ 2 - ‖b‖ ^ 2) - r := by
+  rw [ballProfile, ballClamp_eq hr hb]
+
+set_option maxHeartbeats 1000000 in
+-- The local set-equality repeatedly normalizes `EuclideanSpace`/`WithLp` projections, whose `whnf`
+-- is slow enough to exceed the default heartbeat budget.
+/-- **The open ball is a bounded `C¹` domain** (the gate lemma for Laplace representation). -/
+theorem isBoundedC1Domain_ball {m : ℕ} (c : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) :
+    IsBoundedC1Domain (Metric.ball c r) := by
+  refine ⟨isOpen_ball, isBounded_ball, ?_⟩
+  intro x₀ hx₀
+  have hx0c : ‖x₀ - c‖ = r := by
+    have hs : x₀ ∈ sphere c r := by rwa [frontier_ball c hr.ne'] at hx₀
+    rw [← dist_eq_norm]; simpa [mem_sphere] using hs
+  set u : ℝ^(m + 2) := r⁻¹ • (x₀ - c) with hudef
+  have hunorm : ‖u‖ = 1 := by
+    rw [hudef, norm_smul, norm_inv, Real.norm_eq_abs, abs_of_pos hr, hx0c, inv_mul_cancel₀ hr.ne']
+  have hhv : ‖heightVec m‖ = 1 := by
+    rw [heightVec, LinearIsometryEquiv.norm_map, WithLp.prod_norm_eq_of_L2]; simp
+  obtain ⟨e, he⟩ := exists_isometry_map_of_norm_one u (heightVec m) hunorm hhv
+  -- height and base as functions of `x`.
+  have hheight : ∀ x : ℝ^(m + 2), ((flatten m).symm (e (x - x₀))).ofLp.2 = ⟪x - x₀, u⟫ := by
+    intro x; rw [flatten_symm_snd, ← he, e.inner_map_map]
+  have hnormid : ∀ x : ℝ^(m + 2),
+      ‖((flatten m).symm (e (x - x₀))).ofLp.1‖ ^ 2 + (⟪x - x₀, u⟫ : ℝ) ^ 2 = ‖x - x₀‖ ^ 2 := by
+    intro x
+    have h1 : ‖(flatten m).symm (e (x - x₀))‖ = ‖x - x₀‖ := by
+      rw [LinearIsometryEquiv.norm_map, LinearIsometryEquiv.norm_map]
+    have h2 := WithLp.prod_norm_sq_eq_of_L2 ((flatten m).symm (e (x - x₀)))
+    rw [h1, Real.norm_eq_abs, sq_abs,
+      show ((flatten m).symm (e (x - x₀))).snd = (⟪x - x₀, u⟫ : ℝ) from hheight x] at h2
+    rw [show ((flatten m).symm (e (x - x₀))).ofLp.1
+        = ((flatten m).symm (e (x - x₀))).fst from rfl]
+    linarith [h2]
+  refine ⟨r / 3, by positivity, e, ballProfile r, contDiff_ballProfile r hr, ?_⟩
+  -- the key local equivalence
+  have key : ∀ x : ℝ^(m + 2), dist x x₀ < r / 3 →
+      (dist x c < r ↔
+        ((flatten m).symm (e (x - x₀))).ofLp.2 < ballProfile r ((flatten m).symm (e (x - x₀))).ofLp.1) := by
+    intro x hxρ
+    have hHeq : ((flatten m).symm (e (x - x₀))).ofLp.2 = ⟪x - x₀, u⟫ := hheight x
+    set b : ℝ^(m + 1) := ((flatten m).symm (e (x - x₀))).ofLp.1 with hbdef
+    set H : ℝ := ⟪x - x₀, u⟫ with hHdef
+    have hxx0 : ‖x - x₀‖ < r / 3 := by rw [← dist_eq_norm]; exact hxρ
+    have hbnorm : ‖b‖ ^ 2 + H ^ 2 = ‖x - x₀‖ ^ 2 := hnormid x
+    have hb2 : ‖b‖ ^ 2 ≤ r ^ 2 / 8 := by nlinarith [sq_nonneg H, hxx0.le, norm_nonneg (x - x₀)]
+    have hHle : |H| ≤ ‖x - x₀‖ := by
+      have := abs_real_inner_le_norm (x - x₀) u
+      rwa [hunorm, mul_one] at this
+    have hHr : 0 < H + r := by
+      have : -‖x - x₀‖ ≤ H := (abs_le.mp hHle).1
+      nlinarith
+    have hinner : (⟪x - x₀, x₀ - c⟫ : ℝ) = r * H := by
+      have he' : H = r⁻¹ * ⟪x - x₀, x₀ - c⟫ := by rw [hHdef, hudef, real_inner_smul_right]
+      rw [he']; field_simp
+    have hdist2 : ‖x - c‖ ^ 2 = ‖b‖ ^ 2 + (H + r) ^ 2 := by
+      have hxc : x - c = (x - x₀) + (x₀ - c) := by abel
+      rw [hxc, norm_add_sq_real, hx0c, hinner]
+      nlinarith [hbnorm]
+    rw [dist_eq_norm, hHeq, ballProfile_eq hr b hb2]
+    constructor
+    · intro hlt
+      have h2 : ‖x - c‖ ^ 2 < r ^ 2 := by nlinarith [norm_nonneg (x - c)]
+      rw [hdist2] at h2
+      have h3 : (H + r) ^ 2 < r ^ 2 - ‖b‖ ^ 2 := by nlinarith
+      have := (Real.lt_sqrt hHr.le).mpr h3
+      linarith
+    · intro hlt
+      have hs : H + r < Real.sqrt (r ^ 2 - ‖b‖ ^ 2) := by linarith
+      have h3 := (Real.lt_sqrt hHr.le).mp hs
+      have h2 : ‖x - c‖ ^ 2 < r ^ 2 := by rw [hdist2]; nlinarith
+      nlinarith [norm_nonneg (x - c), sq_nonneg (‖x - c‖ - r)]
+  ext x
+  simp only [mem_inter_iff, mem_ball, mem_setOf_eq]
+  constructor
+  · rintro ⟨hxc, hxρ⟩; exact ⟨(key x hxρ).mp hxc, hxρ⟩
+  · rintro ⟨hsub, hxρ⟩; exact ⟨(key x hxρ).mpr hsub, hxρ⟩
+
 end AreaFormula
 
 end
