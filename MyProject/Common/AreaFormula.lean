@@ -3025,6 +3025,378 @@ theorem isBoundedC1Domain_ball {m : ℕ} (c : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r
   · rintro ⟨hxc, hxρ⟩; exact ⟨(key x hxρ).mp hxc, hxρ⟩
   · rintro ⟨hsub, hxρ⟩; exact ⟨(key x hxρ).mpr hsub, hxρ⟩
 
+
+/-! ### The outward normal of the ball (chart-independence of the graph normal)
+
+The `IsOutwardNormal` structure requires the field `ν` to match the chart normal
+`e.symm (flatten (graphNormal γ (base x)))` for *every* chart representing the domain as a
+subgraph. Establishing this for the ball is a genuine geometric-uniqueness statement: the unit
+normal to a `C¹` hypersurface is determined by the surface (up to the side singled out by the
+domain). We prove it by
+
+* showing the chart normal is orthogonal to every graph tangent (`chartNormalRaw_perp_tangent`);
+* showing the radial vector `x - center` is orthogonal to every graph tangent, by differentiating
+  the (locally constant) `‖Ψ(·) - center‖²` along the graph parametrization (`centerVec_perp_tangent`);
+* concluding the two are colinear, since the orthogonal complement of the `(m+1)`-dimensional tangent
+  space is a line (`chartNormal_eq_outward`); and
+* fixing the sign by differentiating the defining function along the outward radial direction, whose
+  right-derivative is `≥ 0` because the ball lies on the `height < γ` side (`outward_sign`). -/
+
+/-- The un-normalized chart normal in ambient coordinates. -/
+def chartNormalRaw (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a : ℝ^(m + 1)) : ℝ^(m + 2) :=
+  e.symm (flatten m (WithLp.toLp 2 ((-a : ℝ^(m + 1)), (1 : ℝ))))
+
+/-- The tangent map of the graph chart at base point with gradient `a`. -/
+def chartTangent (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a : ℝ^(m + 1)) (h : ℝ^(m + 1)) :
+    ℝ^(m + 2) :=
+  e.symm (flatten m (WithLp.toLp 2 (h, (⟪a, h⟫ : ℝ))))
+
+/-- The raw chart normal is orthogonal to every tangent vector. -/
+lemma chartNormalRaw_perp_tangent (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a h : ℝ^(m + 1)) :
+    ⟪chartNormalRaw e a, chartTangent e a h⟫ = 0 := by
+  rw [chartNormalRaw, chartTangent, e.symm.inner_map_map, (flatten m).inner_map_map,
+    WithLp.prod_inner_apply]
+  simp only [inner_neg_left]
+  have key : (⟪(1:ℝ), (⟪a, h⟫ : ℝ)⟫ : ℝ) = ⟪a, h⟫ := by
+    conv_lhs => rw [show (⟪a, h⟫ : ℝ) = (⟪a, h⟫ : ℝ) • (1:ℝ) by rw [smul_eq_mul, mul_one]]
+    rw [real_inner_smul_right, real_inner_self_eq_norm_mul_norm, norm_one, mul_one, mul_one]
+  rw [key]; ring
+
+/-- The norm of the raw chart normal is `√(1 + ‖a‖²)`. -/
+lemma chartNormalRaw_norm (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a : ℝ^(m + 1)) :
+    ‖chartNormalRaw e a‖ = Real.sqrt (1 + ‖a‖ ^ 2) := by
+  rw [chartNormalRaw, e.symm.norm_map, (flatten m).norm_map, WithLp.prod_norm_eq_of_L2]
+  congr 1
+  change ‖(-a : ℝ^(m + 1))‖ ^ 2 + ‖(1:ℝ)‖ ^ 2 = 1 + ‖a‖ ^ 2
+  rw [norm_neg, norm_one]; ring
+
+/-- The `graphNormal`-based chart normal is a positive multiple of the raw normal. -/
+lemma chartNormal_expand (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (γ : (ℝ^(m + 1)) → ℝ)
+    (b : ℝ^(m + 1)) :
+    e.symm (flatten m (graphNormal γ b))
+      = (Real.sqrt (1 + ‖gradient γ b‖ ^ 2))⁻¹ • chartNormalRaw e (gradient γ b) := by
+  rw [graphNormal, chartNormalRaw, map_smul, map_smul]
+
+/-- The tangent map of the graph chart, as a linear map. -/
+def chartTangentMap (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a : ℝ^(m + 1)) :
+    (ℝ^(m + 1)) →ₗ[ℝ] (ℝ^(m + 2)) :=
+  e.symm.toLinearIsometry.toLinearMap ∘ₗ (flatten m).toLinearIsometry.toLinearMap ∘ₗ graphMap a
+
+lemma chartTangentMap_apply (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a h : ℝ^(m + 1)) :
+    chartTangentMap e a h = chartTangent e a h := by
+  simp only [chartTangentMap, LinearMap.comp_apply, LinearIsometry.coe_toLinearMap,
+    LinearIsometryEquiv.coe_toLinearIsometry, chartTangent]
+  rfl
+
+lemma chartTangentMap_injective (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a : ℝ^(m + 1)) :
+    Function.Injective (chartTangentMap e a) := by
+  intro x y h
+  simp only [chartTangentMap, LinearMap.comp_apply, LinearIsometry.coe_toLinearMap,
+    LinearIsometryEquiv.coe_toLinearIsometry] at h
+  exact graph_injective a ((flatten m).injective (e.symm.injective h))
+
+lemma chartTangentMap_finrank_range (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a : ℝ^(m + 1)) :
+    Module.finrank ℝ (LinearMap.range (chartTangentMap e a)) = m + 1 := by
+  rw [LinearMap.finrank_range_of_inj (chartTangentMap_injective e a), finrank_euclideanSpace_fin]
+
+set_option maxHeartbeats 1000000 in
+-- The `fderiv`/`WithLp`/`EuclideanSpace` manipulation here repeatedly forces slow `whnf`
+-- normalization of projections, exceeding the default heartbeat budget.
+/-- **Geometric orthogonality.** If a ball's frontier is locally the graph of `γ` in a chart, then
+at a frontier point `x` the radial vector `x - center` is orthogonal to every graph tangent. -/
+lemma centerVec_perp_tangent
+    (center : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r)
+    (c : ℝ^(m + 2)) (ρ : ℝ) (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (γ : (ℝ^(m + 1)) → ℝ)
+    (hγ : ContDiff ℝ 1 γ)
+    (hchart : Metric.ball center r ∩ Metric.ball c ρ
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c ρ)
+    (x : ℝ^(m + 2)) (hxf : x ∈ frontier (Metric.ball center r)) (hxb : x ∈ Metric.ball c ρ)
+    (h : ℝ^(m + 1)) :
+    (⟪x - center, chartTangent e (gradient γ ((flatten m).symm (e (x - c))).ofLp.1) h⟫ : ℝ) = 0 := by
+  set b := ((flatten m).symm (e (x - c))).ofLp.1 with hb
+  have hofLp1 : ∀ y : ℝ^(m + 1), (graphFun γ y).ofLp.1 = y := fun _ => rfl
+  have hofLp2 : ∀ y : ℝ^(m + 1), (graphFun γ y).ofLp.2 = γ y := fun _ => rfl
+  -- x lies on the graph
+  have hxgraph : ((flatten m).symm (e (x - c))).ofLp.2 = γ b := by
+    have hmem : x ∈ frontier (Metric.ball center r) ∩ Metric.ball c ρ := ⟨hxf, hxb⟩
+    rw [chart_frontier_domain e c hγ.continuous hchart] at hmem
+    exact hmem.1
+  -- the graph parametrization
+  set Ψ : (ℝ^(m + 1)) → (ℝ^(m + 2)) := fun b' => c + e.symm (flatten m (graphFun γ b')) with hΨ
+  have hΨcont : Continuous Ψ := continuous_const.add
+    (e.symm.continuous.comp ((flatten m).continuous.comp (continuous_graphFun hγ.continuous)))
+  have hbase : ∀ b', (flatten m).symm (e (Ψ b' - c)) = graphFun γ b' := by
+    intro b'
+    simp only [hΨ, add_sub_cancel_left, LinearIsometryEquiv.apply_symm_apply,
+      LinearIsometryEquiv.symm_apply_apply]
+  have hgf_b : graphFun γ b = (flatten m).symm (e (x - c)) := by
+    apply WithLp.ofLp_injective 2
+    show (graphFun γ b).ofLp = ((flatten m).symm (e (x - c))).ofLp
+    exact Prod.ext_iff.mpr ⟨hb, hxgraph.symm⟩
+  have hΨx : Ψ b = x := by
+    have hxc : e.symm (flatten m (graphFun γ b)) = x - c := by
+      rw [hgf_b, LinearIsometryEquiv.apply_symm_apply, LinearIsometryEquiv.symm_apply_apply]
+    show c + e.symm (flatten m (graphFun γ b)) = x
+    rw [hxc]; abel
+  -- Ψ b' stays in the chart ball near b
+  have hΨmem : ∀ᶠ b' in nhds b, Ψ b' ∈ Metric.ball c ρ :=
+    (hΨcont.continuousAt).preimage_mem_nhds (Metric.isOpen_ball.mem_nhds (hΨx ▸ hxb))
+  -- ‖Ψ b' - center‖² is eventually r²
+  have hev : ∀ᶠ b' in nhds b, ‖Ψ b' - center‖ ^ 2 = r ^ 2 := by
+    filter_upwards [hΨmem] with b' hb'mem
+    have hmem2 : Ψ b' ∈ frontier (Metric.ball center r) ∩ Metric.ball c ρ := by
+      rw [chart_frontier_domain e c hγ.continuous hchart]
+      refine ⟨?_, hb'mem⟩
+      simp only [Set.mem_setOf_eq, hbase b', hofLp1, hofLp2]
+    have hnorm : ‖Ψ b' - center‖ = r := by
+      have hs := hmem2.1
+      rw [frontier_ball center hr.ne'] at hs
+      rw [← dist_eq_norm]; simpa [mem_sphere] using hs
+    rw [hnorm]
+  -- HasFDerivAt of Ψ
+  set fltCLM := (flatten m).toLinearIsometry.toContinuousLinearMap with hfltCLM
+  set esymCLM := e.symm.toLinearIsometry.toContinuousLinearMap with hesymCLM
+  set L := esymCLM.comp (fltCLM.comp (graphFun' γ b)) with hL
+  have hΨf : HasFDerivAt Ψ L b := by
+    have hcomp := esymCLM.hasFDerivAt.comp b (fltCLM.hasFDerivAt.comp b (hasFDerivAt_graphFun hγ b))
+    refine (hcomp.const_add c).congr_of_eventuallyEq (Filter.Eventually.of_forall (fun b' => ?_))
+    simp only [hΨ, Function.comp_apply, hesymCLM, hfltCLM,
+      LinearIsometry.coe_toContinuousLinearMap, LinearIsometryEquiv.coe_toLinearIsometry]
+  have hLapply : L h = chartTangent e (gradient γ b) h := by
+    have hgfd : (graphFun' γ b) h = WithLp.toLp 2 (h, (⟪gradient γ b, h⟫ : ℝ)) := by
+      rw [graphFun']
+      simp only [ContinuousLinearMap.comp_apply, ContinuousLinearEquiv.coe_coe,
+        ContinuousLinearMap.prod_apply, ContinuousLinearMap.id_apply]
+      rw [← inner_gradient_left (hγ.differentiable (by norm_num) b)]
+      rfl
+    simp only [hL, ContinuousLinearMap.comp_apply, hgfd, hfltCLM, hesymCLM,
+      LinearIsometry.coe_toContinuousLinearMap, LinearIsometryEquiv.coe_toLinearIsometry,
+      chartTangent]
+  -- differentiate ‖Ψ · - center‖²
+  have hsub : HasFDerivAt (fun b' => Ψ b' - center) L b := hΨf.sub_const center
+  have hnormsq := hsub.norm_sq
+  have hconst : HasFDerivAt (fun b' => ‖Ψ b' - center‖ ^ 2) (0 : (ℝ^(m + 1)) →L[ℝ] ℝ) b :=
+    (hasFDerivAt_const (r ^ 2) b).congr_of_eventuallyEq hev
+  have hderiv0 := hnormsq.unique hconst
+  have happ := congrFun (congrArg (DFunLike.coe) hderiv0) h
+  simp only [ContinuousLinearMap.smul_apply, ContinuousLinearMap.comp_apply, innerSL_apply_apply,
+    ContinuousLinearMap.zero_apply] at happ
+  rw [hΨx] at happ
+  rw [← hLapply]
+  simpa using happ
+
+/-- The inner product of the raw chart normal with any vector, read off in chart coordinates. -/
+lemma chartNormalRaw_inner (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (a : ℝ^(m + 1)) (v : ℝ^(m + 2)) :
+    (⟪chartNormalRaw e a, v⟫ : ℝ)
+      = ((flatten m).symm (e v)).ofLp.2 - ⟪a, ((flatten m).symm (e v)).ofLp.1⟫ := by
+  rw [chartNormalRaw,
+    ← e.inner_map_map (e.symm (flatten m (WithLp.toLp 2 ((-a : ℝ^(m + 1)), (1:ℝ))))) v,
+    e.apply_symm_apply]
+  conv_lhs => rw [← (flatten m).apply_symm_apply (e v), (flatten m).inner_map_map]
+  rw [WithLp.prod_inner_apply]
+  simp only [inner_neg_left]
+  have key : (⟪(1:ℝ), (((flatten m).symm (e v)).ofLp.2 : ℝ)⟫ : ℝ)
+      = ((flatten m).symm (e v)).ofLp.2 := by
+    conv_lhs => rw [show (((flatten m).symm (e v)).ofLp.2 : ℝ)
+      = (((flatten m).symm (e v)).ofLp.2) • (1:ℝ) by rw [smul_eq_mul, mul_one]]
+    rw [real_inner_smul_right, real_inner_self_eq_norm_mul_norm, norm_one, mul_one, mul_one]
+  rw [key]; ring
+
+set_option maxHeartbeats 1000000 in
+-- The `HasDerivAt`/`WithLp`/`EuclideanSpace` manipulation here repeatedly forces slow `whnf`
+-- normalization of projections, exceeding the default heartbeat budget.
+/-- **Outward sign.** At a boundary point of the ball, the raw chart normal has non-negative inner
+product with the outward radial vector `x - center` — this fixes the sign of the unit normal. -/
+lemma outward_sign
+    (center : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r)
+    (c : ℝ^(m + 2)) (ρ : ℝ) (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (γ : (ℝ^(m + 1)) → ℝ)
+    (hγ : ContDiff ℝ 1 γ)
+    (hchart : Metric.ball center r ∩ Metric.ball c ρ
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c ρ)
+    (x : ℝ^(m + 2)) (hxf : x ∈ frontier (Metric.ball center r)) (hxb : x ∈ Metric.ball c ρ) :
+    0 ≤ (⟪chartNormalRaw e (gradient γ ((flatten m).symm (e (x - c))).ofLp.1), x - center⟫ : ℝ) := by
+  set b := ((flatten m).symm (e (x - c))).ofLp.1 with hb
+  set d := x - center with hd
+  set M := chartNormalRaw e (gradient γ b) with hM
+  set w := e.symm (heightVec m) with hw
+  set β := ((flatten m).symm (e d)).ofLp.1 with hβ
+  set φ : (ℝ^(m + 2)) → ℝ := fun y =>
+    ((flatten m).symm (e (y - c))).ofLp.2 - γ ((flatten m).symm (e (y - c))).ofLp.1 with hφ
+  have hx0c : ‖d‖ = r := by
+    have hs : x ∈ sphere center r := by rwa [frontier_ball center hr.ne'] at hxf
+    rw [hd, ← dist_eq_norm]; simpa [mem_sphere] using hs
+  have hxgraph : ((flatten m).symm (e (x - c))).ofLp.2 = γ b := by
+    have hmem : x ∈ frontier (Metric.ball center r) ∩ Metric.ball c ρ := ⟨hxf, hxb⟩
+    rw [chart_frontier_domain e c hγ.continuous hchart] at hmem
+    exact hmem.1
+  have hφx : φ x = 0 := by
+    simp only [hφ]; rw [hxgraph, ← hb]; ring
+  -- adjoint identity for the height coordinate
+  have hheightexpr : ∀ v : ℝ^(m + 2), ((flatten m).symm (e v)).ofLp.2 = ⟪v, w⟫ := by
+    intro v
+    rw [flatten_symm_snd, hw, ← e.inner_map_map v (e.symm (heightVec m)), e.apply_symm_apply]
+  -- HasDerivAt of φ along the radial line
+  have hheight : HasDerivAt (fun t : ℝ => ((flatten m).symm (e (x + t • d - c))).ofLp.2)
+      (⟪d, w⟫) 0 := by
+    have heq : (fun t : ℝ => ((flatten m).symm (e (x + t • d - c))).ofLp.2)
+        = fun t => ⟪x - c, w⟫ + t * ⟪d, w⟫ := by
+      funext t
+      rw [hheightexpr, show x + t • d - c = (x - c) + t • d by abel, inner_add_left,
+        real_inner_smul_left]
+    rw [heq]
+    simpa using ((hasDerivAt_id (x := (0:ℝ))).mul_const (⟪d, w⟫ : ℝ)).const_add (⟪x - c, w⟫ : ℝ)
+  have hbaseeq : (fun t : ℝ => ((flatten m).symm (e (x + t • d - c))).ofLp.1)
+      = fun t => b + t • β := by
+    funext t
+    rw [show x + t • d - c = (x - c) + t • d by abel, map_add, map_smul, map_add, map_smul]
+    simp only [WithLp.ofLp_add, WithLp.ofLp_smul, Prod.fst_add, Prod.smul_fst, ← hb, ← hβ]
+  have hgamma : HasDerivAt (fun t : ℝ => γ ((flatten m).symm (e (x + t • d - c))).ofLp.1)
+      (⟪gradient γ b, β⟫) 0 := by
+    have hfun : (fun t : ℝ => γ ((flatten m).symm (e (x + t • d - c))).ofLp.1)
+        = fun t : ℝ => γ (b + t • β) := by
+      funext t; rw [congrFun hbaseeq t]
+    rw [hfun]
+    have hd0 : HasDerivAt (fun t : ℝ => b + t • β) β 0 := by
+      simpa using ((hasDerivAt_id (x := (0:ℝ))).smul_const β).const_add b
+    have hgd : HasFDerivAt γ (fderiv ℝ γ (b + (0:ℝ) • β)) (b + (0:ℝ) • β) :=
+      (hγ.differentiable (by norm_num) _).hasFDerivAt
+    have hcomp := hgd.comp_hasDerivAt (0:ℝ) hd0
+    simp only [zero_smul, add_zero] at hcomp
+    rw [inner_gradient_left (hγ.differentiable (by norm_num) b)]
+    exact hcomp
+  have hφderiv : HasDerivAt (fun t : ℝ => φ (x + t • d)) (⟪d, w⟫ - ⟪gradient γ b, β⟫) 0 := by
+    simp only [hφ]; exact hheight.sub hgamma
+  -- ⟪M, d⟫ equals the derivative value
+  have hdw : ((flatten m).symm (e d)).ofLp.2 = ⟪d, w⟫ := hheightexpr d
+  have hMd : (⟪M, d⟫ : ℝ) = ⟪d, w⟫ - ⟪gradient γ b, β⟫ := by
+    rw [hM, chartNormalRaw_inner, hdw, ← hβ]
+  -- φ ≥ 0 just outside the ball
+  have hnn : ∀ᶠ t in nhdsWithin (0:ℝ) (Set.Ioi 0), 0 ≤ φ (x + t • d) := by
+    have hballρ : ∀ᶠ t in 𝓝 (0:ℝ), x + t • d ∈ Metric.ball c ρ := by
+      have hcont : ContinuousAt (fun t : ℝ => x + t • d) 0 := by fun_prop
+      have hx0 : x + (0:ℝ) • d ∈ Metric.ball c ρ := by simpa using hxb
+      exact hcont.preimage_mem_nhds (Metric.isOpen_ball.mem_nhds hx0)
+    filter_upwards [hballρ.filter_mono nhdsWithin_le_nhds, self_mem_nhdsWithin] with t htρ htpos
+    have htpos' : (0:ℝ) < t := htpos
+    have hnotin : x + t • d ∉ Metric.ball center r := by
+      rw [Metric.mem_ball, not_lt, dist_eq_norm]
+      have hcalc : x + t • d - center = (1 + t) • d := by rw [hd]; module
+      rw [hcalc, norm_smul, hx0c, Real.norm_eq_abs, abs_of_pos (by linarith)]
+      nlinarith
+    have hnotsub : x + t • d ∉ {y : ℝ^(m + 2) |
+        ((flatten m).symm (e (y - c))).ofLp.2 < γ ((flatten m).symm (e (y - c))).ofLp.1} := by
+      intro hsub
+      have hmem : x + t • d ∈ Metric.ball center r ∩ Metric.ball c ρ :=
+        hchart.symm ▸ Set.mem_inter hsub htρ
+      exact hnotin hmem.1
+    rw [Set.mem_setOf_eq, not_lt] at hnotsub
+    simp only [hφ]; linarith [hnotsub]
+  -- the right-derivative of φ along the line is ≥ 0
+  have hDnn : 0 ≤ (⟪d, w⟫ - ⟪gradient γ b, β⟫ : ℝ) := by
+    have hslope := hφderiv.hasDerivWithinAt (s := Set.Ioi 0)
+    rw [hasDerivWithinAt_iff_tendsto_slope] at hslope
+    have hset : Set.Ioi (0:ℝ) \ {0} = Set.Ioi 0 := by
+      ext s; simp only [Set.mem_diff, Set.mem_Ioi, Set.mem_singleton_iff]
+      exact ⟨fun h => h.1, fun h => ⟨h, ne_of_gt h⟩⟩
+    rw [hset] at hslope
+    refine ge_of_tendsto hslope ?_
+    filter_upwards [hnn, self_mem_nhdsWithin] with t ht htmem
+    have htpos : (0:ℝ) < t := htmem
+    have hval : slope (fun s : ℝ => φ (x + s • d)) 0 t = φ (x + t • d) / t := by
+      simp only [slope_def_field, sub_zero, zero_smul, add_zero, hφx]
+    rw [hval]
+    exact div_nonneg ht htpos.le
+  rw [hMd]; exact hDnn
+
+set_option maxHeartbeats 1000000 in
+-- The colinearity/finrank and `WithLp`/`EuclideanSpace` manipulation here repeatedly forces slow
+-- `whnf` normalization of projections, exceeding the default heartbeat budget.
+/-- **Chart normal is the geometric outward normal.** For any chart representing the ball as a
+subgraph, at a boundary point the chart normal equals the outward radial unit vector. -/
+theorem chartNormal_eq_outward
+    (center : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r)
+    (c : ℝ^(m + 2)) (ρ : ℝ) (e : (ℝ^(m + 2)) ≃ₗᵢ[ℝ] (ℝ^(m + 2))) (γ : (ℝ^(m + 1)) → ℝ)
+    (hγ : ContDiff ℝ 1 γ)
+    (hchart : Metric.ball center r ∩ Metric.ball c ρ
+      = {x | ((flatten m).symm (e (x - c))).ofLp.2 < γ ((flatten m).symm (e (x - c))).ofLp.1}
+        ∩ Metric.ball c ρ)
+    (x : ℝ^(m + 2)) (hxf : x ∈ frontier (Metric.ball center r)) (hxb : x ∈ Metric.ball c ρ) :
+    r⁻¹ • (x - center)
+      = e.symm (flatten m (graphNormal γ ((flatten m).symm (e (x - c))).ofLp.1)) := by
+  set b := ((flatten m).symm (e (x - c))).ofLp.1 with hb
+  set a := gradient γ b with ha
+  set sq := Real.sqrt (1 + ‖a‖ ^ 2) with hsq
+  have hsqpos : 0 < sq := Real.sqrt_pos.mpr (by positivity)
+  set Nu := e.symm (flatten m (graphNormal γ b)) with hNu
+  set g := r⁻¹ • (x - center) with hg
+  have hNuexp : Nu = sq⁻¹ • chartNormalRaw e a := chartNormal_expand e γ b
+  have hx0c : ‖x - center‖ = r := by
+    have hs : x ∈ sphere center r := by rwa [frontier_ball center hr.ne'] at hxf
+    rw [← dist_eq_norm]; simpa [mem_sphere] using hs
+  have hgnorm : ‖g‖ = 1 := by
+    rw [hg, norm_smul, norm_inv, Real.norm_eq_abs, abs_of_pos hr, hx0c, inv_mul_cancel₀ hr.ne']
+  have hNunorm : ‖Nu‖ = 1 := by
+    rw [hNu, e.symm.norm_map, (flatten m).norm_map, norm_graphNormal]
+  set T := chartTangentMap e a with hT
+  set W := LinearMap.range T with hW
+  have hWrank : Module.finrank ℝ W = m + 1 := chartTangentMap_finrank_range e a
+  have hNuperp : Nu ∈ Wᗮ := by
+    rw [Submodule.mem_orthogonal']
+    intro u hu
+    obtain ⟨h', rfl⟩ := LinearMap.mem_range.mp hu
+    rw [hT, chartTangentMap_apply, hNuexp, real_inner_smul_left, chartNormalRaw_perp_tangent,
+      mul_zero]
+  have hgperp : g ∈ Wᗮ := by
+    rw [Submodule.mem_orthogonal']
+    intro u hu
+    obtain ⟨h', rfl⟩ := LinearMap.mem_range.mp hu
+    have hperp := centerVec_perp_tangent center r hr c ρ e γ hγ hchart x hxf hxb h'
+    rw [hT, chartTangentMap_apply, hg, real_inner_smul_left, hperp, mul_zero]
+  have hWperp_rank : Module.finrank ℝ (Wᗮ) = 1 := by
+    have h := W.finrank_add_finrank_orthogonal
+    rw [hWrank, finrank_euclideanSpace_fin] at h
+    omega
+  have hNune : (⟨Nu, hNuperp⟩ : (Wᗮ)) ≠ 0 := by
+    intro h0
+    have hz : Nu = 0 := congrArg Subtype.val h0
+    rw [hz, norm_zero] at hNunorm
+    exact one_ne_zero hNunorm.symm
+  obtain ⟨t, ht⟩ := (finrank_eq_one_iff_of_nonzero' (⟨Nu, hNuperp⟩ : (Wᗮ)) hNune).mp
+    hWperp_rank ⟨g, hgperp⟩
+  have htg : t • Nu = g := by
+    have h := congrArg (Subtype.val) ht
+    simpa using h
+  have habs : |t| = 1 := by
+    have hn : ‖g‖ = |t| * ‖Nu‖ := by rw [← htg, norm_smul, Real.norm_eq_abs]
+    rw [hgnorm, hNunorm, mul_one] at hn
+    exact hn.symm
+  -- sign
+  have hMxc : 0 ≤ (⟪chartNormalRaw e a, x - center⟫ : ℝ) :=
+    outward_sign center r hr c ρ e γ hγ hchart x hxf hxb
+  have hgxc : (⟪g, x - center⟫ : ℝ) = r := by
+    rw [hg, real_inner_smul_left, real_inner_self_eq_norm_mul_norm, hx0c, ← mul_assoc,
+      inv_mul_cancel₀ hr.ne', one_mul]
+  have hgxc2 : (⟪g, x - center⟫ : ℝ) = t * (sq⁻¹ * ⟪chartNormalRaw e a, x - center⟫) := by
+    rw [← htg, hNuexp, real_inner_smul_left, real_inner_smul_left]
+  have htpos : 0 < t := by
+    have hbnn : 0 ≤ sq⁻¹ * (⟪chartNormalRaw e a, x - center⟫ : ℝ) :=
+      mul_nonneg (inv_nonneg.mpr hsqpos.le) hMxc
+    nlinarith [hgxc, hgxc2, hbnn, hr]
+  have ht1 : t = 1 := by
+    rcases (abs_eq (by norm_num : (0:ℝ) ≤ 1)).mp habs with h | h
+    · exact h
+    · linarith
+  rw [← htg, ht1, one_smul]
+
+/-- **The outward unit normal of a ball.** `ν(y) = r⁻¹ (y − center)` is an `IsOutwardNormal`. -/
+theorem isOutwardNormal_ball (center : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) :
+    IsOutwardNormal (Metric.ball center r) (fun y => r⁻¹ • (y - center)) := by
+  refine ⟨continuous_const.smul (continuous_id.sub continuous_const), ?_⟩
+  intro c ρ e γ hγ hchart y hy
+  exact chartNormal_eq_outward center r hr c ρ e γ hγ hchart y hy.1 hy.2
+
 end AreaFormula
 
 end
