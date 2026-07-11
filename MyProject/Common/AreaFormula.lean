@@ -3397,6 +3397,53 @@ theorem isOutwardNormal_ball (center : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) :
   intro c ρ e γ hγ hchart y hy
   exact chartNormal_eq_outward center r hr c ρ e γ hγ hchart y hy.1 hy.2
 
+
+/-! ### Sphere surface measure
+
+Applying the divergence theorem to the identity field `F(y) = y - c` on the ball reads off the
+sphere's surface measure from the ball's volume: `divergenceE F ≡ m+2` (trace of the identity),
+while `⟪F, ν⟫ ≡ r` on the sphere, so `(m+2)·vol(B) = r·σ(∂B)`. -/
+
+/-- **Sphere surface measure (core identity).** Applying the divergence theorem to the identity
+field `F(y) = y - c` on the ball relates the sphere's surface measure to the ball's volume:
+`(m+2)·vol(B) = r·σ(∂B)`. -/
+theorem sphere_surfaceMeasure_aux (c : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) :
+    (volume (Metric.ball c r)).toReal * (m + 2)
+      = (μHE[m + 1] (Metric.sphere c r)).toReal * r := by
+  have hΩ := isBoundedC1Domain_ball c r hr
+  have hν := isOutwardNormal_ball c r hr
+  have hF : ContDiff ℝ 1 (fun y : ℝ^(m + 2) => y - c) := contDiff_id.sub contDiff_const
+  have hdt := divergence_theorem hΩ hν hF
+  -- LHS: divergenceE of the identity field is the dimension `m + 2`
+  have hdiv : ∀ x : ℝ^(m + 2), divergenceE (fun y => y - c) x = (m + 2 : ℝ) := by
+    intro x
+    have hfd : fderiv ℝ (fun y : ℝ^(m + 2) => y - c) x = ContinuousLinearMap.id ℝ (ℝ^(m + 2)) :=
+      ((hasFDerivAt_id x).sub_const c).fderiv
+    rw [divergenceE_eq_trace, hfd, ContinuousLinearMap.coe_id, LinearMap.trace_id,
+      finrank_euclideanSpace_fin]
+    push_cast; ring
+  simp only [hdiv] at hdt
+  rw [setIntegral_const] at hdt
+  -- RHS: the flux integrand is constant `r` on the sphere
+  rw [frontier_ball c hr.ne'] at hdt
+  have hint : ∀ x ∈ Metric.sphere c r, (⟪x - c, r⁻¹ • (x - c)⟫ : ℝ) = r := by
+    intro x hx
+    rw [real_inner_smul_right, real_inner_self_eq_norm_mul_norm]
+    have hnorm : ‖x - c‖ = r := by rw [← dist_eq_norm]; exact Metric.mem_sphere.mp hx
+    rw [hnorm, ← mul_assoc, inv_mul_cancel₀ hr.ne', one_mul]
+  rw [setIntegral_congr_fun isClosed_sphere.measurableSet hint, setIntegral_const] at hdt
+  simp only [smul_eq_mul, measureReal_def] at hdt
+  exact hdt
+
+/-- **Sphere surface measure.** The `(m+1)`-dimensional surface measure of the sphere `∂B(c,r)` in
+`ℝ^{m+2}` equals `(m+2)·vol(B(c,r))/r`; combined with `vol(B) = ωₙ rⁿ` this is `n·ωₙ·rⁿ⁻¹`. -/
+theorem sphere_surfaceMeasure (c : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) :
+    (μHE[m + 1] (Metric.sphere c r)).toReal
+      = (m + 2) * (volume (Metric.ball c r)).toReal / r := by
+  rw [eq_div_iff hr.ne']
+  linarith [sphere_surfaceMeasure_aux c r hr,
+    mul_comm ((m : ℝ) + 2) (volume (Metric.ball c r)).toReal]
+
 end AreaFormula
 
 end
