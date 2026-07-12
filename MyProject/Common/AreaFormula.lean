@@ -3444,6 +3444,72 @@ theorem sphere_surfaceMeasure (c : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) :
   linarith [sphere_surfaceMeasure_aux c r hr,
     mul_comm ((m : ℝ) + 2) (volume (Metric.ball c r)).toReal]
 
+
+/-! ### Divergence of the gradient is the Laplacian
+
+`divergenceE (gradient f)` equals Mathlib's `Laplacian.laplacian f`, connecting the canonical flat
+divergence used by the Gauss–Green theorem to the PDE Laplacian (and hence to `IsHarmonic`). Both
+sides reduce to the trace of the Hessian: `divergenceE (∇f) x = ∑ᵢ ∂ᵢ(∇f)ᵢ`, and via the coordinate
+formula `(∇f)ⱼ = fderiv f eⱼ` each summand is `fderiv² f x eᵢ eᵢ = iteratedFDeriv 2 f x ![eᵢ, eᵢ]`,
+which sums to the Laplacian in the `basisFun` orthonormal basis. -/
+
+/-- The real inner product of two scalars is their product (bridging the real-inner diamond). -/
+private lemma real_inner_scalars (a b : ℝ) : (⟪a, b⟫ : ℝ) = a * b :=
+  (Real.ext_cauchy rfl).trans (mul_comm b a)
+
+open InnerProductSpace in
+/-- **Divergence of the gradient is the Laplacian.** The canonical flat divergence of `gradient f`
+equals the standard Laplacian `Δf`, connecting `divergenceE` to the PDE Laplacian. -/
+lemma divergenceE_gradient_eq_laplacian {n : ℕ} (f : (ℝ^n) → ℝ) (hf : ContDiff ℝ 2 f) (x : ℝ^n) :
+    divergenceE (gradient f) x = Laplacian.laplacian f x := by
+  have hfdiff : Differentiable ℝ f := hf.differentiable (by norm_num)
+  have hfd1 : ContDiff ℝ 1 (fderiv ℝ f) := hf.fderiv_right (by norm_num)
+  have hfd2 : HasFDerivAt (fderiv ℝ f) (fderiv ℝ (fderiv ℝ f) x) x :=
+    (hfd1.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+  -- coordinate extraction `w j = ⟪single j 1, w⟫`
+  have hInnerCoord : ∀ (w : ℝ^n) (j : Fin n), w.ofLp j = ⟪EuclideanSpace.single j (1:ℝ), w⟫ := by
+    intro w j
+    rw [PiLp.inner_apply]
+    simp [real_inner_scalars]
+  -- coordinate formula `(∇f y) j = fderiv f y eⱼ`
+  have hcoord : ∀ (y : ℝ^n) (j : Fin n),
+      (gradient f y).ofLp j = fderiv ℝ f y (EuclideanSpace.single j 1) := by
+    intro y j
+    rw [hInnerCoord, real_inner_comm]
+    exact inner_gradient_left (hfdiff y)
+  have hcoordfun : ∀ i : Fin n, (fun y => (gradient f y).ofLp i)
+      = fun y => fderiv ℝ f y (EuclideanSpace.single i 1) := fun i => funext (fun y => hcoord y i)
+  -- `∇f` is `C¹`, hence differentiable
+  have hgrad_cd : ContDiff ℝ 1 (gradient f) := by
+    rw [contDiff_euclidean]
+    intro i
+    rw [hcoordfun i]
+    exact (ContinuousLinearMap.apply ℝ ℝ (EuclideanSpace.single i 1)).contDiff.comp hfd1
+  have hgrad_fd : HasFDerivAt (gradient f) (fderiv ℝ (gradient f) x) x :=
+    (hgrad_cd.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+  rw [divergenceE, show Laplacian.laplacian f x = ∑ i, iteratedFDeriv ℝ 2 f x
+      ![EuclideanSpace.basisFun (Fin n) ℝ i, EuclideanSpace.basisFun (Fin n) ℝ i] from
+    congr_fun (InnerProductSpace.laplacian_eq_iteratedFDeriv_orthonormalBasis f
+      (EuclideanSpace.basisFun (Fin n) ℝ)) x]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [EuclideanSpace.basisFun_apply, iteratedFDeriv_two_apply]
+  simp only [Matrix.cons_val_zero, Matrix.cons_val_one]
+  -- coordinate-of-derivative = derivative-of-coordinate (via `innerSL`)
+  have h1 : HasFDerivAt (fun y => (gradient f y).ofLp i)
+      ((innerSL ℝ (EuclideanSpace.single i (1:ℝ))).comp (fderiv ℝ (gradient f) x)) x := by
+    refine ((innerSL ℝ (EuclideanSpace.single i (1:ℝ))).hasFDerivAt.comp x
+      hgrad_fd).congr_of_eventuallyEq (Filter.Eventually.of_forall (fun y => ?_))
+    rw [Function.comp_apply, innerSL_apply_apply, ← hInnerCoord]
+  have hG : HasFDerivAt (fun y => fderiv ℝ f y (EuclideanSpace.single i 1))
+      ((ContinuousLinearMap.apply ℝ ℝ (EuclideanSpace.single i 1)).comp
+        (fderiv ℝ (fderiv ℝ f) x)) x :=
+    ((ContinuousLinearMap.apply ℝ ℝ (EuclideanSpace.single i 1)).hasFDerivAt.comp x
+      hfd2).congr_of_eventuallyEq (Filter.Eventually.of_forall (fun y => rfl))
+  have e1 : ((fderiv ℝ (gradient f) x) (EuclideanSpace.single i 1)).ofLp i
+      = fderiv ℝ (fun y => (gradient f y).ofLp i) x (EuclideanSpace.single i 1) := by
+    rw [h1.fderiv, ContinuousLinearMap.comp_apply, innerSL_apply_apply, ← hInnerCoord]
+  rw [e1, hcoordfun i, hG.fderiv, ContinuousLinearMap.comp_apply, ContinuousLinearMap.apply_apply]
+
 end AreaFormula
 
 end
