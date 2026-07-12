@@ -3510,6 +3510,105 @@ lemma divergenceE_gradient_eq_laplacian {n : ℕ} (f : (ℝ^n) → ℝ) (hf : Co
     rw [h1.fderiv, ContinuousLinearMap.comp_apply, innerSL_apply_apply, ← hInnerCoord]
   rw [e1, hcoordfun i, hG.fderiv, ContinuousLinearMap.comp_apply, ContinuousLinearMap.apply_apply]
 
+
+/-! ### Green's identities
+
+With the divergence–Laplacian bridge in hand, Green's identities are corollaries of the divergence
+theorem on any bounded `C¹` domain: for `F = u ∇v − v ∇u` the divergence is `u Δv − v Δu` (the
+`∇u·∇v` cross-terms cancel), giving `∫_Ω (u Δv − v Δu) = ∫_∂Ω (u ∂ᵥv − v ∂ᵥu) dσ`. -/
+
+/-- The real inner product on `EuclideanSpace` in coordinates. -/
+lemma inner_eq_sum_coord {n : ℕ} (a b : ℝ^n) : (⟪a, b⟫ : ℝ) = ∑ i, a.ofLp i * b.ofLp i := by
+  rw [PiLp.inner_apply]; exact Finset.sum_congr rfl (fun i _ => real_inner_scalars _ _)
+
+/-- `⟪w, eᵢ⟫` reads off the `i`-th coordinate. -/
+lemma inner_single_coord {n : ℕ} (w : ℝ^n) (i : Fin n) :
+    (⟪w, EuclideanSpace.single i (1:ℝ)⟫ : ℝ) = w.ofLp i := by
+  rw [inner_eq_sum_coord]; simp
+
+/-- **Coordinate formula for the gradient**: `(∇f x)ᵢ = fderiv f x eᵢ`. -/
+lemma gradient_ofLp {n : ℕ} {f : (ℝ^n) → ℝ} {x : ℝ^n} (hf : DifferentiableAt ℝ f x) (i : Fin n) :
+    (gradient f x).ofLp i = fderiv ℝ f x (EuclideanSpace.single i 1) := by
+  rw [← inner_single_coord (gradient f x) i]
+  exact inner_gradient_left hf
+
+open InnerProductSpace in
+/-- **The gradient of a `C²` function is `C¹`.** -/
+lemma contDiff_gradient {n : ℕ} {f : (ℝ^n) → ℝ} (hf : ContDiff ℝ 2 f) :
+    ContDiff ℝ 1 (gradient f) := by
+  rw [contDiff_euclidean]
+  intro i
+  have he : (fun x => (gradient f x).ofLp i)
+      = fun x => fderiv ℝ f x (EuclideanSpace.single i 1) :=
+    funext (fun x => gradient_ofLp (hf.differentiable (by norm_num) x) i)
+  rw [he]
+  exact (ContinuousLinearMap.apply ℝ ℝ (EuclideanSpace.single i 1)).contDiff.comp
+    (hf.fderiv_right (m := 1) (by norm_num))
+
+/-- **Divergence is additive under subtraction.** -/
+lemma divergenceE_sub {n : ℕ} (F G : (ℝ^n) → (ℝ^n)) (x : ℝ^n)
+    (hF : DifferentiableAt ℝ F x) (hG : DifferentiableAt ℝ G x) :
+    divergenceE (fun y => F y - G y) x = divergenceE F x - divergenceE G x := by
+  simp only [divergenceE]
+  rw [← Finset.sum_sub_distrib]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [fderiv_fun_sub hF hG]
+  simp [ContinuousLinearMap.sub_apply]
+
+/-- **Divergence product rule** (scalar times vector field):
+`div(u·G) = ⟪∇u, G⟫ + u·div G`. -/
+lemma divergenceE_smul {n : ℕ} (u : (ℝ^n) → ℝ) (G : (ℝ^n) → (ℝ^n)) (x : ℝ^n)
+    (hu : DifferentiableAt ℝ u x) (hG : DifferentiableAt ℝ G x) :
+    divergenceE (fun y => u y • G y) x = ⟪gradient u x, G x⟫ + u x * divergenceE G x := by
+  have hfd : HasFDerivAt (fun y => u y • G y)
+      (u x • (fderiv ℝ G x) + (fderiv ℝ u x).smulRight (G x)) x := hu.hasFDerivAt.smul hG.hasFDerivAt
+  simp only [divergenceE]
+  rw [inner_eq_sum_coord, Finset.mul_sum, ← Finset.sum_add_distrib]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [hfd.fderiv, gradient_ofLp hu i]
+  simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply,
+    ContinuousLinearMap.smulRight_apply, WithLp.ofLp_add, WithLp.ofLp_smul,
+    Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+  ring
+
+/-- **Green's second identity** on a bounded `C¹` domain: for `u, v ∈ C²`,
+`∫_Ω (u Δv − v Δu) = ∫_∂Ω (u ∂ᵥv − v ∂ᵥu) dσ`. Obtained from the divergence theorem applied to
+`F = u ∇v − v ∇u`, whose divergence is `u Δv − v Δu` (the `∇u·∇v` cross-terms cancel). -/
+theorem green_second_identity {m : ℕ} {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
+    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν)
+    (u v : (ℝ^(m + 2)) → ℝ) (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v) :
+    ∫ x in Ω, (u x * Laplacian.laplacian v x - v x * Laplacian.laplacian u x)
+      = ∫ x in frontier Ω, (u x * ⟪gradient v x, ν x⟫ - v x * ⟪gradient u x, ν x⟫)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  set F : (ℝ^(m + 2)) → (ℝ^(m + 2)) := fun y => u y • gradient v y - v y • gradient u y with hFdef
+  have hgv : ContDiff ℝ 1 (gradient v) := contDiff_gradient hv
+  have hgu : ContDiff ℝ 1 (gradient u) := contDiff_gradient hu
+  have hu1 : ContDiff ℝ 1 u := hu.of_le (by norm_num)
+  have hv1 : ContDiff ℝ 1 v := hv.of_le (by norm_num)
+  have hFcd : ContDiff ℝ 1 F := by rw [hFdef]; exact (hu1.smul hgv).sub (hv1.smul hgu)
+  have hdt := divergence_theorem hΩ hν hFcd
+  have hdivF : ∀ x, divergenceE F x
+      = u x * Laplacian.laplacian v x - v x * Laplacian.laplacian u x := by
+    intro x
+    have hud := hu1.differentiable (by norm_num) x
+    have hvd := hv1.differentiable (by norm_num) x
+    have hgvd := hgv.differentiable (by norm_num) x
+    have hgud := hgu.differentiable (by norm_num) x
+    rw [hFdef, divergenceE_sub (fun y => u y • gradient v y) (fun y => v y • gradient u y) x
+        (hud.smul hgvd) (hvd.smul hgud),
+      divergenceE_smul u (gradient v) x hud hgvd, divergenceE_smul v (gradient u) x hvd hgud,
+      divergenceE_gradient_eq_laplacian v hv, divergenceE_gradient_eq_laplacian u hu,
+      real_inner_comm (gradient v x) (gradient u x)]
+    ring
+  have hfluxF : ∀ x, (⟪F x, ν x⟫ : ℝ)
+      = u x * ⟪gradient v x, ν x⟫ - v x * ⟪gradient u x, ν x⟫ := by
+    intro x
+    rw [hFdef]
+    simp only [inner_sub_left, real_inner_smul_left]
+  rw [setIntegral_congr_fun hΩ.measurableSet (fun x _ => hdivF x),
+    setIntegral_congr_fun isClosed_frontier.measurableSet (fun x _ => hfluxF x)] at hdt
+  exact hdt
+
 end AreaFormula
 
 end
