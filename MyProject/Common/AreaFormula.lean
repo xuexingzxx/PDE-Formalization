@@ -3669,6 +3669,40 @@ theorem green_identity_annulus (x : ℝ^(m + 2)) (r ε : ℝ) (hr : 0 < r) (hε 
   rw [setIntegral_diff measurableSet_ball hint (Metric.ball_subset_ball hεr.le),
     green_identity_ball x r hr u v hu hv, green_identity_ball x ε hε u v hu hv]
 
+/-- **Green's first identity** on a bounded `C¹` domain: for `u, v ∈ C²`,
+`∫_Ω (u Δv + ⟪∇u,∇v⟫) = ∫_∂Ω u ⟪∇v,ν⟫ dσ`. Obtained from the divergence theorem applied to
+`F = u ∇v`, whose divergence is `⟪∇u,∇v⟫ + u Δv`. -/
+theorem green_first_identity {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
+    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν)
+    (u v : (ℝ^(m + 2)) → ℝ) (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v) :
+    ∫ x in Ω, (u x * Laplacian.laplacian v x + ⟪gradient u x, gradient v x⟫)
+      = ∫ x in frontier Ω, u x * ⟪gradient v x, ν x⟫
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have hu1 : ContDiff ℝ 1 u := hu.of_le (by norm_num)
+  have hgv : ContDiff ℝ 1 (gradient v) := contDiff_gradient hv
+  have hdt := divergence_theorem hΩ hν (F := fun y => u y • gradient v y) (hu1.smul hgv)
+  have hdiv : ∀ x, divergenceE (fun y => u y • gradient v y) x
+      = u x * Laplacian.laplacian v x + ⟪gradient u x, gradient v x⟫ := by
+    intro x
+    rw [divergenceE_smul u (gradient v) x (hu1.differentiable (by norm_num) x)
+        (hgv.differentiable (by norm_num) x), divergenceE_gradient_eq_laplacian v hv]
+    ring
+  have hflux : ∀ x, (⟪(fun y => u y • gradient v y) x, ν x⟫ : ℝ) = u x * ⟪gradient v x, ν x⟫ :=
+    fun x => real_inner_smul_left _ _ _
+  rw [setIntegral_congr_fun hΩ.measurableSet (fun x _ => hdiv x),
+    setIntegral_congr_fun isClosed_frontier.measurableSet (fun x _ => hflux x)] at hdt
+  exact hdt
+
+/-- **Green's first identity on a ball.** -/
+theorem green_first_identity_ball (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u v : (ℝ^(m + 2)) → ℝ)
+    (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v) :
+    ∫ y in Metric.ball x r, (u y * Laplacian.laplacian v y + ⟪gradient u y, gradient v y⟫)
+      = ∫ y in Metric.sphere x r, u y * ⟪gradient v y, r⁻¹ • (y - x)⟫
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have h := green_first_identity (isBoundedC1Domain_ball x r hr)
+    (isOutwardNormal_ball x r hr) u v hu hv
+  rwa [frontier_ball x hr.ne'] at h
+
 end AreaFormula
 
 end
