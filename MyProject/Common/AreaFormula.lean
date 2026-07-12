@@ -3609,6 +3609,66 @@ theorem green_second_identity {m : ℕ} {Ω : Set (ℝ^(m + 2))} (hΩ : IsBounde
     setIntegral_congr_fun isClosed_frontier.measurableSet (fun x _ => hfluxF x)] at hdt
   exact hdt
 
+/-! ### Green's identities on balls and annuli
+
+Specializing to the ball (`isBoundedC1Domain_ball` + `isOutwardNormal_ball`, whose frontier is a
+sphere and whose outward normal is `r⁻¹(y−x)`), and then to the annulus by additivity of the volume
+integral (`∫_{B(x,r)\B(x,ε)} = ∫_{B(x,r)} − ∫_{B(x,ε)}`). The inner-sphere flux enters with a minus
+sign because the annulus's outward normal there points into the removed ball. All surface integrals
+use the Euclidean surface measure `μHE`. -/
+
+/-- **Green's second identity on a ball.** -/
+theorem green_identity_ball (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u v : (ℝ^(m + 2)) → ℝ)
+    (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v) :
+    ∫ y in Metric.ball x r, (u y * Laplacian.laplacian v y - v y * Laplacian.laplacian u y)
+      = ∫ y in Metric.sphere x r,
+          (u y * ⟪gradient v y, r⁻¹ • (y - x)⟫ - v y * ⟪gradient u y, r⁻¹ • (y - x)⟫)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have h := green_second_identity (isBoundedC1Domain_ball x r hr)
+    (isOutwardNormal_ball x r hr) u v hu hv
+  rwa [frontier_ball x hr.ne'] at h
+
+/-- **Divergence theorem for the Laplacian on a ball**: `∫_B Δu = ∫_∂B ⟪∇u, ν⟫ dσ`. -/
+theorem integral_laplacian_ball (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u : (ℝ^(m + 2)) → ℝ)
+    (hu : ContDiff ℝ 2 u) :
+    ∫ y in Metric.ball x r, Laplacian.laplacian u y
+      = ∫ y in Metric.sphere x r, ⟪gradient u y, r⁻¹ • (y - x)⟫
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have h := divergence_theorem (isBoundedC1Domain_ball x r hr)
+    (isOutwardNormal_ball x r hr) (contDiff_gradient hu)
+  rw [frontier_ball x hr.ne',
+    setIntegral_congr_fun (isBoundedC1Domain_ball x r hr).measurableSet
+      (fun y _ => divergenceE_gradient_eq_laplacian u hu y)] at h
+  exact h
+
+/-- The Laplacian of a `C²` function is continuous. -/
+lemma continuous_laplacian {f : (ℝ^(m + 2)) → ℝ} (hf : ContDiff ℝ 2 f) :
+    Continuous (Laplacian.laplacian f) := by
+  have he : Laplacian.laplacian f = divergenceE (gradient f) :=
+    funext (fun y => (divergenceE_gradient_eq_laplacian f hf y).symm)
+  rw [he]; exact continuous_divergenceE (contDiff_gradient hf)
+
+/-- **Green's second identity on an annulus** `B(x,r) \ B(x,ε)` (Euclidean surface measure). The
+inner-sphere flux enters with a minus sign (its outward normal points into `B(x,ε)`). -/
+theorem green_identity_annulus (x : ℝ^(m + 2)) (r ε : ℝ) (hr : 0 < r) (hε : 0 < ε) (hεr : ε < r)
+    (u v : (ℝ^(m + 2)) → ℝ) (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v) :
+    ∫ y in Metric.ball x r \ Metric.ball x ε,
+        (u y * Laplacian.laplacian v y - v y * Laplacian.laplacian u y)
+      = (∫ y in Metric.sphere x r,
+          (u y * ⟪gradient v y, r⁻¹ • (y - x)⟫ - v y * ⟪gradient u y, r⁻¹ • (y - x)⟫)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      - (∫ y in Metric.sphere x ε,
+          (u y * ⟪gradient v y, ε⁻¹ • (y - x)⟫ - v y * ⟪gradient u y, ε⁻¹ • (y - x)⟫)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))) := by
+  have hcont : Continuous (fun y => u y * Laplacian.laplacian v y - v y * Laplacian.laplacian u y) :=
+    (hu.continuous.mul (continuous_laplacian hv)).sub (hv.continuous.mul (continuous_laplacian hu))
+  have hint : IntegrableOn (fun y => u y * Laplacian.laplacian v y - v y * Laplacian.laplacian u y)
+      (Metric.ball x r) :=
+    (hcont.locallyIntegrable.integrableOn_isCompact (isCompact_closedBall x r)).mono_set
+      Metric.ball_subset_closedBall
+  rw [setIntegral_diff measurableSet_ball hint (Metric.ball_subset_ball hεr.le),
+    green_identity_ball x r hr u v hu hv, green_identity_ball x ε hε u v hu hv]
+
 end AreaFormula
 
 end
