@@ -3703,6 +3703,80 @@ theorem green_first_identity_ball (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u v 
     (isOutwardNormal_ball x r hr) u v hu hv
   rwa [frontier_ball x hr.ne'] at h
 
+/-! ### Rescaling surface integrals to the unit sphere
+
+The dilation `ω ↦ x + r•ω` maps `∂B(0,1)` onto `∂B(x,r)` and scales the `(m+1)`-dimensional surface
+measure by `r^(m+1)`. This reduces any surface integral over `∂B(x,r)` to the fixed unit sphere — the
+change of variables underlying differentiation of spherical means. -/
+
+/-- `μHE[d]` scales by `‖c‖^d` under dilation (from the raw Hausdorff scaling). -/
+lemma μHE_smul_set {d : ℕ} {c : ℝ} (hc : c ≠ 0) (s : Set (ℝ^(m + 2))) :
+    (μHE[d] : Measure (ℝ^(m + 2))) (c • s) = (‖c‖₊ : ℝ≥0∞) ^ d * μHE[d] s := by
+  rw [euclideanHausdorffMeasure_def, Measure.smul_apply, Measure.smul_apply,
+    hausdorffMeasure_smul₀ (by positivity) hc, NNReal.rpow_natCast]
+  simp only [ENNReal.smul_def, ENNReal.coe_pow, smul_eq_mul]
+  ring
+
+/-- `μHE[d]` is translation-invariant. -/
+lemma μHE_vadd_set {d : ℕ} (x : ℝ^(m + 2)) (s : Set (ℝ^(m + 2))) :
+    (μHE[d] : Measure (ℝ^(m + 2))) ((fun y => x + y) '' s) = μHE[d] s :=
+  (isometry_add_left x).euclideanHausdorffMeasure_image s
+
+/-- Pushforward of `μHE` under a dilation `r • ·`. -/
+lemma map_smul_μHE {d : ℕ} {r : ℝ} (hr : r ≠ 0) :
+    Measure.map (fun ω : ℝ^(m + 2) => r • ω) (μHE[d] : Measure (ℝ^(m + 2)))
+      = ((‖(r⁻¹ : ℝ)‖₊ : ℝ≥0∞) ^ d) • μHE[d] := by
+  ext s hs
+  rw [Measure.map_apply (measurable_const_smul r) hs, Measure.smul_apply, smul_eq_mul,
+    Set.preimage_smul₀ hr, μHE_smul_set (inv_ne_zero hr)]
+
+/-- Pushforward of `μHE` under a translation (invariant). -/
+lemma map_add_μHE {d : ℕ} (x : ℝ^(m + 2)) :
+    Measure.map (fun z : ℝ^(m + 2) => x + z) (μHE[d] : Measure (ℝ^(m + 2))) = μHE[d] := by
+  ext s hs
+  rw [Measure.map_apply (measurable_const_add x) hs]
+  have hpre : (fun z : ℝ^(m + 2) => x + z) ⁻¹' s = (fun y => -x + y) '' s := by
+    ext ω
+    simp only [Set.mem_preimage, Set.mem_image]
+    constructor
+    · intro h; exact ⟨x + ω, h, by abel⟩
+    · rintro ⟨w, hw, rfl⟩; rwa [← add_assoc, add_neg_cancel, zero_add]
+  rw [hpre, μHE_vadd_set]
+
+set_option maxHeartbeats 1000000 in
+-- The `EuclideanSpace`/measure manipulation repeatedly forces slow normalization, exceeding the
+-- default heartbeat budget.
+/-- **Surface-integral rescaling.** For `r > 0`, integrating over `∂B(x,r)` reduces to the unit
+sphere by the dilation `ω ↦ x + r•ω`, with the Jacobian factor `r^(m+1)`. -/
+theorem setIntegral_sphere_rescale (x : ℝ^(m + 2)) {r : ℝ} (hr : 0 < r) (f : (ℝ^(m + 2)) → ℝ) :
+    ∫ y in Metric.sphere x r, f y ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+      = r ^ (m + 1) • ∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, f (x + r • ω)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  set g : (ℝ^(m + 2)) → (ℝ^(m + 2)) := fun ω => x + r • ω with hgdef
+  have hgemb : MeasurableEmbedding g :=
+    ((Homeomorph.smulOfNeZero r hr.ne').trans (Homeomorph.addLeft x)).measurableEmbedding
+  have hmap : Measure.map g (μHE[m + 1] : Measure (ℝ^(m + 2)))
+      = ((‖(r⁻¹ : ℝ)‖₊ : ℝ≥0∞) ^ (m + 1)) • μHE[m + 1] := by
+    have hcomp : g = (fun z => x + z) ∘ (fun ω => r • ω) := rfl
+    rw [hcomp, ← Measure.map_map (measurable_const_add x) (measurable_const_smul r),
+      map_smul_μHE hr.ne', Measure.map_smul, map_add_μHE]
+  have hpreimage : g ⁻¹' (Metric.sphere x r) = Metric.sphere (0 : ℝ^(m + 2)) 1 := by
+    ext ω
+    simp only [hgdef, Set.mem_preimage, Metric.mem_sphere, dist_eq_norm, add_sub_cancel_left,
+      norm_smul, Real.norm_eq_abs, abs_of_pos hr, sub_zero]
+    constructor
+    · intro h; exact mul_left_cancel₀ hr.ne' (by rw [h, mul_one])
+    · intro h; rw [h, mul_one]
+  have h1 := hgemb.setIntegral_map (μ := (μHE[m + 1] : Measure (ℝ^(m + 2)))) f (Metric.sphere x r)
+  rw [hmap, hpreimage] at h1
+  simp only [Measure.restrict_smul, integral_smul_measure] at h1
+  have hc : ((‖(r⁻¹ : ℝ)‖₊ : ℝ≥0∞) ^ (m + 1)).toReal = (r ^ (m + 1))⁻¹ := by
+    rw [ENNReal.toReal_pow, ENNReal.coe_toReal, coe_nnnorm, Real.norm_eq_abs,
+      abs_of_pos (inv_pos.mpr hr), ← inv_pow]
+  rw [hc] at h1
+  simp only [hgdef] at h1
+  rw [← h1, smul_smul, mul_inv_cancel₀ (by positivity : (r : ℝ) ^ (m + 1) ≠ 0), one_smul]
+
 end AreaFormula
 
 end
