@@ -3795,6 +3795,65 @@ theorem setAverage_sphere_rescale (x : ℝ^(m + 2)) {r : ℝ} (hr : 0 < r) (f : 
   simp only [measureReal_def]
   rw [hmeas, smul_smul, hcancel]
 
+set_option maxHeartbeats 1000000 in
+-- Differentiation under the integral over the unit sphere repeatedly normalizes `EuclideanSpace`
+-- projections and measure terms, exceeding the default heartbeat budget.
+/-- **Derivative of the (unnormalized) spherical mean.** Differentiating under the integral over the
+fixed unit sphere: `d/ds ∫_{∂B(0,1)} u(x+sω) dσ = ∫_{∂B(0,1)} ⟪∇u(x+sω), ω⟫ dσ`. -/
+theorem hasDerivAt_sphere_integral (x : ℝ^(m + 2)) (u : (ℝ^(m + 2)) → ℝ) (hu : ContDiff ℝ 2 u)
+    (s₀ : ℝ) :
+    HasDerivAt (fun s => ∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + s • ω)
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      (∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, ⟪gradient u (x + s₀ • ω), ω⟫
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))) s₀ := by
+  set μ := (μHE[m + 1] : Measure (ℝ^(m + 2))).restrict (Metric.sphere (0 : ℝ^(m + 2)) 1) with hμ
+  have hfin : (μHE[m + 1] : Measure (ℝ^(m + 2))) (Metric.sphere (0 : ℝ^(m + 2)) 1) < ⊤ := by
+    have h := surfaceMeasure_frontier_lt_top (isBoundedC1Domain_ball (0 : ℝ^(m + 2)) 1 one_pos)
+    rwa [frontier_ball (0 : ℝ^(m + 2)) one_ne_zero] at h
+  haveI : IsFiniteMeasure μ := ⟨by rw [hμ, Measure.restrict_apply_univ]; exact hfin⟩
+  set K : Set (ℝ^(m + 2)) := (fun p : ℝ × (ℝ^(m + 2)) => x + p.1 • p.2)
+    '' (Set.Icc (s₀ - 1) (s₀ + 1) ×ˢ Metric.sphere (0 : ℝ^(m + 2)) 1) with hK
+  have hKc : IsCompact K :=
+    (isCompact_Icc.prod (isCompact_sphere (0 : ℝ^(m + 2)) 1)).image
+      (continuous_const.add (continuous_fst.smul continuous_snd))
+  obtain ⟨C, hC⟩ := hKc.exists_bound_of_continuousOn (contDiff_gradient hu).continuous.continuousOn
+  have hmemK : ∀ s ∈ Metric.ball s₀ 1, ∀ ω ∈ Metric.sphere (0 : ℝ^(m + 2)) 1, x + s • ω ∈ K := by
+    intro s hs ω hω
+    rw [Metric.mem_ball, Real.dist_eq, abs_lt] at hs
+    exact ⟨(s, ω), ⟨⟨by linarith [hs.1], by linarith [hs.2]⟩, hω⟩, rfl⟩
+  have hcont₀ : Continuous (fun ω : ℝ^(m + 2) => u (x + s₀ • ω)) :=
+    hu.continuous.comp (continuous_const.add (continuous_const.smul continuous_id))
+  have hdiff : ∀ ω : ℝ^(m + 2), ∀ s : ℝ,
+      HasDerivAt (fun s => u (x + s • ω)) (⟪gradient u (x + s • ω), ω⟫) s := by
+    intro ω s
+    have hline : HasDerivAt (fun t : ℝ => x + t • ω) ω s := by
+      simpa using ((hasDerivAt_id (x := s)).smul_const ω).const_add x
+    have hcomp := (hu.differentiable (by norm_num) (x + s • ω)).hasFDerivAt.comp_hasDerivAt s hline
+    rwa [inner_gradient_left (hu.differentiable (by norm_num) _)]
+  refine (hasDerivAt_integral_of_dominated_loc_of_deriv_le (bound := fun _ => C)
+    (F := fun s ω => u (x + s • ω)) (F' := fun s ω => ⟪gradient u (x + s • ω), ω⟫)
+    (ball_mem_nhds s₀ one_pos) ?_ ?_ ?_ ?_ (integrable_const C) ?_).2
+  · refine Filter.Eventually.of_forall (fun s => ?_)
+    exact (hu.continuous.comp
+      (continuous_const.add (continuous_const.smul continuous_id))).aestronglyMeasurable
+  · obtain ⟨M, hM⟩ := (isCompact_sphere (0 : ℝ^(m + 2)) 1).exists_bound_of_continuousOn
+      hcont₀.continuousOn
+    refine (integrable_const M).mono' hcont₀.aestronglyMeasurable
+      (ae_restrict_of_forall_mem isClosed_sphere.measurableSet (fun ω hω => ?_))
+    exact hM ω hω
+  · have hcont : Continuous (fun ω : ℝ^(m + 2) => ⟪gradient u (x + s₀ • ω), ω⟫) :=
+      ((contDiff_gradient hu).continuous.comp
+        (continuous_const.add (continuous_const.smul continuous_id))).inner continuous_id
+    exact hcont.aestronglyMeasurable
+  · refine (ae_restrict_of_forall_mem isClosed_sphere.measurableSet (fun ω hω => ?_))
+    intro s hs
+    calc ‖(⟪gradient u (x + s • ω), ω⟫ : ℝ)‖ ≤ ‖gradient u (x + s • ω)‖ * ‖ω‖ :=
+          norm_inner_le_norm _ _
+      _ = ‖gradient u (x + s • ω)‖ := by
+          rw [Metric.mem_sphere, dist_zero_right] at hω; rw [hω, mul_one]
+      _ ≤ C := hC _ (hmemK s hs ω hω)
+  · exact Filter.Eventually.of_forall (fun ω s _ => hdiff ω s)
+
 end AreaFormula
 
 end
