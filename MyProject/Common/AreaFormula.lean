@@ -3777,6 +3777,24 @@ theorem setIntegral_sphere_rescale (x : ℝ^(m + 2)) {r : ℝ} (hr : 0 < r) (f :
   simp only [hgdef] at h1
   rw [← h1, smul_smul, mul_inv_cancel₀ (by positivity : (r : ℝ) ^ (m + 1) ≠ 0), one_smul]
 
+/-- **Average rescaling.** The spherical average over `∂B(x,r)` equals the average over the unit
+sphere of `ω ↦ f(x + r•ω)` (the `r^(m+1)` Jacobian cancels in the average). -/
+theorem setAverage_sphere_rescale (x : ℝ^(m + 2)) {r : ℝ} (hr : 0 < r) (f : (ℝ^(m + 2)) → ℝ) :
+    ⨍ y in Metric.sphere x r, f y ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+      = ⨍ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, f (x + r • ω)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  have hmeas : (μHE[m + 1] (Metric.sphere x r)).toReal
+      = r ^ (m + 1) * (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal := by
+    have h := setIntegral_sphere_rescale x hr (fun _ : ℝ^(m + 2) => (1:ℝ))
+    simpa [setIntegral_const, smul_eq_mul] using h
+  have hcancel : (r ^ (m + 1) * (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal)⁻¹ * r ^ (m + 1)
+      = (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal⁻¹ := by
+    rw [_root_.mul_inv_rev, mul_assoc, inv_mul_cancel₀ (by positivity : (r : ℝ) ^ (m + 1) ≠ 0),
+      mul_one]
+  rw [setAverage_eq, setAverage_eq, setIntegral_sphere_rescale x hr f]
+  simp only [measureReal_def]
+  rw [hmeas, smul_smul, hcancel]
+
 end AreaFormula
 
 end
