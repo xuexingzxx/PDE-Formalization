@@ -3854,6 +3854,78 @@ theorem hasDerivAt_sphere_integral (x : ℝ^(m + 2)) (u : (ℝ^(m + 2)) → ℝ)
       _ ≤ C := hC _ (hmemK s hs ω hω)
   · exact Filter.Eventually.of_forall (fun ω s _ => hdiff ω s)
 
+/-! ### The mean-value property for harmonic functions
+
+Assembling the pieces: the spherical mean `⨍_{∂B(x,s)} u` equals `⨍_{∂B(0,1)} u(x+sω)`, whose
+`s`-derivative is `(1/σ)∫_{∂B(0,1)} ⟪∇u(x+sω),ω⟫`; that flux integral equals `s^{-(m+1)}∫_B Δu` (via
+`integral_laplacian_ball`), which vanishes for harmonic `u`. Hence the mean is constant in `s`, and
+its value at `s→0` is `u(x)`. -/
+
+/-- For a function harmonic on `closedBall x s`, the derivative of the spherical mean vanishes:
+`∫_{∂B(0,1)} ⟪∇u(x+sω), ω⟫ dσ = 0`. -/
+theorem sphere_integral_grad_eq_zero (x : ℝ^(m + 2)) {s : ℝ} (hs : 0 < s) (u : (ℝ^(m + 2)) → ℝ)
+    (hu : ContDiff ℝ 2 u) (hΔ : ∀ y ∈ Metric.closedBall x s, Laplacian.laplacian u y = 0) :
+    ∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, ⟪gradient u (x + s • ω), ω⟫
+      ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) = 0 := by
+  have hΔ0 : ∫ y in Metric.ball x s, Laplacian.laplacian u y
+      ∂(volume : Measure (ℝ^(m + 2))) = 0 := by
+    rw [setIntegral_congr_fun measurableSet_ball
+      (fun y hy => hΔ y (Metric.ball_subset_closedBall hy))]
+    simp
+  have hlap := integral_laplacian_ball x s hs u hu
+  rw [hΔ0] at hlap
+  have hrescale := setIntegral_sphere_rescale x hs
+    (fun y => (⟪gradient u y, s⁻¹ • (y - x)⟫ : ℝ))
+  rw [← hlap] at hrescale
+  have hsimp : ∀ ω : ℝ^(m + 2),
+      (⟪gradient u (x + s • ω), s⁻¹ • ((x + s • ω) - x)⟫ : ℝ)
+        = ⟪gradient u (x + s • ω), ω⟫ := by
+    intro ω
+    rw [add_sub_cancel_left, smul_smul, inv_mul_cancel₀ hs.ne', one_smul]
+  simp only [hsimp] at hrescale
+  exact (smul_eq_zero.mp hrescale.symm).resolve_left (pow_pos hs (m + 1)).ne'
+
+/-- The unit sphere has positive (finite) surface measure. -/
+lemma sphere_surfaceMeasure_pos : 0 < ((μHE[m + 1] : Measure (ℝ^(m + 2)))
+    (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal := by
+  rw [sphere_surfaceMeasure (0 : ℝ^(m + 2)) 1 one_pos]
+  have hvol : 0 < (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal := by
+    rw [ENNReal.toReal_pos_iff]
+    exact ⟨measure_ball_pos volume 0 one_pos, measure_ball_lt_top⟩
+  positivity
+
+/-- **Mean-value property (μHE surface measure).** A function harmonic on `closedBall x r` equals
+its spherical average over `∂B(x,r)`. -/
+theorem harmonic_sphereMean_μHE (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u : (ℝ^(m + 2)) → ℝ)
+    (hu : ContDiff ℝ 2 u) (hΔ : ∀ y ∈ Metric.closedBall x r, Laplacian.laplacian u y = 0) :
+    u x = ⨍ y in Metric.sphere x r, u y ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+  set Φ : ℝ → ℝ := fun s => ∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + s • ω) ∂μHE[m + 1]
+    with hΦ
+  set d : ℝ → ℝ := fun s => ∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1,
+    ⟪gradient u (x + s • ω), ω⟫ ∂μHE[m + 1] with hd
+  have hΦderiv : ∀ s, HasDerivAt Φ (d s) s := fun s => hasDerivAt_sphere_integral x u hu s
+  obtain ⟨c, hc, hslope⟩ := exists_hasDerivAt_eq_slope Φ d hr
+    (fun s _ => (hΦderiv s).continuousAt.continuousWithinAt) (fun s _ => hΦderiv s)
+  have hdc : d c = 0 := sphere_integral_grad_eq_zero x hc.1 u hu
+    (fun y hy => hΔ y (Metric.closedBall_subset_closedBall hc.2.le hy))
+  have hΦeq : Φ r = Φ 0 := by
+    have h0 : (Φ r - Φ 0) / (r - 0) = 0 := by rw [← hslope, hdc]
+    rw [div_eq_zero_iff] at h0
+    rcases h0 with h | h
+    · exact sub_eq_zero.mp h
+    · exact absurd (by linarith : r = 0) hr.ne'
+  rw [setAverage_sphere_rescale x hr u, setAverage_eq]
+  have hΦ0 : (∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + r • ω) ∂μHE[m + 1])
+      = (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal • u x := by
+    calc (∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + r • ω) ∂μHE[m + 1])
+        = ∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + (0:ℝ) • ω) ∂μHE[m + 1] := hΦeq
+      _ = ∫ ω in Metric.sphere (0 : ℝ^(m + 2)) 1, u x ∂μHE[m + 1] := by
+          simp only [zero_smul, add_zero]
+      _ = (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal • u x := setIntegral_const (u x)
+  rw [hΦ0]
+  simp only [measureReal_def]
+  rw [smul_smul, inv_mul_cancel₀ sphere_surfaceMeasure_pos.ne', one_smul]
+
 end AreaFormula
 
 end
