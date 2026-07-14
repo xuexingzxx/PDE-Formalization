@@ -552,6 +552,53 @@ end AreaFormula
 
 
 open MeasureTheory InnerProductSpace Set Laplacian Topology
+open scoped ENNReal NNReal
+
+/-! ### Scaling invariance of averages
+
+The average `⨍` is unchanged when the underlying measure is scaled by a nonzero finite constant.
+This is the bridge between the Riemannian surface measure `μHE[d]` (`= c₀ • μH[d]`, `c₀ ≠ 0, ∞`)
+used by the divergence theorem and the raw Hausdorff measure `μH[d]` used to define `sphereMean`. -/
+
+/-- The average is invariant under scaling the measure by a nonzero finite constant. -/
+lemma average_smul_measure' {α E : Type*} [MeasurableSpace α] [NormedAddCommGroup E]
+    [NormedSpace ℝ E] {c : ℝ≥0∞} (hc : c ≠ 0) (hc' : c ≠ ∞) (μ : Measure α) (f : α → E) :
+    average (c • μ) f = average μ f := by
+  have hct : c.toReal ≠ 0 := ENNReal.toReal_ne_zero.mpr ⟨hc, hc'⟩
+  rw [average_eq, average_eq, integral_smul_measure]
+  simp only [measureReal_def, Measure.smul_apply, smul_eq_mul, ENNReal.toReal_mul]
+  rw [smul_smul]
+  congr 1
+  rw [mul_inv_rev, mul_assoc, inv_mul_cancel₀ hct, mul_one]
+
+/-- Set-average is invariant under scaling the measure by a nonzero finite constant. -/
+lemma setAverage_smul_measure' {α E : Type*} [MeasurableSpace α] [NormedAddCommGroup E]
+    [NormedSpace ℝ E] {c : ℝ≥0∞} (hc : c ≠ 0) (hc' : c ≠ ∞) (μ : Measure α) (s : Set α)
+    (f : α → E) :
+    (⨍ y in s, f y ∂(c • μ)) = ⨍ y in s, f y ∂μ := by
+  rw [Measure.restrict_smul, average_smul_measure' hc hc']
+
+/-- Scaling a measure by an `ℝ≥0` constant equals scaling by its `ℝ≥0∞` coercion. -/
+lemma nnreal_smul_measure_eq {α : Type*} [MeasurableSpace α] (c : ℝ≥0) (μ : Measure α) :
+    (c • μ) = (↑c : ℝ≥0∞) • μ := by
+  ext s hs
+  rw [Measure.smul_apply, Measure.smul_apply, ENNReal.smul_def]
+
+/-- Set-average is invariant under scaling the measure by a nonzero `ℝ≥0` constant. -/
+lemma setAverage_nnreal_smul {α E : Type*} [MeasurableSpace α] [NormedAddCommGroup E]
+    [NormedSpace ℝ E] {c : ℝ≥0} (hc : c ≠ 0) (μ : Measure α) (s : Set α) (f : α → E) :
+    (⨍ y in s, f y ∂((c : ℝ≥0) • μ)) = ⨍ y in s, f y ∂μ := by
+  rw [nnreal_smul_measure_eq, setAverage_smul_measure' (ENNReal.coe_ne_zero.mpr hc)
+    ENNReal.coe_ne_top]
+
+/-- The Riemannian surface measure `μHE[d]` and the raw Hausdorff measure `μH[d]` give the same
+    set-average: they differ only by the nonzero finite scalar `c₀ = addHaarScalarFactor …`. -/
+lemma setAverage_μHE_eq_μH {X : Type*} [MeasurableSpace X] [EMetricSpace X] [BorelSpace X]
+    (d : ℕ) (s : Set X) (f : X → ℝ) :
+    (⨍ y in s, f y ∂(μHE[d] : Measure X)) = ⨍ y in s, f y ∂(μH[(d : ℝ)] : Measure X) := by
+  rw [Measure.euclideanHausdorffMeasure_def]
+  exact setAverage_nnreal_smul
+    (Measure.addHaarScalarFactor_volume_hausdorffMeasure_ne_zero d) _ _ _
 
 /-!
 # Laplace and Poisson Equations (Evans PDE, §2.2)
@@ -627,13 +674,21 @@ noncomputable def sphereMean (u : ℝⁿ → ℝ) (x : ℝⁿ) (r : ℝ) : ℝ :
 noncomputable def ballMean (u : ℝⁿ → ℝ) (x : ℝⁿ) (r : ℝ) : ℝ :=
   ⨍ y in Metric.ball x r, u y
 
-/-- **Mean Value Property (sphere version)** (Evans §2.2.2, Theorem 2). -/
-theorem harmonic_sphereMeanValue (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
+/-- **Mean Value Property (sphere version)** (Evans §2.2.2, Theorem 2).
+
+    Stated for `n ≥ 2`, the substantive setting of Evans §2.2 (the fundamental solution is defined
+    for `n ≥ 2`); `n = 1` is a degenerate affine case and `n = 0` is false (the sphere is empty). -/
+theorem harmonic_sphereMeanValue (hn : 2 ≤ n) (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
     (hU : IsOpen U) (hu : IsHarmonic U u) (hu_c2 : ContDiff ℝ 2 u)
     (x : ℝⁿ) (r : ℝ) (hr : 0 < r)
     (hball : Metric.closedBall x r ⊆ U) :
     u x = sphereMean u x r := by
-  sorry
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 2 := ⟨n - 2, by omega⟩
+  have hΔ : ∀ y ∈ Metric.closedBall x r, Laplacian.laplacian u y = 0 :=
+    fun y hy => hu y (hball hy)
+  rw [AreaFormula.harmonic_sphereMean_μHE x r hr u hu_c2 hΔ, sphereMean,
+    show ((m + 2 : ℕ) : ℝ) - 1 = ((m + 1 : ℕ) : ℝ) by push_cast; ring,
+    setAverage_μHE_eq_μH]
 
 /-- **Mean Value Property (ball version)** (Evans §2.2.2, Theorem 2). -/
 theorem harmonic_ballMeanValue (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
