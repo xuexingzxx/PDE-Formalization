@@ -546,6 +546,229 @@ theorem harmonic_sphereMean_μHE (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u : (
   simp only [measureReal_def]
   rw [smul_smul, inv_mul_cancel₀ sphere_surfaceMeasure_pos.ne', one_smul]
 
+/-! ### Toward the ball mean-value property
+
+The ball version does not need a coarea formula: the divergence theorem on the unit ball applied to
+the field `V(z) = u(x+r•z)•z` yields the ODE `ρ·g'(ρ) + (m+2)·g(ρ) = (m+2)·vol(B₁)·u(x)` for
+`g(ρ) = ∫_{B₁} u(x+ρz)`, whose integrating factor `ρ^{m+2}` gives
+`∫_{B(x,r)} u = vol(B(x,r))·u(x)`. -/
+
+/-- Divergence of the identity field is the dimension. -/
+lemma divergenceE_id (z : ℝ^(m + 2)) : divergenceE (fun y : ℝ^(m + 2) => y) z = (m + 2 : ℝ) := by
+  simp only [divergenceE, fderiv_id']
+  simp
+
+/-- Gradient chain rule under the affine map `z ↦ x + r • z`. -/
+lemma grad_chain (x : ℝ^(m + 2)) (r : ℝ) (u : (ℝ^(m + 2)) → ℝ)
+    (hu : ∀ y, DifferentiableAt ℝ u y) (z : ℝ^(m + 2)) :
+    gradient (fun z => u (x + r • z)) z = r • gradient u (x + r • z) := by
+  have hcomp : HasFDerivAt (fun z => u (x + r • z))
+      ((fderiv ℝ u (x + r • z)).comp ((r : ℝ) • ContinuousLinearMap.id ℝ (ℝ^(m + 2)))) z := by
+    have haff : HasFDerivAt (fun z : ℝ^(m + 2) => x + r • z)
+        ((r : ℝ) • ContinuousLinearMap.id ℝ (ℝ^(m + 2))) z :=
+      ((hasFDerivAt_id z).const_smul r).const_add x
+    exact (hu (x + r • z)).hasFDerivAt.comp z haff
+  have hd : DifferentiableAt ℝ (fun z => u (x + r • z)) z := hcomp.differentiableAt
+  ext i
+  rw [gradient_ofLp hd i, hcomp.fderiv]
+  simp only [WithLp.ofLp_smul, Pi.smul_apply, gradient_ofLp (hu (x + r • z)) i,
+    ContinuousLinearMap.comp_apply, ContinuousLinearMap.smul_apply, ContinuousLinearMap.id_apply,
+    map_smul, smul_eq_mul]
+
+/-- Divergence of the field `V(z) = u(x + r•z) • z`. -/
+lemma div_ball_field (x : ℝ^(m + 2)) (r : ℝ) (u : (ℝ^(m + 2)) → ℝ) (hu : ContDiff ℝ 2 u)
+    (z : ℝ^(m + 2)) :
+    divergenceE (fun z => u (x + r • z) • z) z
+      = r * ⟪gradient u (x + r • z), z⟫ + (m + 2) * u (x + r • z) := by
+  have hw : DifferentiableAt ℝ (fun z => u (x + r • z)) z :=
+    (hu.differentiable (by norm_num)).differentiableAt.comp z (by fun_prop)
+  rw [divergenceE_smul (fun z => u (x + r • z)) (fun y => y) z hw differentiableAt_id,
+    divergenceE_id, grad_chain x r u (fun y => (hu.differentiable (by norm_num)).differentiableAt) z,
+    real_inner_smul_left]
+  ring
+
+/-- Differentiation under the integral over the fixed unit ball:
+`d/ds ∫_{B(0,1)} u(x+s•z) dz = ∫_{B(0,1)} ⟪∇u(x+s•z), z⟫ dz`. -/
+lemma hasDerivAt_ball_integral (x : ℝ^(m + 2)) (u : (ℝ^(m + 2)) → ℝ) (hu : ContDiff ℝ 2 u)
+    (s₀ : ℝ) :
+    HasDerivAt (fun s => ∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, u (x + s • z))
+      (∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, ⟪gradient u (x + s₀ • z), z⟫) s₀ := by
+  set μ := (volume : Measure (ℝ^(m + 2))).restrict (Metric.ball (0 : ℝ^(m + 2)) 1) with hμ
+  haveI : IsFiniteMeasure μ :=
+    ⟨by rw [hμ, Measure.restrict_apply_univ]; exact measure_ball_lt_top⟩
+  set K : Set (ℝ^(m + 2)) := (fun p : ℝ × (ℝ^(m + 2)) => x + p.1 • p.2)
+    '' (Set.Icc (s₀ - 1) (s₀ + 1) ×ˢ Metric.closedBall (0 : ℝ^(m + 2)) 1) with hK
+  have hKc : IsCompact K :=
+    (isCompact_Icc.prod (isCompact_closedBall (0 : ℝ^(m + 2)) 1)).image
+      (continuous_const.add (continuous_fst.smul continuous_snd))
+  obtain ⟨C, hC⟩ := hKc.exists_bound_of_continuousOn (contDiff_gradient hu).continuous.continuousOn
+  have hmemK : ∀ s ∈ Metric.ball s₀ 1, ∀ z ∈ Metric.ball (0 : ℝ^(m + 2)) 1, x + s • z ∈ K := by
+    intro s hs z hz
+    rw [Metric.mem_ball, Real.dist_eq, abs_lt] at hs
+    exact ⟨(s, z), ⟨⟨by linarith [hs.1], by linarith [hs.2]⟩, Metric.ball_subset_closedBall hz⟩, rfl⟩
+  have hcont₀ : Continuous (fun z : ℝ^(m + 2) => u (x + s₀ • z)) :=
+    hu.continuous.comp (continuous_const.add (continuous_const.smul continuous_id))
+  have hdiff : ∀ z : ℝ^(m + 2), ∀ s : ℝ,
+      HasDerivAt (fun s => u (x + s • z)) (⟪gradient u (x + s • z), z⟫) s := by
+    intro z s
+    have hline : HasDerivAt (fun t : ℝ => x + t • z) z s := by
+      simpa using ((hasDerivAt_id (x := s)).smul_const z).const_add x
+    have hcomp := (hu.differentiable (by norm_num) (x + s • z)).hasFDerivAt.comp_hasDerivAt s hline
+    rwa [inner_gradient_left (hu.differentiable (by norm_num) _)]
+  refine (hasDerivAt_integral_of_dominated_loc_of_deriv_le (bound := fun _ => C)
+    (F := fun s z => u (x + s • z)) (F' := fun s z => ⟪gradient u (x + s • z), z⟫)
+    (Metric.ball_mem_nhds s₀ one_pos) ?_ ?_ ?_ ?_ (integrable_const C) ?_).2
+  · refine Filter.Eventually.of_forall (fun s => ?_)
+    exact (hu.continuous.comp
+      (continuous_const.add (continuous_const.smul continuous_id))).aestronglyMeasurable
+  · obtain ⟨M, hM⟩ := (isCompact_closedBall (0 : ℝ^(m + 2)) 1).exists_bound_of_continuousOn
+      hcont₀.continuousOn
+    refine (integrable_const M).mono' hcont₀.aestronglyMeasurable
+      (ae_restrict_of_forall_mem measurableSet_ball (fun z hz => ?_))
+    exact hM z (Metric.ball_subset_closedBall hz)
+  · have hcont : Continuous (fun z : ℝ^(m + 2) => ⟪gradient u (x + s₀ • z), z⟫) :=
+      ((contDiff_gradient hu).continuous.comp
+        (continuous_const.add (continuous_const.smul continuous_id))).inner continuous_id
+    exact hcont.aestronglyMeasurable
+  · refine (ae_restrict_of_forall_mem measurableSet_ball (fun z hz => ?_))
+    intro s hs
+    have hz1 : ‖z‖ ≤ 1 := by rw [Metric.mem_ball, dist_zero_right] at hz; exact hz.le
+    calc ‖(⟪gradient u (x + s • z), z⟫ : ℝ)‖ ≤ ‖gradient u (x + s • z)‖ * ‖z‖ :=
+          norm_inner_le_norm _ _
+      _ ≤ C := by
+          have hg : ‖gradient u (x + s • z)‖ ≤ C := hC _ (hmemK s hs z hz)
+          nlinarith [norm_nonneg (gradient u (x + s • z)), norm_nonneg z]
+  · exact Filter.Eventually.of_forall (fun z s _ => hdiff z s)
+
+/-- The ODE relation from the divergence theorem: for `0 < ρ ≤ r`,
+`ρ·h(ρ) + (m+2)·g(ρ) = (m+2)·vol(B₁)·u(x)` where `g(ρ)=∫_{B₁}u(x+ρz)`, `h(ρ)=∫_{B₁}⟪∇u(x+ρz),z⟫`. -/
+lemma ball_ode (x : ℝ^(m + 2)) (r : ℝ) (u : (ℝ^(m + 2)) → ℝ) (hu : ContDiff ℝ 2 u)
+    (hΔ : ∀ y ∈ Metric.closedBall x r, Laplacian.laplacian u y = 0)
+    {ρ : ℝ} (hρ : 0 < ρ) (hρr : ρ ≤ r) :
+    ρ * (∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, ⟪gradient u (x + ρ • z), z⟫)
+      + ((m : ℝ) + 2) * (∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, u (x + ρ • z))
+      = ((m : ℝ) + 2) * (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal * u x := by
+  have haff : Continuous (fun z : ℝ^(m + 2) => x + ρ • z) :=
+    continuous_const.add (continuous_const.smul continuous_id)
+  have hVcd : ContDiff ℝ 1 (fun z : ℝ^(m + 2) => u (x + ρ • z) • z) := by
+    have h1 : ContDiff ℝ 1 (fun z : ℝ^(m + 2) => u (x + ρ • z)) :=
+      (hu.of_le (by norm_num)).comp (by fun_prop)
+    exact h1.smul contDiff_id
+  have hdiv := divergence_theorem (isBoundedC1Domain_ball (0 : ℝ^(m + 2)) 1 one_pos)
+    (isOutwardNormal_ball (0 : ℝ^(m + 2)) 1 one_pos) hVcd
+  rw [frontier_ball (0 : ℝ^(m + 2)) one_ne_zero] at hdiv
+  have hc1 : Continuous (fun z : ℝ^(m + 2) => (⟪gradient u (x + ρ • z), z⟫ : ℝ)) :=
+    ((contDiff_gradient hu).continuous.comp haff).inner continuous_id
+  have hc2 : Continuous (fun z : ℝ^(m + 2) => u (x + ρ • z)) := hu.continuous.comp haff
+  have hint1 : IntegrableOn (fun z : ℝ^(m + 2) => (⟪gradient u (x + ρ • z), z⟫ : ℝ))
+      (Metric.ball (0 : ℝ^(m + 2)) 1) :=
+    (hc1.continuousOn.integrableOn_compact (isCompact_closedBall 0 1)).mono_set
+      Metric.ball_subset_closedBall
+  have hint2 : IntegrableOn (fun z : ℝ^(m + 2) => u (x + ρ • z))
+      (Metric.ball (0 : ℝ^(m + 2)) 1) :=
+    (hc2.continuousOn.integrableOn_compact (isCompact_closedBall 0 1)).mono_set
+      Metric.ball_subset_closedBall
+  rw [setIntegral_congr_fun measurableSet_ball (fun z _ => div_ball_field x ρ u hu z),
+    integral_add (hint1.const_mul ρ) (hint2.const_mul _), integral_const_mul,
+    integral_const_mul] at hdiv
+  have hfluxeq : ∫ z in Metric.sphere (0 : ℝ^(m + 2)) 1,
+        (⟪u (x + ρ • z) • z, (1 : ℝ)⁻¹ • (z - (0 : ℝ^(m + 2)))⟫ : ℝ)
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+      = ∫ z in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + ρ • z)
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+    refine setIntegral_congr_fun Metric.isClosed_sphere.measurableSet (fun z hz => ?_)
+    rw [Metric.mem_sphere, dist_zero_right] at hz
+    rw [inv_one, sub_zero, one_smul, real_inner_smul_left, real_inner_self_eq_norm_sq, hz]
+    ring
+  rw [hfluxeq] at hdiv
+  have hmean : ⨍ z in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + ρ • z)
+      ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) = u x := by
+    rw [← setAverage_sphere_rescale x hρ u]
+    exact (harmonic_sphereMean_μHE x ρ hρ u hu
+      (fun y hy => hΔ y (Metric.closedBall_subset_closedBall hρr hy))).symm
+  have hsm : (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal
+      = ((m : ℝ) + 2) * (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal := by
+    rw [sphere_surfaceMeasure (0 : ℝ^(m + 2)) 1 one_pos]; ring
+  rw [setAverage_eq, measureReal_def, smul_eq_mul] at hmean
+  have hflux : ∫ z in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + ρ • z)
+      ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+      = ((m : ℝ) + 2) * (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal * u x := by
+    have h1 : ∫ z in Metric.sphere (0 : ℝ^(m + 2)) 1, u (x + ρ • z)
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+        = (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) 1)).toReal * u x := by
+      rw [← hmean, ← mul_assoc, mul_inv_cancel₀ sphere_surfaceMeasure_pos.ne', one_mul]
+    rw [h1, hsm]
+  rw [hflux] at hdiv
+  linarith [hdiv]
+
+/-- Affine change of variables for the ball integral: `∫_{B(x,r)} u = rⁿ·∫_{B(0,1)} u(x+r•z)`. -/
+lemma ball_scaling (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u : (ℝ^(m + 2)) → ℝ) :
+    ∫ y in Metric.ball x r, u y
+      = r ^ (m + 2) * ∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, u (x + r • z) := by
+  have h1 := Measure.setIntegral_comp_smul_of_pos (μ := (volume : Measure (ℝ^(m + 2))))
+    (fun w => u (x + w)) (Metric.ball (0 : ℝ^(m + 2)) 1) hr
+  rw [finrank_euclideanSpace_fin, smul_unitBall_of_pos hr] at h1
+  have hpre : (fun w : ℝ^(m + 2) => x + w) ⁻¹' (Metric.ball x r) = Metric.ball (0 : ℝ^(m + 2)) r := by
+    ext w; simp [Metric.mem_ball, dist_eq_norm]
+  have htrans : ∫ w in Metric.ball (0 : ℝ^(m + 2)) r, u (x + w) = ∫ y in Metric.ball x r, u y := by
+    rw [← hpre]
+    exact (measurePreserving_add_left volume x).setIntegral_preimage_emb
+      (measurableEmbedding_addLeft x) u (Metric.ball x r)
+  rw [h1, htrans, smul_eq_mul, ← mul_assoc,
+    mul_inv_cancel₀ (by positivity : (r : ℝ) ^ (m + 2) ≠ 0), one_mul]
+
+/-- **Ball integral of a harmonic function**: `∫_{B(x,r)} u = vol(B(x,r))·u(x)`. -/
+lemma ball_integral_eq (x : ℝ^(m + 2)) (r : ℝ) (hr : 0 < r) (u : (ℝ^(m + 2)) → ℝ)
+    (hu : ContDiff ℝ 2 u)
+    (hΔ : ∀ y ∈ Metric.closedBall x r, Laplacian.laplacian u y = 0) :
+    ∫ y in Metric.ball x r, u y = (volume (Metric.ball x r)).toReal * u x := by
+  set g : ℝ → ℝ := fun ρ => ∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, u (x + ρ • z) with hgdef
+  set h : ℝ → ℝ := fun ρ => ∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, ⟪gradient u (x + ρ • z), z⟫
+    with hhdef
+  have hg' : ∀ ρ, HasDerivAt g (h ρ) ρ := fun ρ => hasDerivAt_ball_integral x u hu ρ
+  set vol1 := (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal with hvol1
+  set P : ℝ → ℝ := fun ρ => ρ ^ (m + 2) * g ρ with hPdef
+  set Q : ℝ → ℝ := fun ρ => vol1 * u x * ρ ^ (m + 2) with hQdef
+  have hpow : ∀ ρ : ℝ, HasDerivAt (fun ρ : ℝ => ρ ^ (m + 2)) (((m : ℝ) + 2) * ρ ^ (m + 1)) ρ := by
+    intro ρ; simpa using hasDerivAt_pow (m + 2) ρ
+  have hD0 : ∀ ρ ∈ Set.uIcc (0 : ℝ) r, HasDerivAt (fun ρ => P ρ - Q ρ) 0 ρ := by
+    intro ρ hρ
+    rw [Set.uIcc_of_le hr.le] at hρ
+    have hdP : HasDerivAt P (((m : ℝ) + 2) * ρ ^ (m + 1) * g ρ + ρ ^ (m + 2) * h ρ) ρ :=
+      (hpow ρ).mul (hg' ρ)
+    have hdQ : HasDerivAt Q (vol1 * u x * (((m : ℝ) + 2) * ρ ^ (m + 1))) ρ :=
+      (hpow ρ).const_mul (vol1 * u x)
+    have hd := hdP.sub hdQ
+    have hval : ((m : ℝ) + 2) * ρ ^ (m + 1) * g ρ + ρ ^ (m + 2) * h ρ
+        - vol1 * u x * (((m : ℝ) + 2) * ρ ^ (m + 1)) = 0 := by
+      have key : ((m : ℝ) + 2) * ρ ^ (m + 1) * g ρ + ρ ^ (m + 2) * h ρ
+          - vol1 * u x * (((m : ℝ) + 2) * ρ ^ (m + 1))
+          = ρ ^ (m + 1) * (((m : ℝ) + 2) * g ρ + ρ * h ρ - ((m : ℝ) + 2) * vol1 * u x) := by
+        rw [pow_succ]; ring
+      rw [key]
+      rcases eq_or_lt_of_le hρ.1 with h0 | h0
+      · rw [← h0]; simp
+      · have hode : ρ * h ρ + ((m : ℝ) + 2) * g ρ = ((m : ℝ) + 2) * vol1 * u x :=
+          ball_ode x r u hu hΔ h0 hρ.2
+        rw [show ((m : ℝ) + 2) * g ρ + ρ * h ρ - ((m : ℝ) + 2) * vol1 * u x = 0 by linarith,
+          mul_zero]
+    rwa [hval] at hd
+  have hFTC := intervalIntegral.integral_eq_sub_of_hasDerivAt hD0
+    (intervalIntegrable_const (c := (0 : ℝ)))
+  simp only [intervalIntegral.integral_zero] at hFTC
+  have hP0 : P 0 = 0 := by rw [hPdef]; simp
+  have hQ0 : Q 0 = 0 := by rw [hQdef]; simp
+  have hPQr : P r = Q r := by rw [hP0, hQ0] at hFTC; linarith
+  have hvolball : (volume (Metric.ball x r)).toReal = r ^ (m + 2) * vol1 := by
+    rw [Measure.addHaar_ball volume x hr.le, ENNReal.toReal_mul,
+      ENNReal.toReal_ofReal (by positivity), finrank_euclideanSpace_fin]
+  rw [ball_scaling x r hr u, hvolball,
+    show (∫ z in Metric.ball (0 : ℝ^(m + 2)) 1, u (x + r • z)) = g r from rfl]
+  have hPr : P r = r ^ (m + 2) * g r := rfl
+  have hQr : Q r = vol1 * u x * r ^ (m + 2) := rfl
+  rw [hPr, hQr] at hPQr
+  rw [hPQr]; ring
+
 end
 
 end AreaFormula
@@ -690,13 +913,23 @@ theorem harmonic_sphereMeanValue (hn : 2 ≤ n) (U : Set ℝⁿ) (u : ℝⁿ →
     show ((m + 2 : ℕ) : ℝ) - 1 = ((m + 1 : ℕ) : ℝ) by push_cast; ring,
     setAverage_μHE_eq_μH]
 
-/-- **Mean Value Property (ball version)** (Evans §2.2.2, Theorem 2). -/
-theorem harmonic_ballMeanValue (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
+/-- **Mean Value Property (ball version)** (Evans §2.2.2, Theorem 2). Stated for `n ≥ 2` (see
+    `harmonic_sphereMeanValue`). Proved directly from the divergence theorem (no coarea formula):
+    `∫_{B(x,r)} u = vol(B(x,r))·u(x)` via `AreaFormula.ball_integral_eq`, and the average divides
+    out the volume. -/
+theorem harmonic_ballMeanValue (hn : 2 ≤ n) (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
     (hU : IsOpen U) (hu : IsHarmonic U u) (hu_c2 : ContDiff ℝ 2 u)
     (x : ℝⁿ) (r : ℝ) (hr : 0 < r)
     (hball : Metric.closedBall x r ⊆ U) :
     u x = ballMean u x r := by
-  sorry
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 2 := ⟨n - 2, by omega⟩
+  have hΔ : ∀ y ∈ Metric.closedBall x r, Laplacian.laplacian u y = 0 :=
+    fun y hy => hu y (hball hy)
+  have hvol : (volume (Metric.ball x r)).toReal ≠ 0 :=
+    ENNReal.toReal_ne_zero.mpr ⟨(Metric.measure_ball_pos volume x hr).ne', measure_ball_lt_top.ne⟩
+  rw [ballMean, setAverage_eq, measureReal_def,
+    AreaFormula.ball_integral_eq x r hr u hu_c2 hΔ, smul_eq_mul, ← mul_assoc,
+    inv_mul_cancel₀ hvol, one_mul]
 
 /-- **Converse**: mean value property implies harmonic. -/
 theorem meanValue_implies_harmonic (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
