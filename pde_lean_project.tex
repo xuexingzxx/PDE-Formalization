@@ -1010,14 +1010,55 @@ In all cases $\Delta\Phi(x) = 0$ for $x \neq 0$.
 
 \subsection{§2.2.2 Mean Value Property}
 
-\begin{lstlisting}[caption={Mean value property (sorry)}]
-theorem harmonic_sphereMeanValue ... : u x = sphereMean u x r := by sorry
-theorem harmonic_ballMeanValue   ... : u x = ballMean u x r  := by sorry
+\textbf{\texttt{harmonic\_sphereMeanValue} (Evans §2.2.2, Theorem 2) is now proved} for
+$n \ge 2$: a $C^2$ function harmonic on an open $U$ equals its average over every sphere
+$\partial B(x,r)$ with $\overline{B(x,r)} \subseteq U$, taken against the $(n-1)$-dimensional
+Hausdorff surface measure $\mu_H^{\,n-1}$.
+
+\begin{lstlisting}[caption={Sphere mean value property (proved)}]
+-- proved (n >= 2):
+theorem harmonic_sphereMeanValue (hn : 2 <= n) (hU : IsOpen U)
+    (hu : IsHarmonic U u) (hu_c2 : ContDiff R 2 u)
+    (hr : 0 < r) (hball : closedBall x r subseteq U) :
+    u x = sphereMean u x r
+-- still sorry:
+theorem harmonic_ballMeanValue     ... : u x = ballMean u x r := by sorry
 theorem meanValue_implies_harmonic ... : IsHarmonic U u       := by sorry
 \end{lstlisting}
 
-Proof sketch: apply Green's identity to $u$ and $\Phi(\cdot - x)$ on
-$B(x,r) \setminus B(x,\varepsilon)$, then let $\varepsilon \to 0$.
+The proof does not follow the Green's-identity route of the original sketch. Instead it uses
+the divergence theorem directly: destructure $n = m+2$, form $\Phi(s) = \int_{\partial B(0,1)}
+u(x + s\omega)\,d\mu_{HE}$ on the unit sphere, differentiate under the integral
+($\Phi'(s) = \int \langle \nabla u, \omega\rangle$), and observe $\Phi' \equiv 0$ because
+$\int_{B} \Delta u = 0$ (Gauss--Green with $F = \nabla u$, so $\operatorname{div} F = \Delta u$).
+Then $\Phi$ is constant by the mean value theorem, giving $u(x) = \Phi(r)/\sigma$.
+
+\textbf{Measure-normalization subtlety.} The divergence theorem produces the \emph{Riemannian}
+surface measure $\mu_{HE}^{\,d}$ (\texttt{euclideanHausdorffMeasure}), which equals
+$c_0 \cdot \mu_H^{\,d}$ with $c_0 = \texttt{addHaarScalarFactor}\,(\mathrm{vol})\,\mu_H^{\,d}
+= \pi^{d/2}/(2^d\,\Gamma(d/2+1)) \ne 1$ for $d \ge 2$ (Mathlib's $\mu_H = $ volume identity
+holds only for the sup-metric $\ell^\infty$ box, not the $\ell^2$-Euclidean sphere). The
+definition \texttt{sphereMean} uses the raw $\mu_H^{\,n-1}$. The bridge is that the \emph{average}
+$\fint$ is invariant under scaling the measure by any nonzero finite constant, so
+$\fint\,d\mu_{HE} = \fint\,d\mu_H$ despite $\mu_{HE} \ne \mu_H$ (new lemmas
+\texttt{average\_smul\_measure'}, \texttt{setAverage\_smul\_measure'},
+\texttt{setAverage\_nnreal\_smul}, \texttt{setAverage\_$\mu$HE\_eq\_$\mu$H}).
+
+\textbf{Why $n \ge 2$.} At $n = 0$ the sphere is empty and the theorem is \emph{false}
+($\fint_\emptyset = 0 \ne u(x)$); $n = 1$ is a degenerate affine case (a two-point sphere with
+counting measure). Evans's standing assumption is $n \ge 2$ (the fundamental solution itself is
+only defined there), so we take $n \ge 2$; adding the true-but-degenerate $n = 1$ case is future
+work.
+
+\textbf{The ball version does not cascade cheaply.} Deriving \texttt{harmonic\_ballMeanValue}
+from the sphere version is Evans's one-line ``integrate over radii'', but formally it needs the
+\emph{coarea} (polar) decomposition of Lebesgue volume into sphere integrals \emph{against our
+$\mu_{HE}$ surface measure}. Mathlib provides only the \emph{radial} case
+(\texttt{integral\_fun\_norm\_addHaar}, for integrands $f(\|x\|)$) and its own abstract
+\texttt{Measure.toSphere} (defined by $\mu.\texttt{toSphere}\,s = n\cdot\mu(\mathrm{Ioo}\,0\,1
+\cdot s)$) with a product decomposition; using it requires first proving
+$\texttt{toSphere} = \mu_{HE}|_{\partial B}$, a separate multi-step task. This is the current
+blocker for the ball mean value property and its converse \texttt{meanValue\_implies\_harmonic}.
 
 \subsection{§2.2.3 Maximum Principles and Regularity}
 
@@ -1034,12 +1075,16 @@ attains its max on $\overline U$ at a boundary point (the max exists by compactn
 $\overline U$ and continuity), giving $u(x) \le \sup_{\partial U} u + \varepsilon R^2$ with
 $R = \sup_{\overline U}\|\cdot\|$; letting $\varepsilon \to 0$ finishes.
 
-The remaining two results are not yet formalized. The strong maximum principle and the
-interior-regularity theorem both go through the mean value property (Evans §2.2.2). The
-Gauss--Green step that the mean value property needs is now available (\texttt{divergence\_theorem},
-Chapter~6); what remains is the concrete instantiation of a ball/annulus as an
-\texttt{IsBoundedC1Domain} with its outward normal, plus (for the exact flux constant) the sphere
-surface-measure formula --- now derivable in principle from the Chapter~6 \texttt{area\_formula}.
+The remaining two results are not yet formalized. With the sphere mean value property now proved
+(§2.2.2), the \textbf{strong maximum principle is reachable} but not free: (i) its statement must
+strengthen \texttt{Continuous u} to \texttt{ContDiff R 2 u}, since the current continuity-only
+hypothesis cannot invoke the $C^2$ sphere MVP (and \texttt{IsHarmonic} on a merely continuous $u$
+is vacuous, as $\Delta u$ is read off the second \texttt{fderiv}); (ii) the open-ness of the set
+$\{u = \max\}$ needs an ``average $=$ max $\Rightarrow$ constant on the sphere'' rigidity lemma,
+which in turn needs positivity of the surface measure on relatively-open subsets of the sphere
+(\texttt{IsOpenPosMeasure}-style). Once those are in place the clopen/connectedness argument
+closes it. The interior-regularity theorem \texttt{harmonic\_smooth} remains the hardest item
+(elliptic regularity).
 
 \begin{lstlisting}[caption={Maximum principles and regularity}]
 -- proved: weak maximum principle via the v_ε = u + ε‖·‖² perturbation
