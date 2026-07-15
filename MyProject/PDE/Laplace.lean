@@ -1724,17 +1724,124 @@ lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv 
   -- of the two ball domains (inner sphere gets the opposite sign), against `μHE[n−1]`.
   sorry
 
-/-- Total outward normal flux of `∇Φ` through `∂B(0, ε)` equals `−1`.
+/-- Flux integrand for a radial power `c·‖·‖^p`: `⟪∇(c‖·‖^p), ‖y‖⁻¹y⟫ = c·p·‖y‖^{p-1}`. -/
+lemma flux_rpow (c p : ℝ) (y : ℝⁿ) (hy : y ≠ 0) :
+    ⟪gradient (fun x : ℝⁿ => c * ‖x‖ ^ p) y, ‖y‖⁻¹ • y⟫_ℝ = c * p * ‖y‖ ^ (p - 1) := by
+  have hpos : (0 : ℝ) < ‖y‖ := norm_pos_iff.mpr hy
+  have hfd : HasFDerivAt (fun x : ℝⁿ => c * ‖x‖ ^ p)
+      (c • ((p * ‖y‖ ^ (p - 2)) • realInnerL y)) y :=
+    (hasFDerivAt_norm_rpow_of_ne y hy p).const_mul c
+  rw [inner_gradient_left hfd.differentiableAt, hfd.fderiv]
+  simp only [ContinuousLinearMap.smul_apply, realInnerL_apply, real_inner_smul_right, smul_eq_mul,
+    real_inner_self_eq_norm_sq]
+  have hAB : ‖y‖ ^ (p - 2) * ((‖y‖ : ℝ)⁻¹ * ‖y‖ ^ 2) = ‖y‖ ^ (p - 1) := by
+    rw [show (‖y‖ : ℝ)⁻¹ = ‖y‖ ^ (-1 : ℝ) from (Real.rpow_neg_one _).symm,
+      show (‖y‖ : ℝ) ^ 2 = ‖y‖ ^ (2 : ℝ) from (Real.rpow_two _).symm,
+      ← Real.rpow_add hpos, ← Real.rpow_add hpos]
+    congr 1; ring
+  linear_combination c * p * hAB
+
+/-- Flux integrand for `c·log‖·‖`: `⟪∇(c·log‖·‖), ‖y‖⁻¹y⟫ = c·‖y‖⁻¹`. -/
+lemma flux_log (c : ℝ) (y : ℝⁿ) (hy : y ≠ 0) :
+    ⟪gradient (fun x : ℝⁿ => c * Real.log ‖x‖) y, ‖y‖⁻¹ • y⟫_ℝ = c * ‖y‖⁻¹ := by
+  have hne : ‖y‖ ≠ 0 := norm_ne_zero_iff.mpr hy
+  have hnorm : HasFDerivAt (fun x : ℝⁿ => ‖x‖) (‖y‖⁻¹ • realInnerL y) y := by
+    have h := hasFDerivAt_norm_rpow_of_ne y hy 1
+    simp only [Real.rpow_one, one_mul, show (1 : ℝ) - 2 = -1 by norm_num, Real.rpow_neg_one] at h
+    exact h
+  have hlog : HasFDerivAt (fun x : ℝⁿ => Real.log ‖x‖)
+      ((‖y‖)⁻¹ • (‖y‖⁻¹ • realInnerL y)) y :=
+    (Real.hasDerivAt_log hne).comp_hasFDerivAt y hnorm
+  have hfd : HasFDerivAt (fun x : ℝⁿ => c * Real.log ‖x‖)
+      (c • ((‖y‖)⁻¹ • (‖y‖⁻¹ • realInnerL y))) y := hlog.const_mul c
+  rw [inner_gradient_left hfd.differentiableAt, hfd.fderiv]
+  simp only [ContinuousLinearMap.smul_apply, realInnerL_apply, real_inner_smul_right, smul_eq_mul,
+    real_inner_self_eq_norm_mul_norm]
+  field_simp
+
+open AreaFormula in
+/-- Total outward normal flux of `∇Φ` through `∂B(0, ε)` equals `−1` (dimension `n = m+2 ≥ 2`).
 
     Uses the Riemannian surface measure `μHE[n−1]` (the one our Gauss–Green machinery produces):
     the flux integrand is the constant radial derivative `Φ'(ε)`, and `Φ` is normalized against the
     true surface area `σ(∂B) = n·ωₙ·ε^{n−1}` (`= μHE`), giving exactly `−1`. (With the *raw*
     Hausdorff `μH[n−1]` this would be `−1/c₀ ≠ −1` for `n ≥ 3`.) -/
+lemma totalFlux_aux (m : ℕ) (ε : ℝ) (hε : 0 < ε) :
+    ∫ y in Metric.sphere (0 : ℝ^(m + 2)) ε, ⟪gradient fundamentalSolution y, ‖y‖⁻¹ • y⟫_ℝ
+      ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) = -1 := by
+  set ω := (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal with hω
+  have hωpos : 0 < ω :=
+    ENNReal.toReal_pos (Metric.measure_ball_pos volume 0 one_pos).ne' measure_ball_lt_top.ne
+  have hσ : (μHE[m + 1] (Metric.sphere (0 : ℝ^(m + 2)) ε)).toReal
+      = ((m : ℝ) + 2) * (volume (Metric.ball (0 : ℝ^(m + 2)) ε)).toReal / ε :=
+    sphere_surfaceMeasure 0 ε hε
+  have hvolε : (volume (Metric.ball (0 : ℝ^(m + 2)) ε)).toReal = ε ^ (m + 2) * ω := by
+    rw [Measure.addHaar_ball volume 0 hε.le, ENNReal.toReal_mul,
+      ENNReal.toReal_ofReal (by positivity), finrank_euclideanSpace_fin]
+  rcases Nat.eq_zero_or_pos m with hm0 | hmpos
+  · subst hm0
+    have hΦeq : (fundamentalSolution : (ℝ^2) → ℝ) = fun x => -(1 / (2 * Real.pi)) * Real.log ‖x‖ :=
+      funext (fun x => by simp [fundamentalSolution])
+    have hK : ∀ y ∈ Metric.sphere (0 : ℝ^2) ε,
+        ⟪gradient fundamentalSolution y, ‖y‖⁻¹ • y⟫_ℝ = -(1 / (2 * Real.pi)) * ε⁻¹ := by
+      intro y hy
+      rw [Metric.mem_sphere, dist_zero_right] at hy
+      have hyne : y ≠ 0 := by intro h; rw [h, norm_zero] at hy; exact hε.ne' hy.symm
+      rw [hΦeq, flux_log _ _ hyne, hy]
+    have hω2 : ω = Real.pi := by
+      rw [hω, EuclideanSpace.volume_ball]
+      simp only [ENNReal.ofReal_one, one_pow, one_mul, Fintype.card_fin, Nat.zero_add,
+        Nat.cast_ofNat]
+      rw [ENNReal.toReal_ofReal (by positivity), Real.sq_sqrt Real.pi_pos.le,
+        show ((2 : ℝ) / 2 + 1) = 2 by norm_num, Real.Gamma_two, div_one]
+    rw [setIntegral_congr_fun Metric.isClosed_sphere.measurableSet hK, setIntegral_const,
+      smul_eq_mul, measureReal_def, hσ, hvolε, hω2]
+    have hπ : Real.pi ≠ 0 := Real.pi_ne_zero
+    field_simp
+    ring
+  · set c := (1 / (((m + 2 : ℕ) : ℝ) * (((m + 2 : ℕ) : ℝ) - 2) * ω)) with hc
+    have hΦeq : (fundamentalSolution : (ℝ^(m + 2)) → ℝ)
+        = fun x => c * ‖x‖ ^ (2 - ((m + 2 : ℕ) : ℝ)) := by
+      funext x
+      simp only [fundamentalSolution, show (m + 2 : ℕ) ≠ 0 from by omega,
+        show (m + 2 : ℕ) ≠ 1 from by omega, show (m + 2 : ℕ) ≠ 2 from by omega, if_false]
+      rw [hc, hω]
+    have hK : ∀ y ∈ Metric.sphere (0 : ℝ^(m + 2)) ε,
+        ⟪gradient fundamentalSolution y, ‖y‖⁻¹ • y⟫_ℝ
+        = c * (2 - ((m + 2 : ℕ) : ℝ)) * ε ^ ((2 - ((m + 2 : ℕ) : ℝ)) - 1) := by
+      intro y hy
+      rw [Metric.mem_sphere, dist_zero_right] at hy
+      have hyne : y ≠ 0 := by intro h; rw [h, norm_zero] at hy; exact hε.ne' hy.symm
+      rw [hΦeq, flux_rpow _ _ _ hyne, hy]
+    rw [setIntegral_congr_fun Metric.isClosed_sphere.measurableSet hK, setIntegral_const,
+      smul_eq_mul, measureReal_def, hσ, hvolε]
+    have hεcombine : ε ^ (m + 2) / ε * ε ^ ((2 - ((m + 2 : ℕ) : ℝ)) - 1) = 1 := by
+      rw [show ε ^ (m + 2) = ε ^ ((m + 2 : ℕ) : ℝ) from (Real.rpow_natCast ε (m + 2)).symm,
+        div_eq_mul_inv, show (ε : ℝ)⁻¹ = ε ^ (-1 : ℝ) from (Real.rpow_neg_one ε).symm,
+        ← Real.rpow_add hε, ← Real.rpow_add hε]
+      rw [show ((m + 2 : ℕ) : ℝ) + -1 + ((2 - ((m + 2 : ℕ) : ℝ)) - 1) = 0 by push_cast; ring,
+        Real.rpow_zero]
+    have hconst : ((m : ℝ) + 2) * ω * (c * (2 - ((m + 2 : ℕ) : ℝ))) = -1 := by
+      have hmR : (m : ℝ) ≠ 0 := by exact_mod_cast hmpos.ne'
+      have h1 : ((m + 2 : ℕ) : ℝ) ≠ 0 := by push_cast; positivity
+      have h2 : ((m + 2 : ℕ) : ℝ) - 2 ≠ 0 := by push_cast; simpa using hmR
+      rw [hc]
+      field_simp
+      push_cast
+      ring
+    calc ((m : ℝ) + 2) * (ε ^ (m + 2) * ω) / ε
+            * (c * (2 - ((m + 2 : ℕ) : ℝ)) * ε ^ ((2 - ((m + 2 : ℕ) : ℝ)) - 1))
+        = (((m : ℝ) + 2) * ω * (c * (2 - ((m + 2 : ℕ) : ℝ))))
+            * (ε ^ (m + 2) / ε * ε ^ ((2 - ((m + 2 : ℕ) : ℝ)) - 1)) := by ring
+      _ = -1 := by rw [hconst, hεcombine]; ring
+
+/-- Total outward normal flux of `∇Φ` through `∂B(0, ε)` equals `−1` (`n ≥ 2`, Riemannian `μHE`). -/
 lemma fundamentalSolution_totalFlux (hn : 2 ≤ n) (ε : ℝ) (hε : 0 < ε) :
     ∫ y in Metric.sphere (0 : ℝⁿ) ε,
       ⟪gradient fundamentalSolution y, ‖y‖⁻¹ • y⟫_ℝ
       ∂(μHE[n - 1] : Measure ℝⁿ) = -1 := by
-  sorry
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 2 := ⟨n - 2, by omega⟩
+  exact totalFlux_aux m ε hε
 
 /-- Boundary integral from Green's identity converges to `f(x)` as ε → 0 (Riemannian `μHE[n−1]`). -/
 lemma green_boundary_tendsto_f (hn : 2 ≤ n) (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
