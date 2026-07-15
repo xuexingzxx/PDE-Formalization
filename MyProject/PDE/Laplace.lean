@@ -1634,24 +1634,26 @@ lemma fundamentalSolution_near_integral_tendsto_zero (x : ℝⁿ) :
   simp only [Real.dist_eq, sub_zero, abs_of_nonneg hint_nn]
   linarith
 
-/-- **Green's second identity** on annular domain `B(x,r) \ B(x,ε)`.
+/-- **Green's second identity** on annular domain `B(x,r) \ B(x,ε)` (Riemannian `μHE[n−1]`).
     Evans §2.2.4 strategy:
     (1) Algebra:  v Δu − u Δv = div(v ∇u − u ∇v)      [product rule, cross terms cancel]
     (2) Gauss–Green on annulus: ∫_Ω div F = ∫_{S_r} F·ν dσ − ∫_{S_ε} F·ν dσ
         Sign: annulus outward normal on inner sphere is −ν (inward to B(x,ε)).
-    Blocked: step (2) needs Stokes on smooth domains, not yet in Mathlib.
-    (Mathlib's divergence theorem covers rectangular boxes only.) -/
+    Step (2) is now available via our `divergence_theorem` (`AreaFormula`): the annulus is
+    `B(x,r) \ B̄(x,ε)`, handled by `setIntegral_diff` additivity of the two ball domains, with the
+    inner sphere contributing the opposite sign. Uses `μHE[n−1]` (not raw `μH`) for correct
+    constants. -/
 lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v)
     (x : ℝⁿ) (r ε : ℝ) (hr : 0 < r) (hε : 0 < ε) (hεr : ε < r) :
     ∫ y in Metric.ball x r \ Metric.ball x ε, (v y * Δ u y - u y * Δ v y)
     = (∫ y in Metric.sphere x r,
         (v y * ⟪gradient u y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ -
          u y * ⟪gradient v y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
-        ∂(Measure.hausdorffMeasure ((n : ℝ) - 1)))
+        ∂(μHE[n - 1] : Measure ℝⁿ))
     - (∫ y in Metric.sphere x ε,
         (v y * ⟪gradient u y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ -
          u y * ⟪gradient v y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
-        ∂(Measure.hausdorffMeasure ((n : ℝ) - 1))) := by
+        ∂(μHE[n - 1] : Measure ℝⁿ)) := by
   -- Standard ONB for ℝⁿ
   set e := EuclideanSpace.basisFun (Fin n) ℝ with he_def
   -- Step 1 (Evans §2.2, algebra): v Δu − u Δv = ∑ᵢ ∂_{eᵢ}(v·∂_{eᵢ}u − u·∂_{eᵢ}v)
@@ -1718,24 +1720,30 @@ lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv 
   -- where Fᵢ(y) = v(y)·∂_{eᵢ}u(y) − u(y)·∂_{eᵢ}v(y) and ν = ‖y−x‖⁻¹(y−x).
   -- Inner product expansion: ∑ᵢ Fᵢ ⟨eᵢ, ν⟩ = ∑ᵢ(v·∂_{eᵢ}u − u·∂_{eᵢ}v)⟨eᵢ,ν⟩
   --   = v·⟨∇u, ν⟩ − u·⟨∇v, ν⟩  (linearity + ⟨∇f, w⟩ = fderiv f · w = ∑ᵢ ∂_{eᵢ}f · ⟨eᵢ,w⟩).
-  -- BLOCKED: Stokes/Gauss-Green on smooth domains is not in Mathlib.
+  -- Now available: apply `divergence_theorem` to the annulus B(x,r) \ B̄(x,ε) via `setIntegral_diff`
+  -- of the two ball domains (inner sphere gets the opposite sign), against `μHE[n−1]`.
   sorry
 
-/-- Total outward normal flux of `∇Φ` through `∂B(0, ε)` equals `−1`. -/
-lemma fundamentalSolution_totalFlux (ε : ℝ) (hε : 0 < ε) :
+/-- Total outward normal flux of `∇Φ` through `∂B(0, ε)` equals `−1`.
+
+    Uses the Riemannian surface measure `μHE[n−1]` (the one our Gauss–Green machinery produces):
+    the flux integrand is the constant radial derivative `Φ'(ε)`, and `Φ` is normalized against the
+    true surface area `σ(∂B) = n·ωₙ·ε^{n−1}` (`= μHE`), giving exactly `−1`. (With the *raw*
+    Hausdorff `μH[n−1]` this would be `−1/c₀ ≠ −1` for `n ≥ 3`.) -/
+lemma fundamentalSolution_totalFlux (hn : 2 ≤ n) (ε : ℝ) (hε : 0 < ε) :
     ∫ y in Metric.sphere (0 : ℝⁿ) ε,
       ⟪gradient fundamentalSolution y, ‖y‖⁻¹ • y⟫_ℝ
-      ∂(Measure.hausdorffMeasure ((n : ℝ) - 1)) = -1 := by
+      ∂(μHE[n - 1] : Measure ℝⁿ) = -1 := by
   sorry
 
-/-- Boundary integral from Green's identity converges to `f(x)` as ε → 0. -/
-lemma green_boundary_tendsto_f (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
+/-- Boundary integral from Green's identity converges to `f(x)` as ε → 0 (Riemannian `μHE[n−1]`). -/
+lemma green_boundary_tendsto_f (hn : 2 ≤ n) (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
     (hf_supp : HasCompactSupport f) (x : ℝⁿ) :
     Filter.Tendsto
       (fun ε => ∫ y in Metric.sphere x ε,
         (fundamentalSolution (y - x) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
          - f y * ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
-        ∂(Measure.hausdorffMeasure ((n : ℝ) - 1)))
+        ∂(μHE[n - 1] : Measure ℝⁿ))
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds (f x)) := by
   sorry
