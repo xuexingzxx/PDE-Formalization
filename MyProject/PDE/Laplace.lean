@@ -1101,14 +1101,86 @@ theorem meanValue_implies_harmonic (hn : 2 ≤ n) (U : Set ℝⁿ) (u : ℝⁿ �
 
 /-! ### Maximum Principle -/
 
-/-- **Strong Maximum Principle** (Evans §2.2.3, Theorem 4). -/
-theorem harmonic_strongMax (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
+/-- Rigidity: a continuous function `≤ M` on a ball whose mean equals `M` is `≡ M` on the ball.
+    (`volume` is an open-positive measure, so a nonneg continuous function with zero integral over
+    the open ball vanishes there.) -/
+lemma const_on_ball_of_max (y : ℝⁿ) {s : ℝ} (hs : 0 < s) (u : ℝⁿ → ℝ)
+    (hu : Continuous u) (M : ℝ)
+    (hle : ∀ z ∈ Metric.ball y s, u z ≤ M) (hmean : ⨍ z in Metric.ball y s, u z = M) :
+    ∀ z ∈ Metric.ball y s, u z = M := by
+  have hvol : 0 < (volume (Metric.ball y s)).toReal :=
+    ENNReal.toReal_pos (Metric.measure_ball_pos volume y hs).ne' measure_ball_lt_top.ne
+  have hint : IntegrableOn u (Metric.ball y s) :=
+    (hu.continuousOn.integrableOn_compact (isCompact_closedBall y s)).mono_set
+      Metric.ball_subset_closedBall
+  have hintc : IntegrableOn (fun _ : ℝⁿ => M) (Metric.ball y s) :=
+    (continuous_const.continuousOn.integrableOn_compact (isCompact_closedBall y s)).mono_set
+      Metric.ball_subset_closedBall
+  have hintu_eq : (∫ z in Metric.ball y s, u z) = (volume (Metric.ball y s)).toReal * M := by
+    have h := hmean
+    rw [setAverage_eq, measureReal_def, smul_eq_mul] at h
+    rw [inv_mul_eq_iff_eq_mul₀ hvol.ne'] at h
+    exact h
+  have hzero : (∫ z in Metric.ball y s, (M - u z)) = 0 := by
+    rw [integral_sub hintc hint, setIntegral_const, smul_eq_mul, measureReal_def, hintu_eq]
+    ring
+  have hnn : 0 ≤ᵐ[volume.restrict (Metric.ball y s)] (fun z => M - u z) :=
+    ae_restrict_of_forall_mem measurableSet_ball (fun z hz => sub_nonneg.mpr (hle z hz))
+  have hintf : IntegrableOn (fun z => M - u z) (Metric.ball y s) := hintc.sub hint
+  have hae : (fun z => M - u z) =ᵐ[volume.restrict (Metric.ball y s)] 0 :=
+    (setIntegral_eq_zero_iff_of_nonneg_ae hnn hintf).mp hzero
+  have heq : Set.EqOn (fun z => M - u z) 0 (Metric.ball y s) :=
+    Measure.eqOn_of_ae_eq hae (continuous_const.sub hu).continuousOn continuousOn_const
+      (by rw [Metric.isOpen_ball.interior_eq]; exact subset_closure)
+  intro z hz
+  have hz0 := heq hz
+  simp only [Pi.zero_apply] at hz0
+  linarith [hz0]
+
+/-- **Strong Maximum Principle** (Evans §2.2.3, Theorem 4). Stated for `n ≥ 2` with `u ∈ C²` (the
+    substantive setting; `IsHarmonic` on a merely continuous `u` is vacuous). A `C²` harmonic
+    function on a connected open set attaining its maximum at an interior point is constant.
+    Proof: the set `{u = max}` is relatively open in `U` (ball mean value + `const_on_ball_of_max`)
+    and closed (continuity), hence all of `U` by connectedness. -/
+theorem harmonic_strongMax (hn : 2 ≤ n) (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
     (hU : IsOpen U) (hconn : IsConnected U)
-    (hu : IsHarmonic U u) (hu_c : Continuous u)
+    (hu : IsHarmonic U u) (hu_c2 : ContDiff ℝ 2 u)
     (x₀ : ℝⁿ) (hx₀ : x₀ ∈ U)
     (hmax : ∀ x ∈ U, u x ≤ u x₀) :
     ∀ x ∈ U, u x = u x₀ := by
-  sorry
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 2 := ⟨n - 2, by omega⟩
+  set M := u x₀ with hM
+  have hopen : ∀ y ∈ U, u y = M → y ∈ interior {z | u z = M} := by
+    intro y hyU hyM
+    obtain ⟨ρ, hρ, hρU⟩ := Metric.isOpen_iff.mp hU y hyU
+    set r₀ := ρ / 2 with hr₀
+    have hr₀pos : 0 < r₀ := by positivity
+    have hcball : Metric.closedBall y r₀ ⊆ U :=
+      (Metric.closedBall_subset_ball (by rw [hr₀]; linarith)).trans hρU
+    have hbmv := harmonic_ballMeanValue (by omega : 2 ≤ m + 2) U u hU hu hu_c2 y r₀ hr₀pos hcball
+    have hmean : (⨍ z in Metric.ball y r₀, u z) = M := hbmv.symm.trans hyM
+    have hle : ∀ z ∈ Metric.ball y r₀, u z ≤ M := fun z hz =>
+      hmax z (hρU (Metric.ball_subset_ball (by rw [hr₀]; linarith) hz))
+    have hconst := const_on_ball_of_max y hr₀pos u hu_c2.continuous M hle hmean
+    exact mem_interior.mpr ⟨Metric.ball y r₀, fun z hz => hconst z hz, Metric.isOpen_ball,
+      Metric.mem_ball_self hr₀pos⟩
+  have hvopen : IsOpen {z : ℝ^(m + 2) | u z ≠ M} := isOpen_ne.preimage hu_c2.continuous
+  have hdisj : Disjoint (interior {z | u z = M}) {z | u z ≠ M} := by
+    rw [Set.disjoint_left]
+    intro w hw1 hw2
+    have hwM : w ∈ {z | u z = M} := interior_subset hw1
+    exact hw2 hwM
+  have hsub : U ⊆ interior {z | u z = M} ∪ {z | u z ≠ M} := by
+    intro z hz
+    by_cases hzm : u z = M
+    · exact Or.inl (hopen z hz hzm)
+    · exact Or.inr hzm
+  have hcon : U ⊆ interior {z | u z = M} :=
+    hconn.2.subset_left_of_subset_union isOpen_interior hvopen hdisj hsub
+      ⟨x₀, hx₀, hopen x₀ hx₀ hM.symm⟩
+  intro x hx
+  have hxM : x ∈ {z | u z = M} := interior_subset (hcon hx)
+  exact hxM
 
 /-- **Weak Maximum Principle** (Evans §2.2.3, Theorem 3). A `C²` harmonic function on a
     bounded open set attains its supremum on the boundary. Proved by the standard subharmonic
