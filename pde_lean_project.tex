@@ -1015,15 +1015,16 @@ $n \ge 2$: a $C^2$ function harmonic on an open $U$ equals its average over ever
 $\partial B(x,r)$ with $\overline{B(x,r)} \subseteq U$, taken against the $(n-1)$-dimensional
 Hausdorff surface measure $\mu_H^{\,n-1}$.
 
-\begin{lstlisting}[caption={Sphere mean value property (proved)}]
--- proved (n >= 2):
+\textbf{All of §2.2.2 is now proved} ($n \ge 2$): the sphere mean value property, the ball
+mean value property, and the converse (mean value $\Rightarrow$ harmonic).
+
+\begin{lstlisting}[caption={Mean value property (all proved, n >= 2)}]
 theorem harmonic_sphereMeanValue (hn : 2 <= n) (hU : IsOpen U)
     (hu : IsHarmonic U u) (hu_c2 : ContDiff R 2 u)
     (hr : 0 < r) (hball : closedBall x r subseteq U) :
     u x = sphereMean u x r
--- still sorry:
-theorem harmonic_ballMeanValue     ... : u x = ballMean u x r := by sorry
-theorem meanValue_implies_harmonic ... : IsHarmonic U u       := by sorry
+theorem harmonic_ballMeanValue (hn : 2 <= n) ... : u x = ballMean u x r
+theorem meanValue_implies_harmonic (hn : 2 <= n) ... : IsHarmonic U u
 \end{lstlisting}
 
 The proof does not follow the Green's-identity route of the original sketch. Instead it uses
@@ -1050,15 +1051,30 @@ counting measure). Evans's standing assumption is $n \ge 2$ (the fundamental sol
 only defined there), so we take $n \ge 2$; adding the true-but-degenerate $n = 1$ case is future
 work.
 
-\textbf{The ball version does not cascade cheaply.} Deriving \texttt{harmonic\_ballMeanValue}
-from the sphere version is Evans's one-line ``integrate over radii'', but formally it needs the
-\emph{coarea} (polar) decomposition of Lebesgue volume into sphere integrals \emph{against our
-$\mu_{HE}$ surface measure}. Mathlib provides only the \emph{radial} case
-(\texttt{integral\_fun\_norm\_addHaar}, for integrands $f(\|x\|)$) and its own abstract
-\texttt{Measure.toSphere} (defined by $\mu.\texttt{toSphere}\,s = n\cdot\mu(\mathrm{Ioo}\,0\,1
-\cdot s)$) with a product decomposition; using it requires first proving
-$\texttt{toSphere} = \mu_{HE}|_{\partial B}$, a separate multi-step task. This is the current
-blocker for the ball mean value property and its converse \texttt{meanValue\_implies\_harmonic}.
+\textbf{Ball version --- no coarea formula needed} (correcting an earlier draft). Evans derives
+the ball mean value from the sphere version by ``integrating over radii'', which uses the
+coarea/polar decomposition; an earlier version of this document claimed the Lean proof therefore
+needed that decomposition (and a $\texttt{toSphere} = \mu_{HE}|_{\partial B}$ bridge absent from
+Mathlib), estimating it as research-grade. \emph{That was wrong.} The divergence theorem alone
+suffices. Apply it on the unit ball to the field $V(z) = u(x + r z)\,z$: since
+$\operatorname{div}V = r\langle\nabla u(x+rz),z\rangle + n\,u(x+rz)$ and the outward normal on
+$\partial B(0,1)$ is $z$ with flux $u(x+rz)$, one gets, writing $g(\rho) = \int_{B_1}u(x+\rho z)$,
+the ODE $\rho\,g'(\rho) + n\,g(\rho) = n\,|B_1|\,u(x)$ (the flux is evaluated by the sphere mean
+value). The integrating factor $\rho^{n}$ gives $\int_{B(x,r)}u = |B(x,r)|\,u(x)$, i.e.\
+$\texttt{ballMean} = u(x)$. New helper lemmas (\texttt{AreaFormula} block): \texttt{divergenceE\_id},
+\texttt{grad\_chain}, \texttt{div\_ball\_field}, \texttt{hasDerivAt\_ball\_integral},
+\texttt{ball\_ode}, \texttt{ball\_scaling}, \texttt{ball\_integral\_eq}.
+
+\textbf{Converse} (\texttt{meanValue\_implies\_harmonic}). Same machinery reversed: the mean-value
+hypothesis makes $g(\rho) = \int_{B_1}u(x_0+\rho z)$ constant near $0$, so by the general
+divergence identity \texttt{ball\_divergence\_flux\_identity} the spherical integral is constant;
+its $\rho$-derivative --- which equals the sphere flux and hence $\rho^{-(n-1)}\int_{B(x_0,\rho)}
+\Delta u$ (\texttt{laplacian\_ball\_eq\_sphere\_flux}) --- vanishes, so $\int_{B(x_0,\rho)}\Delta u
+= 0$ for all small $\rho$, and continuity of $\Delta u$ forces $\Delta u(x_0) = 0$.
+
+\emph{Lesson recorded:} before concluding a PDE result needs heavy missing machinery (coarea,
+elliptic regularity, measure uniqueness), first try to derive it from the divergence theorem /
+area formula that we already have.
 
 \subsection{§2.2.3 Maximum Principles and Regularity}
 
@@ -1075,91 +1091,85 @@ attains its max on $\overline U$ at a boundary point (the max exists by compactn
 $\overline U$ and continuity), giving $u(x) \le \sup_{\partial U} u + \varepsilon R^2$ with
 $R = \sup_{\overline U}\|\cdot\|$; letting $\varepsilon \to 0$ finishes.
 
-The remaining two results are not yet formalized. With the sphere mean value property now proved
-(§2.2.2), the \textbf{strong maximum principle is reachable} but not free: (i) its statement must
-strengthen \texttt{Continuous u} to \texttt{ContDiff R 2 u}, since the current continuity-only
-hypothesis cannot invoke the $C^2$ sphere MVP (and \texttt{IsHarmonic} on a merely continuous $u$
-is vacuous, as $\Delta u$ is read off the second \texttt{fderiv}); (ii) the open-ness of the set
-$\{u = \max\}$ needs an ``average $=$ max $\Rightarrow$ constant on the sphere'' rigidity lemma,
-which in turn needs positivity of the surface measure on relatively-open subsets of the sphere
-(\texttt{IsOpenPosMeasure}-style). Once those are in place the clopen/connectedness argument
-closes it. The interior-regularity theorem \texttt{harmonic\_smooth} remains the hardest item
-(elliptic regularity).
+\textbf{\texttt{harmonic\_strongMax} (Evans §2.2.3, Theorem 4) is now proved} ($n \ge 2$): a $C^2$
+harmonic function on a connected open set attaining its maximum at an interior point is constant.
+The statement strengthens \texttt{Continuous u} to \texttt{ContDiff R 2 u} (\texttt{IsHarmonic} on a
+merely continuous $u$ is vacuous, since $\Delta u$ is read off the second \texttt{fderiv}, and the
+proof needs the $C^2$ mean value property). The proof is Evans's clopen argument: the set
+$\{u = M\}$ ($M = u(x_0)$) is relatively \emph{open} in $U$ --- at an interior maximum $y$ the ball
+mean value gives $\fint_{B(y,r)}u = u(y) = M$ while $u \le M$, so the rigidity lemma
+\texttt{const\_on\_ball\_of\_max} (a nonnegative continuous function with zero integral over the open
+ball vanishes there, as \texttt{volume} is an \texttt{IsOpenPosMeasure}; via
+\texttt{setIntegral\_eq\_zero\_iff\_of\_nonneg\_ae} $+$ \texttt{Measure.eqOn\_of\_ae\_eq}) forces
+$u \equiv M$ on $B(y,r)$ --- and \emph{closed} (continuity); by connectedness
+(\texttt{IsPreconnected.subset\_left\_of\_subset\_union}) it is all of $U$. No sphere-average
+rigidity or surface-measure positivity was needed --- the \emph{ball} version, over Lebesgue volume,
+is cleaner.
+
+Only \texttt{harmonic\_smooth} (interior $C^\infty$ regularity) remains; the slick route is
+``harmonic $\Rightarrow$ equals its radial mollification $\Rightarrow$ $C^\infty$'', unlocked by the
+mean value property, rather than full elliptic regularity.
 
 \begin{lstlisting}[caption={Maximum principles and regularity}]
--- proved: weak maximum principle via the v_ε = u + ε‖·‖² perturbation
+-- proved: weak maximum principle (v_ε = u + ε‖·‖² perturbation)
 theorem harmonic_weakMax (hn : 1 <= n) (hU : IsOpen U)
     (hbdd : Bornology.IsBounded U) (hu : IsHarmonic U u)
     (hu_c2 : ContDiff R 2 u) :
     ForAll x in U, u x <= sSup (u '' frontier U)
--- still sorry (via mean value property; Gauss-Green now available, Chapter 6):
-theorem harmonic_strongMax ... : ForAll x in U, u x = u x0
+-- proved: strong maximum principle (clopen + ball-mean rigidity)
+theorem harmonic_strongMax (hn : 2 <= n) (hconn : IsConnected U)
+    (hu : IsHarmonic U u) (hu_c2 : ContDiff R 2 u) (hmax : ...) :
+    ForAll x in U, u x = u x0
+-- still sorry (interior regularity via radial mollification):
 theorem harmonic_smooth    ... : ContDiffOn R Top u U
 \end{lstlisting}
 
 \subsection{§2.2.4 Representation Formula}
 
-The proof of the representation formula requires the following intermediate lemmas,
-whose status reflects the current state of Mathlib:
+All the \emph{tools} for the representation formula now exist (nothing is blocked on missing
+Mathlib); what remains is the concrete --- and lengthy --- proof work. Current status:
 
 \begin{center}
-\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
+\begin{tabular}{@{}L{6.0cm}L{7.4cm}C@{}}
   \toprule
-  \textbf{Lemma} & \textbf{Blocker} & \textbf{Status} \\
+  \textbf{Lemma} & \textbf{Status / what remains} & \textbf{} \\
   \midrule
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-    & none --- now proved via Mathlib's $n$-dim polar integration & \textcolor{mathgreen}{\checkmark} \\
+    & proved (Mathlib's $n$-dim polar integration) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_identity\_annulus}
-    & Gauss--Green on spherical annulus: tool now available (Ch.~6); needs annulus-as-domain plumbing & \textcolor{orange}{partial} \\
+    & Step 1 (algebra) proved; Step 2 = \texttt{divergence\_theorem} on the annulus via
+      \texttt{setIntegral\_diff}; re-stated to $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
   \texttt{fundamentalSolution\_totalFlux}
-    & sphere Hausdorff measure $\sigma(\partial B(0,\varepsilon)) = n\omega_n\varepsilon^{n-1}$:
-      \texttt{hausdorffMeasure\_sphere} not in Mathlib & \textcolor{sorryred}{sorry} \\
+    & $\nabla\Phi$ via \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} $\times$ \texttt{sphere\_surfaceMeasure}
+      ($\mu_{HE}$); re-stated to $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
   \texttt{green\_boundary\_tendsto\_f}
-    & depends on \texttt{green\_identity\_annulus} and \texttt{fundamentalSolution\_totalFlux} & \textcolor{sorryred}{sorry} \\
+    & $\varepsilon\to0$ singular-integral limit; re-stated to $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
   \texttt{newtonianPotential\_solves\_poisson}
-    & depends on all above & \textcolor{sorryred}{sorry} \\
+    & capstone; assembles the above & \textcolor{sorryred}{sorry} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-The remaining proof chain for the Poisson representation formula rested on two independent
-missing tools. \textbf{The first is now resolved}; the second is reduced to a computation that
-Chapter~6 makes possible:
-
-\begin{enumerate}
-  \item \textbf{Stokes / Gauss--Green on spherical domains.} \emph{Resolved} (Chapter~6).
-    Required by \texttt{green\_identity\_annulus} (Step 2) and \texttt{green\_boundary\_tendsto\_f}.
-    Where Mathlib's divergence theorem
-    (\texttt{integral\_divergence\_of\_hasFDerivWithinAt\_off\_countable}) covers only rectangular
-    boxes, the general \texttt{divergence\_theorem} of Chapter~6 applies to any bounded $C^1$
-    domain --- in particular a ball or an annulus. What is left is not a missing \emph{tool} but
-    concrete plumbing: exhibiting $B(x,r)\setminus\overline{B(x,\varepsilon)}$ as an
-    \texttt{IsBoundedC1Domain}, constructing its (piecewise-sphere) outward normal, and specializing
-    Green's second identity from $F = v\nabla u - u\nabla v$.
-
-  \item \textbf{Sphere Hausdorff measure formula.}
-    Required by \texttt{fundamentalSolution\_totalFlux}:
-    the computation $\int_{\partial B(0,\varepsilon)} d\sigma = n\omega_n\varepsilon^{n-1}$
-    requires \texttt{hausdorffMeasure\_sphere} or equivalent, still not in Mathlib.
-    The Evans computation (§2.2.4, p.~23) gives
-    $\int_{\partial B(0,\varepsilon)} \langle\nabla\Phi, \nu\rangle\,d\sigma
-    = c_n(2-n)\varepsilon^{1-n} \cdot n\omega_n\varepsilon^{n-1} = -1$.
-    This surface-area constant is now derivable \emph{in principle} from the Chapter~6
-    \texttt{area\_formula} (the sphere is locally a graph), but that derivation is a self-contained
-    sub-project not yet carried out.
-\end{enumerate}
-
-A third obstruction listed in earlier drafts --- \textbf{$n$-dimensional polar coordinates} ---
-has since been \emph{resolved}: Mathlib's \texttt{integrable\_fun\_norm\_addHaar} reduces the
-integrability of a radial function over the unit ball to a one-dimensional radial integral,
-which we package as \texttt{Calculus.integrableOn\_unitBall\_radial} and
-\texttt{Calculus.integrableOn\_norm\_rpow\_unitBall} ($\|\cdot\|^p$ integrable near $0$ iff
-$p > -n$). This discharges \texttt{fundamentalSolution\_norm\_integrableOn\_unitBall}, and with
-it \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} is now fully proved.
-
-Further partial progress: \texttt{green\_identity\_annulus} Step~1 (the algebraic identity
-$v\,\Delta u - u\,\Delta v = \sum_i \partial_{e_i}(v\,\partial_{e_i}u - u\,\partial_{e_i}v)$)
-is fully proved; only its Gauss--Green step is blocked.
+\textbf{Correctness fix: raw $\mu_H$ $\to$ Riemannian $\mu_{HE}$.} The three surface-integral
+lemmas were originally stated against the raw $(n-1)$-Hausdorff measure
+$\mu_H^{\,n-1}$ (\texttt{Measure.hausdorffMeasure}). This is \emph{false for $n \ge 3$}: unlike the
+mean-value \emph{averages} (where $c_0$ cancels, §2.2.2), these are raw \emph{integrals}, and Evans's
+constants only hold for the true surface area $d\sigma = n\omega_n\varepsilon^{n-1}$, which is
+$\mu_{HE}$ (our Gauss--Green measure), \emph{not} $\mu_H = \mu_{HE}/c_0$. For instance
+\[
+\int_{\partial B(0,\varepsilon)} \langle\nabla\Phi,\nu\rangle\,d\sigma
+= c_n(2-n)\varepsilon^{1-n}\cdot n\omega_n\varepsilon^{n-1} = -1
+\quad\text{holds for } \sigma = \mu_{HE}, \text{ but gives } -1/c_0 \text{ for } \mu_H.
+\]
+The stubs are now re-stated with $\mu_{HE}^{\,n-1}$ (and $n \ge 2$), which is exactly Evans's
+$d\sigma$. This also \emph{resolves} two obstructions listed in earlier drafts: the sphere surface
+measure $\sigma(\partial B(0,\varepsilon)) = n\omega_n\varepsilon^{n-1}$ is now the proved
+\texttt{sphere\_surfaceMeasure} (a corollary of \texttt{divergence\_theorem} on $F = \mathrm{id}$),
+and Gauss--Green on the annulus follows from \texttt{divergence\_theorem} $+$ \texttt{setIntegral\_diff}
+(the earlier ``Stokes not in Mathlib'' comments are stale). What is genuinely left is a few hundred
+lines of piecewise-$n$ ($n=2$ log vs.\ $n\ge3$ power) constant-chasing, the annulus-domain plumbing,
+and the $\varepsilon\to0$ limit --- the substantial remaining block of Chapter~2.2, together with
+interior regularity.
 
 \subsection{Status Summary}
 
@@ -1179,25 +1189,25 @@ is fully proved; only its Gauss--Green step is blocked.
   \texttt{fundamentalSolution\_norm\_integrableOn\_unitBall} & $\|\Phi\| \in L^1(B(0,1))$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero} & $\int_{B(x,\varepsilon)}\|\Phi\| \to 0$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{harmonic\_weakMax}         & weak maximum principle (via perturbation) & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{green\_identity\_annulus} & Green's 2nd identity on annulus (Step 1 proved; G--G via Ch.~6)$^\dagger$ & \textcolor{orange}{partial} \\
-  \texttt{harmonic\_sphereMeanValue} & mean value on spheres $^\dagger$   & \textcolor{sorryred}{sorry} \\
-  \texttt{harmonic\_ballMeanValue}   & mean value on balls $^\dagger$     & \textcolor{sorryred}{sorry} \\
-  \texttt{meanValue\_implies\_harmonic} & converse of MVP $^\dagger$      & \textcolor{sorryred}{sorry} \\
-  \texttt{harmonic\_strongMax}       & strong maximum principle $^\dagger$ & \textcolor{sorryred}{sorry} \\
-  \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$ $^\dagger$ & \textcolor{sorryred}{sorry} \\
-  \texttt{fundamentalSolution\_totalFlux} & total flux $= -1$ (needs sphere measure)$^\ddagger$ & \textcolor{sorryred}{sorry} \\
-  \texttt{newtonianPotential\_solves\_poisson} & representation formula $^\ddagger$ & \textcolor{sorryred}{sorry} \\
+  \texttt{harmonic\_sphereMeanValue} & mean value on spheres ($n\ge2$)   & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{harmonic\_ballMeanValue}   & mean value on balls ($n\ge2$)     & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{meanValue\_implies\_harmonic} & converse of MVP ($n\ge2$)      & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{harmonic\_strongMax}       & strong maximum principle ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{const\_on\_ball\_of\_max}  & ball rigidity (mean $=$ max $\Rightarrow$ const) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$ (interior regularity) & \textcolor{sorryred}{sorry} \\
+  \texttt{green\_identity\_annulus}  & Green's 2nd identity on annulus, $\mu_{HE}$ (Step 1 proved) & \textcolor{sorryred}{sorry} \\
+  \texttt{fundamentalSolution\_totalFlux} & total flux $= -1$, $\mu_{HE}$ ($n\ge2$) & \textcolor{sorryred}{sorry} \\
+  \texttt{green\_boundary\_tendsto\_f} & boundary integral $\to f(x)$, $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
+  \texttt{newtonianPotential\_solves\_poisson} & representation formula (capstone) & \textcolor{sorryred}{sorry} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent{\small $^\dagger$ Still \texttt{sorry} in Lean, but no longer \emph{tool}-blocked: the
-Gauss--Green step (Green's identity on a ball/annulus) is now supplied by
-\texttt{divergence\_theorem} (Chapter~6); closing these needs only the domain-instantiation plumbing
-(exhibiting the ball/annulus as an \texttt{IsBoundedC1Domain} with its outward normal).
-\quad $^\ddagger$ Additionally needs the exact flux constant $\int_{\partial B(0,\varepsilon)}d\sigma
-= n\omega_n\varepsilon^{n-1}$, now derivable in principle from the Chapter~6 \texttt{area\_formula}
-but not yet formalized.}
+\noindent{\small The entire §2.2.2--2.2.3 mean-value and maximum-principle theory is now proved
+($n \ge 2$), all off the Chapter~6 \texttt{divergence\_theorem} with no missing Mathlib machinery.
+The remaining \texttt{sorry}s are the §2.2.4 representation formula (re-stated with the Riemannian
+surface measure $\mu_{HE}$; a few hundred lines of $\nabla\Phi$/flux computation, annulus plumbing,
+and the $\varepsilon\to0$ limit) and interior $C^\infty$ regularity.}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 3: Heat Equation (Evans §2.3)}
