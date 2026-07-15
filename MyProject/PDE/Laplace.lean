@@ -1643,7 +1643,8 @@ lemma fundamentalSolution_near_integral_tendsto_zero (x : ℝⁿ) :
     `B(x,r) \ B̄(x,ε)`, handled by `setIntegral_diff` additivity of the two ball domains, with the
     inner sphere contributing the opposite sign. Uses `μHE[n−1]` (not raw `μH`) for correct
     constants. -/
-lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v)
+lemma green_identity_annulus (hn : 2 ≤ n) (u v : ℝⁿ → ℝ)
+    (hu : ContDiff ℝ 2 u) (hv : ContDiff ℝ 2 v)
     (x : ℝⁿ) (r ε : ℝ) (hr : 0 < r) (hε : 0 < ε) (hεr : ε < r) :
     ∫ y in Metric.ball x r \ Metric.ball x ε, (v y * Δ u y - u y * Δ v y)
     = (∫ y in Metric.sphere x r,
@@ -1654,75 +1655,31 @@ lemma green_identity_annulus (u v : ℝⁿ → ℝ) (hu : ContDiff ℝ 2 u) (hv 
         (v y * ⟪gradient u y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ -
          u y * ⟪gradient v y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
         ∂(μHE[n - 1] : Measure ℝⁿ)) := by
-  -- Standard ONB for ℝⁿ
-  set e := EuclideanSpace.basisFun (Fin n) ℝ with he_def
-  -- Step 1 (Evans §2.2, algebra): v Δu − u Δv = ∑ᵢ ∂_{eᵢ}(v·∂_{eᵢ}u − u·∂_{eᵢ}v)
-  -- Proof: product rule gives ∂_{eᵢ}(v·∂_{eᵢ}u) = (∂_{eᵢ}v)(∂_{eᵢ}u) + v·∂²_{eᵢeᵢ}u,
-  -- and the cross terms (∂_{eᵢ}v)(∂_{eᵢ}u) cancel when we subtract the same with u↔v.
-  have hdivid : ∀ y : ℝⁿ,
-      v y * Δ u y - u y * Δ v y =
-      ∑ i : Fin n, fderiv ℝ (fun z =>
-          v z * fderiv ℝ u z (e i) - u z * fderiv ℝ v z (e i)) y (e i) := by
-    intro y
-    -- Expand Δu, Δv using the ONB: Δf y = ∑ᵢ iteratedFDeriv 2 f y ![eᵢ, eᵢ]
-    have hΔu : Δ u y = ∑ i : Fin n, iteratedFDeriv ℝ 2 u y ![e i, e i] :=
-      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis u e) y
-    have hΔv : Δ v y = ∑ i : Fin n, iteratedFDeriv ℝ 2 v y ![e i, e i] :=
-      congr_fun (laplacian_eq_iteratedFDeriv_orthonormalBasis v e) y
-    rw [hΔu, hΔv]
-    simp only [Finset.mul_sum, ← Finset.sum_sub_distrib]
-    congr 1; ext i; symm
-    -- For each i: compute fderiv via product rule and chain rule
-    -- HasFDerivAt for fun z => fderiv u z (eᵢ):
-    --   fderiv u is C¹ (from hu : ContDiff 2 u), evaluate the CLM at eᵢ for chain rule.
-    have hfdu_i : HasFDerivAt (fun z : ℝⁿ => fderiv ℝ u z (e i))
-        ((fderiv ℝ (fderiv ℝ u) y).flip (e i)) y := by
-      have h1 : ContDiff ℝ 1 (fderiv ℝ u) := hu.fderiv_right (by norm_num)
-      have h2 : HasFDerivAt (fderiv ℝ u) (fderiv ℝ (fderiv ℝ u) y) y :=
-        (h1.differentiable (by norm_num)).differentiableAt.hasFDerivAt
-      have h3 := h2.clm_apply (hasFDerivAt_const (e i) y)
-      simp only [ContinuousLinearMap.comp_zero, zero_add] at h3
-      exact h3
-    have hfdv_i : HasFDerivAt (fun z : ℝⁿ => fderiv ℝ v z (e i))
-        ((fderiv ℝ (fderiv ℝ v) y).flip (e i)) y := by
-      have h1 : ContDiff ℝ 1 (fderiv ℝ v) := hv.fderiv_right (by norm_num)
-      have h2 : HasFDerivAt (fderiv ℝ v) (fderiv ℝ (fderiv ℝ v) y) y :=
-        (h1.differentiable (by norm_num)).differentiableAt.hasFDerivAt
-      have h3 := h2.clm_apply (hasFDerivAt_const (e i) y)
-      simp only [ContinuousLinearMap.comp_zero, zero_add] at h3
-      exact h3
-    -- HasFDerivAt for v and u themselves
-    have hv_hfd : HasFDerivAt v (fderiv ℝ v y) y :=
-      (hv.differentiable (by norm_num)).differentiableAt.hasFDerivAt
-    have hu_hfd : HasFDerivAt u (fderiv ℝ u y) y :=
-      (hu.differentiable (by norm_num)).differentiableAt.hasFDerivAt
-    -- Product rule + subtraction: first term v*(fderiv u · eᵢ), second u*(fderiv v · eᵢ)
-    have hterm : HasFDerivAt (fun z : ℝⁿ => v z * fderiv ℝ u z (e i) - u z * fderiv ℝ v z (e i))
-        (v y • (fderiv ℝ (fderiv ℝ u) y).flip (e i) + fderiv ℝ u y (e i) • fderiv ℝ v y -
-         (u y • (fderiv ℝ (fderiv ℝ v) y).flip (e i) + fderiv ℝ v y (e i) • fderiv ℝ u y)) y :=
-      (hv_hfd.mul hfdu_i).sub (hu_hfd.mul hfdv_i)
-    -- Evaluate at eᵢ and use iteratedFDeriv_two_apply to identify ∂²u
-    rw [hterm.fderiv]
-    simp only [ContinuousLinearMap.sub_apply, ContinuousLinearMap.add_apply,
-               ContinuousLinearMap.smul_apply, ContinuousLinearMap.flip_apply, smul_eq_mul]
-    -- iteratedFDeriv_two_apply: fderiv(fderiv u) y (eᵢ) (eᵢ) = iteratedFDeriv 2 u y ![eᵢ,eᵢ]
-    have hd2u : fderiv ℝ (fderiv ℝ u) y (e i) (e i) = iteratedFDeriv ℝ 2 u y ![e i, e i] := by
-      have h := iteratedFDeriv_two_apply (𝕜 := ℝ) u y ![e i, e i]
-      simp only [Matrix.cons_val_zero, Matrix.cons_val_one] at h
-      exact h.symm
-    have hd2v : fderiv ℝ (fderiv ℝ v) y (e i) (e i) = iteratedFDeriv ℝ 2 v y ![e i, e i] := by
-      have h := iteratedFDeriv_two_apply (𝕜 := ℝ) v y ![e i, e i]
-      simp only [Matrix.cons_val_zero, Matrix.cons_val_one] at h
-      exact h.symm
-    rw [hd2u, hd2v]; ring
-  -- Step 2 (Evans §2.2): Gauss–Green theorem on the annulus Ω = B(x,r) \ B̄(x,ε).
-  --   ∫_Ω ∑ᵢ ∂_{eᵢ} Fᵢ = ∫_{S(x,r)} ∑ᵢ Fᵢ ⟨eᵢ, ν⟩ dσ − ∫_{S(x,ε)} ∑ᵢ Fᵢ ⟨eᵢ, ν⟩ dσ
-  -- where Fᵢ(y) = v(y)·∂_{eᵢ}u(y) − u(y)·∂_{eᵢ}v(y) and ν = ‖y−x‖⁻¹(y−x).
-  -- Inner product expansion: ∑ᵢ Fᵢ ⟨eᵢ, ν⟩ = ∑ᵢ(v·∂_{eᵢ}u − u·∂_{eᵢ}v)⟨eᵢ,ν⟩
-  --   = v·⟨∇u, ν⟩ − u·⟨∇v, ν⟩  (linearity + ⟨∇f, w⟩ = fderiv f · w = ∑ᵢ ∂_{eᵢ}f · ⟨eᵢ,w⟩).
-  -- Now available: apply `divergence_theorem` to the annulus B(x,r) \ B̄(x,ε) via `setIntegral_diff`
-  -- of the two ball domains (inner sphere gets the opposite sign), against `μHE[n−1]`.
-  sorry
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 2 := ⟨n - 2, by omega⟩
+  simp only [show m + 2 - 1 = m + 1 from rfl]
+  have key : ∀ s : ℝ,
+      (∫ y in Metric.sphere x s,
+          (v y * ⟪gradient u y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ -
+           u y * ⟪gradient v y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      = -(∫ y in Metric.sphere x s,
+          (u y * ⟪gradient v y, s⁻¹ • (y - x)⟫_ℝ -
+           v y * ⟪gradient u y, s⁻¹ • (y - x)⟫_ℝ)
+          ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))) := by
+    intro s
+    rw [← integral_neg]
+    refine setIntegral_congr_fun Metric.isClosed_sphere.measurableSet (fun y hy => ?_)
+    rw [Metric.mem_sphere, dist_eq_norm] at hy
+    rw [hy]; ring
+  rw [key r, key ε]
+  have hLHS : (∫ y in Metric.ball x r \ Metric.ball x ε, (v y * Δ u y - u y * Δ v y))
+      = -(∫ y in Metric.ball x r \ Metric.ball x ε, (u y * Δ v y - v y * Δ u y)) := by
+    rw [← integral_neg]
+    refine setIntegral_congr_fun (measurableSet_ball.diff measurableSet_ball) (fun y _ => ?_)
+    ring
+  rw [hLHS]
+  have hA := AreaFormula.green_identity_annulus x r ε hr hε hεr u v hu hv
+  linarith [hA]
 
 /-- Flux integrand for a radial power `c·‖·‖^p`: `⟪∇(c‖·‖^p), ‖y‖⁻¹y⟫ = c·p·‖y‖^{p-1}`. -/
 lemma flux_rpow (c p : ℝ) (y : ℝⁿ) (hy : y ≠ 0) :
