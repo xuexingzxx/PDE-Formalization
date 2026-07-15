@@ -27,7 +27,7 @@ Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 | Chapter | File | Status | Notes |
 |---|---|---|---|
 | §2.1 Transport | `Transport.lean` | ✅ **complete, zero `sorry`** | homogeneous IVP solved **and proved unique**; inhomogeneous Duhamel formula **provably solves the IVP** (Leibniz rule + spatial differentiation under the integral both proved) |
-| §2.2 Laplace/Poisson | `Laplace.lean` | partial | fundamental solution, radial-power & `log` Laplacians, Green's identity (algebraic step), and the **weak maximum principle** proved; mean-value, strong maximum principle and the Poisson representation remain `sorry` — the Gauss–Green tool they needed is now available (the `AreaFormula.lean` divergence theorem), so what remains is instantiating a ball/annulus as a `C¹` domain plus the sphere surface-measure constant |
+| §2.2 Laplace/Poisson | `Laplace.lean` | partial | fundamental solution, radial-power & `log` Laplacians, and the **weak maximum principle** proved; **the entire mean-value + maximum-principle theory of §2.2.2–2.2.3 is now proved** (`n ≥ 2`) — sphere & ball mean-value property, its converse (`meanValue_implies_harmonic`), and the **strong maximum principle** — all off the `AreaFormula.lean` divergence theorem with no missing Mathlib machinery (the ball version via the field `u(x+r·z)·z` + an ODE, *not* a coarea formula; strong max via a ball-mean rigidity + clopen/connectedness). Remaining `sorry`: interior `C^∞` regularity (`harmonic_smooth`) and the §2.2.4 Poisson representation formula. The latter's surface integrals were **re-stated with the Riemannian surface measure `μHE`** — the raw `(n−1)`-Hausdorff stubs were *false for `n ≥ 3`* (their constants, e.g. total flux `= −1`, only hold for the true surface area `μHE`, not `μH = μHE/c₀`) |
 | §2.3 Heat | `Heat.lean` | ✅ **complete, zero `sorry`** | heat kernel is positive, has unit mass, and solves the heat equation; for **bounded continuous** `g`, the convolution `∫ Φ(x−y,t) g(y) dy` **provably solves the IVP** — both the time-derivative and the spatial-Laplacian are moved under the integral (n-dim Gaussian moments + nested differentiation under the integral); plus the **weak maximum principle** on a parabolic cylinder and **uniqueness** on a bounded cylinder (§2.3.3–2.3.4) |
 | §2.4 Wave | `Wave.lean` | ✅ **complete, zero `sorry`** | traveling waves, d'Alembert (existence + `C²` regularity + initial conditions), energy conservation, uniqueness, finite propagation speed |
 | §5.2 Sobolev | `Sobolev/Basic.lean` | ✅ **foundations, zero `sorry`** | test functions `C_c^∞(U)`, weak directional derivatives, the classical⟹weak bridge (integration by parts), linearity, a.e.-invariance, the smooth product (Leibniz) rule, a.e. uniqueness (fundamental lemma of the calculus of variations), closedness under `L¹`-on-compacts **and `Lᵖ`** limits (via a Hölder bridge), the weak-derivative graph is **closed in `Lᵖ × Lᵖ`**, and hence **`W^{1,p}(ℝⁿ)` is a Banach space** — with the genuine Sobolev norm `(‖u‖ₚᵖ + Σᵢ‖∂ᵢu‖ₚᵖ)^{1/p}` (via `PiLp`) — and **`W^{1,p}(U)` is a Banach space for any measurable `U`** over the restricted measure `Lᵖ(U)`; bundled as a named type `W1p` with a `CompleteSpace` instance and the function-value and weak-partial-derivative maps `W^{1,p}(U) → Lᵖ(U)` as **bounded linear operators**; plus `W^{1,p}` membership, locality, and `C_c^∞ ⊆ W^{1,p}` |
@@ -46,21 +46,27 @@ and documented at their use sites.
 
 ## Known blockers (missing Mathlib infrastructure)
 
-The outstanding `sorry`s are all in **Laplace**, and are **not** gaps in the mathematics but
-in available Mathlib lemmas. Two of the three original blockers are now **resolved** in this
-project:
+The outstanding `sorry`s are all in **Laplace**, and are **not** gaps in the mathematics nor in
+available tools — **all three original blockers are now resolved** in this project. What remains
+is the (lengthy) proof work for the §2.2.4 representation formula and interior regularity.
 
-- ~~**Stokes' theorem on spherical domains**~~ (Laplace `green_identity_annulus` Step 2,
+- ~~**Stokes' theorem on spherical domains**~~ (Laplace `green_identity_annulus`,
   `green_boundary_tendsto_f`) — **resolved**: the general `divergence_theorem` in
   `AreaFormula.lean` applies to any bounded `C¹` domain (a ball/annulus included), superseding
-  Mathlib's box-only divergence theorem. What remains for these lemmas is not a missing tool but
-  plumbing: exhibiting the ball/annulus as an `IsBoundedC1Domain` with its outward normal.
-- **Sphere surface measure** `σ(∂B(0,ε)) = n ωₙ εⁿ⁻¹` (Laplace `fundamentalSolution_totalFlux`) —
-  still open, but now derivable *in principle* from this project's `area_formula` (the sphere is
-  locally a graph); not yet carried out.
+  Mathlib's box-only divergence theorem.
+- ~~**Sphere surface measure** `σ(∂B(0,ε)) = n ωₙ εⁿ⁻¹`~~ — **resolved**: proved as
+  `sphere_surfaceMeasure` (`σ(∂B) = n·vol(B)/r`), a corollary of `divergence_theorem` on
+  `F = id`. It is the Riemannian `μHE` surface area — which is exactly Evans' `dσ`, and the
+  reason the §2.2.4 lemmas had to be re-stated from raw `μH` to `μHE`.
 - ~~**`n`-dimensional polar coordinates**~~ (Laplace integrability of `‖Φ‖` near `0`) —
   **resolved** via Mathlib's `integrable_fun_norm_addHaar`, packaged as
   `integrableOn_unitBall_radial` / `integrableOn_norm_rpow_unitBall`.
+
+The remaining §2.2.4 work (fundamental-solution flux, annulus Green's identity, the `ε→0`
+singular-integral limit, and the representation-formula capstone) needs no new Mathlib
+infrastructure — the tools (`hasFDerivAt_norm_rpow_of_ne` for `∇Φ`, `sphere_surfaceMeasure`,
+`divergence_theorem` + `setIntegral_diff` for the annulus) are all in place; it is a few hundred
+lines of piecewise-`n` constant-chasing and limits.
 
 The **Heat** chapter's spatial-Laplacian-under-the-integral step required navigating a
 genuine Mathlib instance gap — `ContinuousENorm` (hence `Integrable`/`integral_apply`) is
