@@ -1800,6 +1800,305 @@ lemma fundamentalSolution_totalFlux (hn : 2 ≤ n) (ε : ℝ) (hε : 0 < ε) :
   obtain ⟨m, rfl⟩ : ∃ m, n = m + 2 := ⟨n - 2, by omega⟩
   exact totalFlux_aux m ε hε
 
+section GreenBoundaryHelpers
+open AreaFormula
+variable {m : ℕ}
+
+/-- Shifted total flux: `∫_{∂B(x,ε)} ⟪∇Φ(y−x), ν⟫ dμHE = −1`, via μHE translation-invariance. -/
+lemma totalFlux_shifted (x : ℝ^(m + 2)) (ε : ℝ) (hε : 0 < ε) :
+    ∫ y in Metric.sphere x ε,
+      ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+      ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) = -1 := by
+  have hmp : MeasurePreserving (fun z : ℝ^(m + 2) => x + z)
+      (μHE[m + 1] : Measure (ℝ^(m + 2))) (μHE[m + 1] : Measure (ℝ^(m + 2))) :=
+    ⟨measurable_const_add x, map_add_μHE x⟩
+  have hpre : (fun z : ℝ^(m + 2) => x + z) ⁻¹' (Metric.sphere x ε) = Metric.sphere 0 ε := by
+    ext z; simp [dist_eq_norm]
+  rw [← hmp.setIntegral_preimage_emb (measurableEmbedding_addLeft x)
+      (fun y => ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+      (Metric.sphere x ε), hpre]
+  simp only [add_sub_cancel_left]
+  exact totalFlux_aux m ε hε
+
+/-- The μHE sphere average of a continuous function tends to its value at the centre as `ε → 0`. -/
+lemma sphere_average_tendsto (x : ℝ^(m + 2)) (f : (ℝ^(m + 2)) → ℝ) (hf : Continuous f) :
+    Filter.Tendsto (fun ε => ⨍ y in Metric.sphere x ε, f y ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds (f x)) := by
+  rw [Metric.tendsto_nhdsWithin_nhds]
+  intro δ hδ
+  obtain ⟨ρ, hρ, hρf⟩ := Metric.continuous_iff.mp hf x (δ / 2) (by positivity)
+  refine ⟨ρ, hρ, fun ε hε hερ => ?_⟩
+  have hε0 : 0 < ε := hε
+  rw [Real.dist_eq, sub_zero, abs_of_pos hε0] at hερ
+  have hσfin : (μHE[m + 1] (Metric.sphere x ε)) ≠ ∞ := by
+    have h := surfaceMeasure_frontier_lt_top (isBoundedC1Domain_ball x ε hε0)
+    rw [frontier_ball x hε0.ne'] at h; exact h.ne
+  have hσtoReal : 0 < (μHE[m + 1] (Metric.sphere x ε)).toReal := by
+    rw [sphere_surfaceMeasure x ε hε0]
+    have : 0 < (volume (Metric.ball x ε)).toReal :=
+      ENNReal.toReal_pos (Metric.measure_ball_pos volume x hε0).ne' measure_ball_lt_top.ne
+    positivity
+  have hσne : (μHE[m + 1] (Metric.sphere x ε)) ≠ 0 := fun h => by
+    rw [h, ENNReal.toReal_zero] at hσtoReal; exact lt_irrefl 0 hσtoReal
+  haveI hfinm : IsFiniteMeasure ((μHE[m + 1] : Measure (ℝ^(m + 2))).restrict
+      (Metric.sphere x ε)) :=
+    ⟨by rw [Measure.restrict_apply_univ]; exact lt_top_iff_ne_top.mpr hσfin⟩
+  obtain ⟨M, hM⟩ := (isCompact_sphere x ε).exists_bound_of_continuousOn hf.continuousOn
+  have hintf : IntegrableOn f (Metric.sphere x ε) (μHE[m + 1]) :=
+    (integrable_const M).mono' hf.aestronglyMeasurable
+      (ae_restrict_of_forall_mem Metric.isClosed_sphere.measurableSet (fun y hy => hM y hy))
+  have hintc : IntegrableOn (fun _ : ℝ^(m + 2) => f x) (Metric.sphere x ε) (μHE[m + 1]) :=
+    integrable_const (f x)
+  have hbnd : ∀ y ∈ Metric.sphere x ε, ‖f y - f x‖ ≤ δ / 2 := by
+    intro y hy
+    rw [Metric.mem_sphere] at hy
+    rw [Real.norm_eq_abs, ← Real.dist_eq]
+    exact (hρf y (by rw [hy]; exact hερ)).le
+  have hkey : (⨍ y in Metric.sphere x ε, f y ∂μHE[m + 1]) - f x
+      = ⨍ y in Metric.sphere x ε, (f y - f x) ∂μHE[m + 1] := by
+    have h1 : (⨍ y in Metric.sphere x ε, (f y - f x) ∂μHE[m + 1])
+        = (⨍ y in Metric.sphere x ε, f y ∂μHE[m + 1])
+          - ⨍ _y in Metric.sphere x ε, f x ∂μHE[m + 1] := by
+      rw [setAverage_eq, setAverage_eq, setAverage_eq, ← smul_sub, ← integral_sub hintf hintc]
+    rw [h1, setAverage_const hσne hσfin]
+  rw [Real.dist_eq, hkey, setAverage_eq, measureReal_def, smul_eq_mul, abs_mul,
+    abs_of_pos (inv_pos.mpr hσtoReal)]
+  have hI : |∫ y in Metric.sphere x ε, (f y - f x) ∂μHE[m + 1]|
+      ≤ δ / 2 * (μHE[m + 1] (Metric.sphere x ε)).toReal := by
+    rw [← Real.norm_eq_abs]
+    exact norm_setIntegral_le_of_norm_le_const (lt_top_iff_ne_top.mpr hσfin) hbnd
+  calc (μHE[m + 1] (Metric.sphere x ε)).toReal⁻¹
+        * |∫ y in Metric.sphere x ε, (f y - f x) ∂μHE[m + 1]|
+      ≤ (μHE[m + 1] (Metric.sphere x ε)).toReal⁻¹
+          * (δ / 2 * (μHE[m + 1] (Metric.sphere x ε)).toReal) := by
+        apply mul_le_mul_of_nonneg_left hI (le_of_lt (inv_pos.mpr hσtoReal))
+    _ = δ / 2 := by field_simp
+    _ < δ := by linarith
+
+/-- The fundamental solution is radial: it depends only on `‖z‖`. -/
+lemma Phi_radial (z z' : ℝ^(m + 2)) (hnorm : ‖z‖ = ‖z'‖) :
+    fundamentalSolution z = fundamentalSolution z' := by
+  simp only [fundamentalSolution, hnorm]
+
+/-- The flux integrand `⟪∇Φ z, ‖z‖⁻¹z⟫` depends only on `‖z‖`. -/
+lemma flux_radial (z z' : ℝ^(m + 2)) (hz : z ≠ 0) (hz' : z' ≠ 0) (hnorm : ‖z‖ = ‖z'‖) :
+    ⟪gradient fundamentalSolution z, ‖z‖⁻¹ • z⟫_ℝ
+      = ⟪gradient fundamentalSolution z', ‖z'‖⁻¹ • z'⟫_ℝ := by
+  rcases Nat.eq_zero_or_pos m with hm0 | hmpos
+  · subst hm0
+    have hΦeq : (fundamentalSolution : (ℝ^2) → ℝ) = fun w => -(1 / (2 * Real.pi)) * Real.log ‖w‖ :=
+      funext (fun w => by simp [fundamentalSolution])
+    rw [hΦeq, flux_log _ _ hz, flux_log _ _ hz', hnorm]
+  · set c := (1 / (((m + 2 : ℕ) : ℝ) * (((m + 2 : ℕ) : ℝ) - 2) *
+      (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal)) with hc
+    have hΦeq : (fundamentalSolution : (ℝ^(m + 2)) → ℝ)
+        = fun w => c * ‖w‖ ^ (2 - ((m + 2 : ℕ) : ℝ)) := by
+      funext w
+      simp only [fundamentalSolution, show (m + 2 : ℕ) ≠ 0 from by omega,
+        show (m + 2 : ℕ) ≠ 1 from by omega, show (m + 2 : ℕ) ≠ 2 from by omega, if_false]
+      rw [hc]
+    rw [hΦeq, flux_rpow _ _ _ hz, flux_rpow _ _ _ hz', hnorm]
+
+/-- Integrability of a continuous function on a sphere against `μHE` (finite measure there). -/
+lemma integrableOn_sphere_of_continuousOn {g : (ℝ^(m + 2)) → ℝ} (x : ℝ^(m + 2)) {ε : ℝ}
+    (hε : 0 < ε) (hg : ContinuousOn g (Metric.sphere x ε)) :
+    IntegrableOn g (Metric.sphere x ε) (μHE[m + 1]) := by
+  have hσfin : (μHE[m + 1] (Metric.sphere x ε)) ≠ ∞ := by
+    have h := surfaceMeasure_frontier_lt_top (isBoundedC1Domain_ball x ε hε)
+    rw [frontier_ball x hε.ne'] at h; exact h.ne
+  haveI : IsFiniteMeasure ((μHE[m + 1] : Measure (ℝ^(m + 2))).restrict (Metric.sphere x ε)) :=
+    ⟨by rw [Measure.restrict_apply_univ]; exact lt_top_iff_ne_top.mpr hσfin⟩
+  obtain ⟨M, hM⟩ := (isCompact_sphere x ε).exists_bound_of_continuousOn hg
+  exact (integrable_const M).mono' (hg.aestronglyMeasurable Metric.isClosed_sphere.measurableSet)
+    (ae_restrict_of_forall_mem Metric.isClosed_sphere.measurableSet (fun y hy => hM y hy))
+
+/-- The boundary-integral limit, given Term A → 0. -/
+lemma green_boundary_test (x : ℝ^(m + 2)) (f : (ℝ^(m + 2)) → ℝ) (hf : ContDiff ℝ 2 f)
+    (e₀ : ℝ^(m + 2)) (he₀ : ‖e₀‖ = 1)
+    (hA : Filter.Tendsto
+      (fun ε => fundamentalSolution (ε • e₀) * ∫ y in Metric.ball x ε, Laplacian.laplacian f y)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds 0)) :
+    Filter.Tendsto
+      (fun ε => ∫ y in Metric.sphere x ε,
+        (fundamentalSolution (y - x) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - f y * ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds (f x)) := by
+  have hgradf : Continuous (gradient f) := (contDiff_gradient hf).continuous
+  have hkey : ∀ ε : ℝ, 0 < ε →
+      (∫ y in Metric.sphere x ε,
+        (fundamentalSolution (y - x) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - f y * ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      = (fundamentalSolution (ε • e₀) * ∫ y in Metric.ball x ε, Laplacian.laplacian f y)
+        + ⨍ y in Metric.sphere x ε, f y ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+    intro ε hε
+    set y₀ : ℝ^(m + 2) := x + ε • e₀ with hy₀
+    have hy₀sub : y₀ - x = ε • e₀ := by rw [hy₀]; abel
+    have hy₀subnorm : ‖y₀ - x‖ = ε := by
+      rw [hy₀sub, norm_smul, he₀, mul_one, Real.norm_eq_abs, abs_of_pos hε]
+    have hy₀subne : y₀ - x ≠ 0 := by rw [← norm_ne_zero_iff, hy₀subnorm]; exact hε.ne'
+    have hymem : ∀ y ∈ Metric.sphere x ε, ‖y - x‖ = ε := fun y hy => by
+      rw [Metric.mem_sphere, dist_eq_norm] at hy; exact hy
+    have hyne : ∀ y ∈ Metric.sphere x ε, y - x ≠ 0 := fun y hy => by
+      rw [← norm_ne_zero_iff, hymem y hy]; exact hε.ne'
+    set K := ⟪gradient fundamentalSolution (y₀ - x), ‖y₀ - x‖⁻¹ • (y₀ - x)⟫_ℝ with hKdef
+    have hBconst : ∀ y ∈ Metric.sphere x ε,
+        ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ = K :=
+      fun y hy => flux_radial (y - x) (y₀ - x) (hyne y hy) hy₀subne (by rw [hymem y hy, hy₀subnorm])
+    have hΦconst : ∀ y ∈ Metric.sphere x ε,
+        fundamentalSolution (y - x) = fundamentalSolution (ε • e₀) :=
+      fun y hy => Phi_radial (y - x) (ε • e₀)
+        (by rw [hymem y hy, norm_smul, he₀, mul_one, Real.norm_eq_abs, abs_of_pos hε])
+    rw [setIntegral_congr_fun Metric.isClosed_sphere.measurableSet
+      (fun y hy => by rw [hΦconst y hy, hBconst y hy])]
+    have hνcont : ContinuousOn (fun y => (‖y - x‖⁻¹ • (y - x) : ℝ^(m + 2))) (Metric.sphere x ε) :=
+      ContinuousOn.smul
+        ((continuous_norm.comp (continuous_id.sub continuous_const)).continuousOn.inv₀
+          (fun y hy => by show ‖y - x‖ ≠ 0; rw [hymem y hy]; exact hε.ne'))
+        (continuous_id.sub continuous_const).continuousOn
+    have hint1 : IntegrableOn (fun y => fundamentalSolution (ε • e₀)
+        * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ) (Metric.sphere x ε) (μHE[m + 1]) :=
+      integrableOn_sphere_of_continuousOn x hε
+        (continuousOn_const.mul (hgradf.continuousOn.inner hνcont))
+    have hint2 : IntegrableOn (fun y => f y * K) (Metric.sphere x ε) (μHE[m + 1]) :=
+      integrableOn_sphere_of_continuousOn x hε (hf.continuous.continuousOn.mul continuousOn_const)
+    rw [integral_sub hint1 hint2]
+    have hAeq : (∫ y in Metric.sphere x ε,
+          fundamentalSolution (ε • e₀) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ ∂μHE[m + 1])
+        = fundamentalSolution (ε • e₀) * ∫ y in Metric.ball x ε, Laplacian.laplacian f y := by
+      rw [integral_const_mul]
+      congr 1
+      rw [integral_laplacian_ball x ε hε f hf]
+      exact setIntegral_congr_fun Metric.isClosed_sphere.measurableSet
+        (fun y hy => by rw [hymem y hy])
+    have hσfin : (μHE[m + 1] (Metric.sphere x ε)) ≠ ∞ := by
+      have h := surfaceMeasure_frontier_lt_top (isBoundedC1Domain_ball x ε hε)
+      rw [frontier_ball x hε.ne'] at h; exact h.ne
+    have hσtoReal : 0 < (μHE[m + 1] (Metric.sphere x ε)).toReal := by
+      rw [sphere_surfaceMeasure x ε hε]
+      have : 0 < (volume (Metric.ball x ε)).toReal :=
+        ENNReal.toReal_pos (Metric.measure_ball_pos volume x hε).ne' measure_ball_lt_top.ne
+      positivity
+    have hKσ : K * (μHE[m + 1] (Metric.sphere x ε)).toReal = -1 := by
+      have ht := totalFlux_shifted x ε hε
+      rw [setIntegral_congr_fun Metric.isClosed_sphere.measurableSet hBconst, setIntegral_const,
+        smul_eq_mul, measureReal_def] at ht
+      linarith [ht]
+    have hBeq : (∫ y in Metric.sphere x ε, f y * K ∂μHE[m + 1])
+        = -⨍ y in Metric.sphere x ε, f y ∂μHE[m + 1] := by
+      rw [integral_mul_const, setAverage_eq, measureReal_def, smul_eq_mul]
+      have hσne : (μHE[m + 1] (Metric.sphere x ε)).toReal ≠ 0 := hσtoReal.ne'
+      field_simp
+      linear_combination (∫ y in Metric.sphere x ε, f y ∂μHE[m + 1]) * hKσ
+    rw [hAeq, hBeq]; ring
+  have hEv : (fun ε => ∫ y in Metric.sphere x ε,
+        (fundamentalSolution (y - x) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - f y * ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+        ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      =ᶠ[nhdsWithin 0 (Set.Ioi 0)]
+      (fun ε => (fundamentalSolution (ε • e₀) * ∫ y in Metric.ball x ε, Laplacian.laplacian f y)
+        + ⨍ y in Metric.sphere x ε, f y ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))) :=
+    Filter.eventuallyEq_of_mem self_mem_nhdsWithin (fun ε hε => hkey ε hε)
+  rw [Filter.tendsto_congr' hEv]
+  simpa using hA.add (sphere_average_tendsto x f hf.continuous)
+
+/-- `ε² · |log ε| → 0` as `ε → 0⁺` (via `|log ε| ≤ ε⁻¹` on `(0,1]`). -/
+lemma sq_mul_abs_log_tendsto :
+    Filter.Tendsto (fun ε : ℝ => ε ^ 2 * |Real.log ε|) (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) := by
+  apply squeeze_zero_norm' (a := fun ε : ℝ => ε)
+  · filter_upwards [self_mem_nhdsWithin,
+      mem_nhdsWithin_of_mem_nhds (Iic_mem_nhds (show (0:ℝ) < 1 by norm_num))] with ε hε0 hε1
+    have hε0' : 0 < ε := hε0
+    have hε1' : ε ≤ 1 := hε1
+    rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
+    have hlog : |Real.log ε| ≤ ε⁻¹ := by
+      rw [abs_of_nonpos (Real.log_nonpos hε0'.le hε1'), ← Real.log_inv]
+      calc Real.log ε⁻¹ ≤ ε⁻¹ - 1 := Real.log_le_sub_one_of_pos (by positivity)
+        _ ≤ ε⁻¹ := by linarith
+    calc ε ^ 2 * |Real.log ε| ≤ ε ^ 2 * ε⁻¹ :=
+          mul_le_mul_of_nonneg_left hlog (by positivity)
+      _ = ε := by field_simp
+  · exact (continuous_id.tendsto (0:ℝ)).mono_left nhdsWithin_le_nhds
+
+/-- Term A tends to `0`: `Φ(ε•e₀) · ∫_{B(x,ε)} Δf → 0` as `ε → 0⁺`. -/
+lemma termA_tendsto (x : ℝ^(m + 2)) (f : (ℝ^(m + 2)) → ℝ) (hf : ContDiff ℝ 2 f)
+    (e₀ : ℝ^(m + 2)) (he₀ : ‖e₀‖ = 1) :
+    Filter.Tendsto
+      (fun ε => fundamentalSolution (ε • e₀) * ∫ y in Metric.ball x ε, Laplacian.laplacian f y)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) := by
+  set ω := (volume (Metric.ball (0 : ℝ^(m + 2)) 1)).toReal with hω
+  obtain ⟨M, hM⟩ := (isCompact_closedBall x 1).exists_bound_of_continuousOn
+    (continuous_laplacian hf).continuousOn
+  have hM0 : 0 ≤ M := le_trans (norm_nonneg _) (hM x (Metric.mem_closedBall_self zero_le_one))
+  have hrate : Filter.Tendsto
+      (fun ε => |fundamentalSolution (ε • e₀)| * (volume (Metric.ball x ε)).toReal)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) := by
+    have hnorm : ∀ ε : ℝ, 0 < ε → ‖ε • e₀‖ = ε := fun ε hε => by
+      rw [norm_smul, he₀, mul_one, Real.norm_eq_abs, abs_of_pos hε]
+    have hvol : ∀ ε : ℝ, 0 < ε → (volume (Metric.ball x ε)).toReal = ε ^ (m + 2) * ω :=
+      fun ε hε => by
+        rw [Measure.addHaar_ball volume x hε.le, ENNReal.toReal_mul,
+          ENNReal.toReal_ofReal (by positivity), finrank_euclideanSpace_fin]
+    rcases Nat.eq_zero_or_pos m with hm0 | hmpos
+    · subst hm0
+      have hcongr : (fun ε => |fundamentalSolution (ε • e₀)| * (volume (Metric.ball x ε)).toReal)
+          =ᶠ[nhdsWithin 0 (Set.Ioi 0)]
+          (fun ε => (1 / (2 * Real.pi)) * ω * (ε ^ 2 * |Real.log ε|)) := by
+        filter_upwards [self_mem_nhdsWithin] with ε (hε : 0 < ε)
+        rw [show (fundamentalSolution (ε • e₀) : ℝ) = -(1 / (2 * Real.pi)) * Real.log ε from by
+          rw [show (fundamentalSolution (ε • e₀) : ℝ)
+            = -(1 / (2 * Real.pi)) * Real.log ‖ε • e₀‖ from by simp [fundamentalSolution],
+            hnorm ε hε], hvol ε hε, abs_mul, abs_neg,
+          abs_of_pos (by positivity : (0:ℝ) < 1 / (2 * Real.pi))]
+        ring
+      rw [Filter.tendsto_congr' hcongr]
+      simpa using (sq_mul_abs_log_tendsto.const_mul ((1 / (2 * Real.pi)) * ω))
+    · have hcongr : (fun ε => |fundamentalSolution (ε • e₀)| * (volume (Metric.ball x ε)).toReal)
+          =ᶠ[nhdsWithin 0 (Set.Ioi 0)]
+          (fun ε => |1 / (((m + 2 : ℕ) : ℝ) * (((m + 2 : ℕ) : ℝ) - 2) * ω)| * ω * ε ^ 2) := by
+        filter_upwards [self_mem_nhdsWithin] with ε (hε : 0 < ε)
+        have hΦ : (fundamentalSolution (ε • e₀) : ℝ)
+            = (1 / (((m + 2 : ℕ) : ℝ) * (((m + 2 : ℕ) : ℝ) - 2) * ω))
+              * ε ^ (2 - ((m + 2 : ℕ) : ℝ)) := by
+          rw [show (fundamentalSolution (ε • e₀) : ℝ)
+            = (1 / (((m + 2 : ℕ) : ℝ) * (((m + 2 : ℕ) : ℝ) - 2) * ω))
+              * ‖ε • e₀‖ ^ (2 - ((m + 2 : ℕ) : ℝ)) from by
+            simp only [fundamentalSolution, show (m + 2 : ℕ) ≠ 0 from by omega,
+              show (m + 2 : ℕ) ≠ 1 from by omega, show (m + 2 : ℕ) ≠ 2 from by omega, if_false]
+            rw [hω], hnorm ε hε]
+        rw [hΦ, hvol ε hε, abs_mul, abs_of_pos (Real.rpow_pos_of_pos hε _)]
+        have hexp : ε ^ (2 - ((m + 2 : ℕ) : ℝ)) * ε ^ (m + 2) = ε ^ 2 := by
+          rw [show ε ^ (m + 2) = ε ^ ((m + 2 : ℕ) : ℝ) from (Real.rpow_natCast ε (m + 2)).symm,
+            ← Real.rpow_add hε,
+            show (2 : ℝ) - ((m + 2 : ℕ) : ℝ) + ((m + 2 : ℕ) : ℝ) = ((2 : ℕ) : ℝ) by push_cast; ring,
+            Real.rpow_natCast]
+        linear_combination (|1 / (((m + 2 : ℕ) : ℝ) * (((m + 2 : ℕ) : ℝ) - 2) * ω)| * ω) * hexp
+      rw [Filter.tendsto_congr' hcongr]
+      have h2 : Filter.Tendsto (fun ε : ℝ => ε ^ 2) (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) := by
+        have : Filter.Tendsto (fun ε : ℝ => ε ^ 2) (nhds 0) (nhds 0) := by
+          have := (continuous_pow 2).tendsto (0 : ℝ); simpa using this
+        exact this.mono_left nhdsWithin_le_nhds
+      simpa using h2.const_mul (|1 / (((m + 2 : ℕ) : ℝ) * (((m + 2 : ℕ) : ℝ) - 2) * ω)| * ω)
+  apply squeeze_zero_norm'
+    (a := fun ε => M * (|fundamentalSolution (ε • e₀)| * (volume (Metric.ball x ε)).toReal))
+  · filter_upwards [self_mem_nhdsWithin,
+      mem_nhdsWithin_of_mem_nhds (Iic_mem_nhds (show (0:ℝ) < 1 by norm_num))] with ε hε0 hε1
+    have hε1' : ε ≤ 1 := hε1
+    rw [norm_mul, Real.norm_eq_abs]
+    have hball : Metric.ball x ε ⊆ Metric.closedBall x 1 :=
+      Metric.ball_subset_closedBall.trans (Metric.closedBall_subset_closedBall hε1')
+    have hint : ‖∫ y in Metric.ball x ε, Laplacian.laplacian f y‖
+        ≤ M * (volume (Metric.ball x ε)).toReal :=
+      norm_setIntegral_le_of_norm_le_const measure_ball_lt_top (fun y hy => hM y (hball hy))
+    calc |fundamentalSolution (ε • e₀)| * ‖∫ y in Metric.ball x ε, Laplacian.laplacian f y‖
+        ≤ |fundamentalSolution (ε • e₀)| * (M * (volume (Metric.ball x ε)).toReal) :=
+          mul_le_mul_of_nonneg_left hint (abs_nonneg _)
+      _ = M * (|fundamentalSolution (ε • e₀)| * (volume (Metric.ball x ε)).toReal) := by ring
+  · simpa using hrate.const_mul M
+
+end GreenBoundaryHelpers
+
 /-- Boundary integral from Green's identity converges to `f(x)` as ε → 0 (Riemannian `μHE[n−1]`). -/
 lemma green_boundary_tendsto_f (hn : 2 ≤ n) (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
     (hf_supp : HasCompactSupport f) (x : ℝⁿ) :
@@ -1810,7 +2109,10 @@ lemma green_boundary_tendsto_f (hn : 2 ≤ n) (f : ℝⁿ → ℝ) (hf : ContDif
         ∂(μHE[n - 1] : Measure ℝⁿ))
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds (f x)) := by
-  sorry
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 2 := ⟨n - 2, by omega⟩
+  have he₀ : ‖(EuclideanSpace.single (0 : Fin (m + 2)) (1 : ℝ))‖ = 1 := by
+    simp [EuclideanSpace.norm_single]
+  exact green_boundary_test x f hf _ he₀ (termA_tendsto x f hf _ he₀)
 
 /-- **Representation Formula** (Evans §2.2.4, Theorem 9).
     u(x) = ∫ Φ(x-y) f(y) dy solves −Δu = f.
