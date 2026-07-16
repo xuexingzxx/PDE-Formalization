@@ -1137,18 +1137,33 @@ Mathlib); what remains is the concrete --- and lengthy --- proof work. Current s
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
     & proved (Mathlib's $n$-dim polar integration) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_identity\_annulus}
-    & Step 1 (algebra) proved; Step 2 = \texttt{divergence\_theorem} on the annulus via
-      \texttt{setIntegral\_diff}; re-stated to $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
+    & proved: \texttt{divergence\_theorem} on the annulus via \texttt{setIntegral\_diff}, up to
+      negation $+$ normal reconciliation & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fundamentalSolution\_totalFlux}
-    & $\nabla\Phi$ via \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} $\times$ \texttt{sphere\_surfaceMeasure}
-      ($\mu_{HE}$); re-stated to $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
+    & proved ($=-1$): $\nabla\Phi$ via \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} (\texttt{flux\_rpow}/
+      \texttt{flux\_log}) $\times$ \texttt{sphere\_surfaceMeasure}, $\mu_{HE}$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_boundary\_tendsto\_f}
-    & $\varepsilon\to0$ singular-integral limit; re-stated to $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
+    & $\varepsilon\to0$ singular-integral limit (strategy below); $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
   \texttt{newtonianPotential\_solves\_poisson}
     & capstone; assembles the above & \textcolor{sorryred}{sorry} \\
   \bottomrule
 \end{tabular}
 \end{center}
+
+\textbf{Strategy for \texttt{green\_boundary\_tendsto\_f}} (the remaining analytic core). The
+boundary integrand splits as $\Phi(y-x)\langle\nabla f,\nu\rangle - f\,\langle\nabla\Phi(y-x),\nu\rangle
+= \mathrm{A} - \mathrm{B}$. On $\partial B(x,\varepsilon)$, $\Phi$ is radial so $\Phi(y-x)=\Phi(\varepsilon)$
+is constant and the flux integrand $\langle\nabla\Phi(y-x),\nu\rangle = K(\varepsilon)$ is constant.
+\emph{Term B $\to -f(x)$}: by \texttt{fundamentalSolution\_totalFlux}, $K(\varepsilon)\,\sigma(\varepsilon)
+= -1$, so $K = -1/\sigma$ and $\mathrm{B} = K\!\int f = -\fint_{\partial B(x,\varepsilon)} f \to -f(x)$
+(sphere average of a continuous function). \emph{Term A $\to 0$}: $\mathrm{A} = \Phi(\varepsilon)\int_{\partial
+B}\langle\nabla f,\nu\rangle = \Phi(\varepsilon)\int_{B(x,\varepsilon)}\Delta f$
+(\texttt{integral\_laplacian\_ball}), and $|\Phi(\varepsilon)\!\int_B\Delta f| \le
+|\Phi(\varepsilon)|\,M\,\mathrm{vol}(B) \sim \varepsilon^{2-n}\varepsilon^{n} = \varepsilon^2 \to 0$.
+Hence $\mathrm{A}-\mathrm{B}\to f(x)$. Formalizing needs the \emph{translated} \texttt{totalFlux}/
+\texttt{integral\_laplacian\_ball} (μHE sphere integrals are translation-invariant), the piecewise
+$\Phi$-constant facts, a sphere-average$\to$value continuity lemma, and the piecewise
+$|\Phi(\varepsilon)|\varepsilon^n\to0$ bound.
 
 \textbf{Correctness fix: raw $\mu_H$ $\to$ Riemannian $\mu_{HE}$.} The three surface-integral
 lemmas were originally stated against the raw $(n-1)$-Hausdorff measure
