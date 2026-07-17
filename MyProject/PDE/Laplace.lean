@@ -2114,6 +2114,244 @@ lemma green_boundary_tendsto_f (hn : 2 ≤ n) (f : ℝⁿ → ℝ) (hf : ContDif
     simp [EuclideanSpace.norm_single]
   exact green_boundary_test x f hf _ he₀ (termA_tendsto x f hf _ he₀)
 
+/-- The fundamental solution is measurable (built from `‖·‖`, `log`, `rpow`). -/
+lemma fundamentalSolution_aestronglyMeasurable :
+    AEStronglyMeasurable (fundamentalSolution : ℝⁿ → ℝ) volume := by
+  unfold fundamentalSolution
+  split_ifs <;>
+    first
+      | exact aestronglyMeasurable_const
+      | (apply Measurable.aestronglyMeasurable; fun_prop)
+
+/-- The fundamental solution is locally integrable. -/
+lemma fundamentalSolution_locallyIntegrable :
+    LocallyIntegrable (fundamentalSolution : ℝⁿ → ℝ) volume := by
+  intro x
+  rcases eq_or_ne x 0 with rfl | hx
+  · refine ⟨Metric.ball 0 1, Metric.ball_mem_nhds 0 one_pos, ?_⟩
+    exact (integrable_norm_iff fundamentalSolution_aestronglyMeasurable.restrict).mp
+      fundamentalSolution_norm_integrableOn_unitBall
+  · refine ⟨Metric.closedBall x (‖x‖ / 2), Metric.closedBall_mem_nhds x (by positivity), ?_⟩
+    have hxpos : 0 < ‖x‖ := norm_pos_iff.mpr hx
+    have hsub : Metric.closedBall x (‖x‖ / 2) ⊆ ({0} : Set ℝⁿ)ᶜ := by
+      intro z hz
+      rw [Metric.mem_closedBall] at hz
+      simp only [Set.mem_compl_iff, Set.mem_singleton_iff]
+      rintro rfl
+      rw [dist_zero_left] at hz
+      linarith
+    exact (fundamentalSolution_contDiff_off_zero.continuousOn.mono hsub).integrableOn_compact
+      (isCompact_closedBall x (‖x‖ / 2))
+
+/-- Reflection–translation `y ↦ x − y` preserves compact support. -/
+lemma hasCompactSupport_comp_sub {F : Type*} [NormedAddCommGroup F] {g : ℝⁿ → F}
+    (hgc : HasCompactSupport g) (x : ℝⁿ) : HasCompactSupport (fun y => g (x - y)) := by
+  have : (fun y => g (x - y)) = g ∘ (fun y => x - y) := rfl
+  rw [this]
+  exact hgc.comp_homeomorph (Homeomorph.subLeft x)
+
+/-- **Derivative of a `Φ`-convolution lands on the smooth compact-support factor.**
+    For `Φ` locally integrable and `g` a `C¹` function with compact support, the map
+    `z ↦ ∫ Φ(y)·g(z−y) dy` is differentiable with derivative `∫ Φ(y)·(Dg)(z−y) dy`. -/
+lemma pot_hasFDerivAt {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
+    (Φ : ℝⁿ → ℝ) (hΦ : LocallyIntegrable Φ)
+    (g : ℝⁿ → F) (hg : ContDiff ℝ 1 g) (hgc : HasCompactSupport g) (x : ℝⁿ) :
+    HasFDerivAt (fun z => ∫ y, Φ y • g (z - y))
+      (∫ y, Φ y • fderiv ℝ g (x - y)) x := by
+  have hgdiff : Differentiable ℝ g := hg.differentiable one_ne_zero
+  -- `z' ↦ g(z'−y)` differentiates to `Dg(z−y)`.
+  have hfd : ∀ (y z : ℝⁿ), HasFDerivAt (fun z' => g (z' - y)) (fderiv ℝ g (z - y)) z := by
+    intro y z
+    have hsub : HasFDerivAt (fun z' : ℝⁿ => z' - y) (ContinuousLinearMap.id ℝ ℝⁿ) z :=
+      (hasFDerivAt_id z).sub_const y
+    simpa using (hgdiff (z - y)).hasFDerivAt.comp z hsub
+  -- bounds for the derivative of `g`
+  set S := tsupport (fderiv ℝ g) with hS
+  have hScompact : IsCompact S := hgc.fderiv ℝ
+  obtain ⟨M₀, hM₀⟩ := hScompact.exists_bound_of_continuousOn
+    (hg.continuous_fderiv one_ne_zero).continuousOn
+  set M := max M₀ 0 with hMdef
+  have hM0 : 0 ≤ M := le_max_right _ _
+  have hM : ∀ y, ‖fderiv ℝ g y‖ ≤ M := by
+    intro y
+    by_cases hy : y ∈ S
+    · exact le_trans (hM₀ y hy) (le_max_left _ _)
+    · have hy' : y ∉ tsupport (fderiv ℝ g) := by rw [hS] at hy; exact hy
+      rw [image_eq_zero_of_notMem_tsupport hy', norm_zero]; exact hM0
+  set K := (fun p : ℝⁿ × ℝⁿ => p.1 - p.2) '' (Metric.closedBall x 1 ×ˢ S) with hK
+  have hKcompact : IsCompact K :=
+    ((isCompact_closedBall x 1).prod hScompact).image (continuous_fst.sub continuous_snd)
+  -- the dominating function
+  set bound : ℝⁿ → ℝ := K.indicator (fun y => M * ‖Φ y‖) with hbound
+  have hbound_int : Integrable bound := by
+    rw [hbound, integrable_indicator_iff hKcompact.measurableSet]
+    exact ((hΦ.integrableOn_isCompact hKcompact).norm.const_mul M)
+  refine hasFDerivAt_integral_of_dominated_of_fderiv_le (μ := volume)
+    (F := fun z y => Φ y • g (z - y))
+    (F' := fun z y => Φ y • fderiv ℝ g (z - y))
+    (bound := bound) (Metric.ball_mem_nhds x one_pos)
+    (Filter.Eventually.of_forall fun z => ?_) ?_ ?_ ?_ hbound_int ?_
+  · -- F z measurable in y
+    exact hΦ.aestronglyMeasurable.smul
+      ((hg.continuous.comp (continuous_const.sub continuous_id)).aestronglyMeasurable)
+  · -- F x integrable
+    exact hΦ.integrable_smul_right_of_hasCompactSupport
+      (hg.continuous.comp (continuous_const.sub continuous_id))
+      (hasCompactSupport_comp_sub hgc x)
+  · -- F' x measurable
+    refine hΦ.aestronglyMeasurable.smul ?_
+    exact ((hg.continuous_fderiv one_ne_zero).comp
+      (continuous_const.sub continuous_id)).aestronglyMeasurable
+  · -- bound
+    refine Filter.Eventually.of_forall fun y z hz => ?_
+    rw [Metric.mem_ball, dist_eq_norm] at hz
+    rw [norm_smul, Real.norm_eq_abs, ← Real.norm_eq_abs]
+    by_cases hyK : y ∈ K
+    · rw [hbound, Set.indicator_of_mem hyK]
+      rw [mul_comm M (‖Φ y‖)]
+      exact mul_le_mul_of_nonneg_left (hM (z - y)) (norm_nonneg _)
+    · have hzero : fderiv ℝ g (z - y) = 0 := by
+        apply image_eq_zero_of_notMem_tsupport
+        intro hmem
+        exact hyK ⟨(z, z - y),
+          ⟨Metric.mem_closedBall.mpr (by rw [dist_eq_norm]; linarith [hz.le]), hmem⟩,
+          by show z - (z - y) = y; abel⟩
+      rw [hzero, norm_zero, mul_zero, hbound, Set.indicator_of_notMem hyK]
+  · -- differentiability
+    exact Filter.Eventually.of_forall fun y z _ => (hfd y z).const_smul (Φ y)
+
+/-- Change of variables: `∫ Φ(x−y)·f(y) = ∫ Φ(y)·f(x−y)`. -/
+lemma newtonianPotential_eq (f : ℝⁿ → ℝ) (x : ℝⁿ) :
+    newtonianPotential f x = ∫ y, fundamentalSolution y * f (x - y) := by
+  calc newtonianPotential f x
+      = ∫ y, (fun w => fundamentalSolution w * f (x - w)) (x - y) := by
+        simp only [newtonianPotential, sub_sub_cancel]
+    _ = ∫ y, fundamentalSolution y * f (x - y) :=
+        MeasureTheory.integral_sub_left_eq_self
+          (fun w => fundamentalSolution w * f (x - w)) volume x
+
+/-- Integrability of `y ↦ Φ(y) • G(z−y)` for `Φ` loc. integrable, `G` continuous, compact support. -/
+lemma pot_integrable {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
+    (Φ : ℝⁿ → ℝ) (hΦ : LocallyIntegrable Φ) (G : ℝⁿ → F) (hG : Continuous G)
+    (hGc : HasCompactSupport G) (z : ℝⁿ) : Integrable (fun y => Φ y • G (z - y)) :=
+  hΦ.integrable_smul_right_of_hasCompactSupport (hG.comp (continuous_const.sub continuous_id))
+    (hasCompactSupport_comp_sub hGc z)
+
+/-- Local copy of `Δ(f(·−y))(x) = (Δf)(x−y)` (Heat.lean's `laplacian_comp_sub`, not imported here). -/
+lemma laplacian_comp_sub' (f : ℝⁿ → ℝ) (y x : ℝⁿ) :
+    Laplacian.laplacian (fun z => f (z - y)) x = Laplacian.laplacian f (x - y) := by
+  rw [congr_fun (laplacian_eq_iteratedFDeriv_stdOrthonormalBasis (fun z => f (z - y))) x,
+      congr_fun (laplacian_eq_iteratedFDeriv_stdOrthonormalBasis f) (x - y)]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [iteratedFDeriv_comp_sub (𝕜 := ℝ) 2 y x]
+
+/-- Change of variables `∫ Φ(x−y)·g(y) = ∫ Φ(y)·g(x−y)`. -/
+lemma conv_comm (Φ : ℝⁿ → ℝ) (g : ℝⁿ → ℝ) (x : ℝⁿ) :
+    (∫ y, Φ (x - y) * g y) = ∫ y, Φ y * g (x - y) := by
+  calc (∫ y, Φ (x - y) * g y)
+      = ∫ y, (fun w => Φ w * g (x - w)) (x - y) := by simp only [sub_sub_cancel]
+    _ = ∫ y, Φ y * g (x - y) :=
+        MeasureTheory.integral_sub_left_eq_self (fun w => Φ w * g (x - w)) volume x
+
+/-- **Part A of the representation formula**: `Δ(Newtonian potential of f) = ∫ Φ(x−y)·Δf(y) dy`.
+    The Laplacian is moved onto the smooth compact-support factor `f` via `pot_hasFDerivAt`
+    (scalar differentiation-under-the-integral, avoiding the `precompR`/CLM convolution route). -/
+lemma laplacian_newtonianPotential (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
+    (hfc : HasCompactSupport f) (x : ℝⁿ) :
+    Laplacian.laplacian (newtonianPotential f) x
+      = ∫ y, fundamentalSolution (x - y) * Laplacian.laplacian f y := by
+  set Φ := (fundamentalSolution : ℝⁿ → ℝ) with hΦdef
+  have hΦ : LocallyIntegrable Φ := fundamentalSolution_locallyIntegrable
+  have hf1 : ContDiff ℝ 1 f := hf.of_le (by norm_num)
+  have hfdc : Continuous (fderiv ℝ f) := hf.continuous_fderiv (by norm_num)
+  have hfdcs : HasCompactSupport (fderiv ℝ f) := hfc.fderiv ℝ
+  have hf1' : ContDiff ℝ 1 (fderiv ℝ f) := hf.fderiv_right (by norm_num)
+  -- the potential as a Φ-convolution (change of variables, uniform in the base point)
+  have hpot : (fun z => ∫ y, Φ y • f (z - y)) = newtonianPotential f := by
+    funext z; simp only [smul_eq_mul]; exact (newtonianPotential_eq f z).symm
+  have hspace : ∀ z, HasFDerivAt (fun z => ∫ y, Φ y • f (z - y))
+      (∫ y, Φ y • fderiv ℝ f (z - y)) z := fun z => pot_hasFDerivAt Φ hΦ f hf1 hfc z
+  have hgrad_int : ∀ z, Integrable (fun y => Φ y • fderiv ℝ f (z - y)) :=
+    fun z => pot_integrable Φ hΦ (fderiv ℝ f) hfdc hfdcs z
+  have hdF : DifferentiableAt ℝ (fderiv ℝ (fun z => ∫ y, Φ y • f (z - y))) x := by
+    have hfe : fderiv ℝ (fun z => ∫ y, Φ y • f (z - y))
+        = fun z => ∫ y, Φ y • fderiv ℝ f (z - y) := funext (fun z => (hspace z).fderiv)
+    rw [hfe]
+    exact (pot_hasFDerivAt Φ hΦ (fderiv ℝ f) hf1' hfdcs x).differentiableAt
+  -- second directional derivative passes under the integral, for each basis direction
+  have hper : ∀ i, iteratedFDeriv ℝ 2 (fun z => ∫ y, Φ y • f (z - y)) x
+        ![stdOrthonormalBasis ℝ ℝⁿ i, stdOrthonormalBasis ℝ ℝⁿ i]
+      = ∫ y, iteratedFDeriv ℝ 2 (fun z => Φ y • f (z - y)) x
+          ![stdOrthonormalBasis ℝ ℝⁿ i, stdOrthonormalBasis ℝ ℝⁿ i] := by
+    intro i
+    set v := stdOrthonormalBasis ℝ ℝⁿ i with hv
+    have hh1 : ContDiff ℝ 1 (fun w => fderiv ℝ f w v) :=
+      (ContinuousLinearMap.apply ℝ ℝ v).contDiff.comp hf1'
+    have hhc : HasCompactSupport (fun w => fderiv ℝ f w v) :=
+      hfdcs.comp_left (g := fun L : ℝⁿ →L[ℝ] ℝ => L v) (by simp)
+    have hdir_int : Integrable (fun y => Φ y • fderiv ℝ (fun w => fderiv ℝ f w v) (x - y)) :=
+      pot_integrable Φ hΦ (fderiv ℝ (fun w => fderiv ℝ f w v))
+        (hh1.continuous_fderiv one_ne_zero) (hhc.fderiv ℝ) x
+    rw [iteratedFDeriv_two_apply]
+    simp only [Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
+    rw [← fderiv_fderiv_apply (fun z => ∫ y, Φ y • f (z - y)) x v v hdF]
+    have hfun : (fun z => fderiv ℝ (fun z => ∫ y, Φ y • f (z - y)) z v)
+        = fun z => ∫ y, Φ y • (fun w => fderiv ℝ f w v) (z - y) := by
+      funext z
+      rw [(hspace z).fderiv, ContinuousLinearMap.integral_apply (hgrad_int z)]
+      simp only [ContinuousLinearMap.smul_apply]
+    rw [hfun, (pot_hasFDerivAt Φ hΦ (fun w => fderiv ℝ f w v) hh1 hhc x).fderiv,
+      ContinuousLinearMap.integral_apply hdir_int]
+    refine integral_congr_ae (Filter.Eventually.of_forall fun y => ?_)
+    show (Φ y • fderiv ℝ (fun w => fderiv ℝ f w v) (x - y)) v
+        = iteratedFDeriv ℝ 2 (fun z => Φ y • f (z - y)) x ![v, v]
+    have hcda : ContDiffAt ℝ 2 (fun z => f (z - y)) x :=
+      (hf.comp (contDiff_id.sub contDiff_const)).contDiffAt
+    have hdfd : DifferentiableAt ℝ (fderiv ℝ f) (x - y) :=
+      (hf1'.differentiable one_ne_zero).differentiableAt
+    rw [ContinuousLinearMap.smul_apply,
+      show iteratedFDeriv ℝ 2 (fun z => Φ y • f (z - y)) x ![v, v]
+          = Φ y • iteratedFDeriv ℝ 2 (fun z => f (z - y)) x ![v, v] from by
+        rw [show (fun z => Φ y • f (z - y)) = (Φ y) • (fun z => f (z - y)) from rfl,
+          iteratedFDeriv_const_smul_apply hcda, ContinuousMultilinearMap.smul_apply]]
+    congr 1
+    rw [iteratedFDeriv_comp_sub (𝕜 := ℝ) 2 y x, iteratedFDeriv_two_apply]
+    simp only [Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
+    rw [fderiv_fderiv_apply f (x - y) v v hdfd]
+  -- integrability of each diagonal-second-derivative integrand
+  have hint : ∀ i, Integrable (fun y => iteratedFDeriv ℝ 2 (fun z => Φ y • f (z - y)) x
+      ![stdOrthonormalBasis ℝ ℝⁿ i, stdOrthonormalBasis ℝ ℝⁿ i]) := by
+    intro i
+    set v := stdOrthonormalBasis ℝ ℝⁿ i with hv
+    have hg2c : Continuous (fun w => iteratedFDeriv ℝ 2 f w ![v, v]) :=
+      (ContinuousMultilinearMap.apply ℝ (fun _ => ℝⁿ) ℝ ![v, v]).continuous.comp
+        (hf.continuous_iteratedFDeriv (by norm_num))
+    have hg2cs : HasCompactSupport (fun w => iteratedFDeriv ℝ 2 f w ![v, v]) :=
+      (hfc.iteratedFDeriv (𝕜 := ℝ) 2).comp_left
+        (g := fun L : ContinuousMultilinearMap ℝ (fun _ : Fin 2 => ℝⁿ) ℝ => L ![v, v]) (by simp)
+    have hrw : (fun y => iteratedFDeriv ℝ 2 (fun z => Φ y • f (z - y)) x ![v, v])
+        = fun y => Φ y • (fun w => iteratedFDeriv ℝ 2 f w ![v, v]) (x - y) := by
+      funext y
+      have hcda : ContDiffAt ℝ 2 (fun z => f (z - y)) x :=
+        (hf.comp (contDiff_id.sub contDiff_const)).contDiffAt
+      rw [show (fun z => Φ y • f (z - y)) = (Φ y) • (fun z => f (z - y)) from rfl,
+        iteratedFDeriv_const_smul_apply hcda, ContinuousMultilinearMap.smul_apply,
+        iteratedFDeriv_comp_sub (𝕜 := ℝ) 2 y x]
+    rw [hrw]
+    exact pot_integrable Φ hΦ (fun w => iteratedFDeriv ℝ 2 f w ![v, v]) hg2c hg2cs x
+  -- assemble
+  rw [← hpot, laplacian_integral_eq (fun z y => Φ y • f (z - y)) x hper hint]
+  have hlap : ∀ y, Laplacian.laplacian (fun z => Φ y • f (z - y)) x
+      = Φ y • Laplacian.laplacian f (x - y) := by
+    intro y
+    have hcda : ContDiffAt ℝ 2 (fun z => f (z - y)) x :=
+      (hf.comp (contDiff_id.sub contDiff_const)).contDiffAt
+    rw [show (fun z => Φ y • f (z - y)) = (Φ y) • (fun z => f (z - y)) from rfl,
+      laplacian_smul (Φ y) hcda, laplacian_comp_sub']
+  rw [integral_congr_ae (Filter.Eventually.of_forall hlap)]
+  simp only [smul_eq_mul]
+  exact (conv_comm Φ (Laplacian.laplacian f) x).symm
+
 /-- **Representation Formula** (Evans §2.2.4, Theorem 9).
     u(x) = ∫ Φ(x-y) f(y) dy solves −Δu = f.
     Proof requires: green_identity_annulus + fundamentalSolution_totalFlux
