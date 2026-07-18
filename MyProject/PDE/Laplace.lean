@@ -2352,12 +2352,271 @@ lemma laplacian_newtonianPotential (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
   simp only [smul_eq_mul]
   exact (conv_comm Φ (Laplacian.laplacian f) x).symm
 
-/-- **Representation Formula** (Evans §2.2.4, Theorem 9).
-    u(x) = ∫ Φ(x-y) f(y) dy solves −Δu = f.
-    Proof requires: green_identity_annulus + fundamentalSolution_totalFlux
-    + fundamentalSolution_near_integral_tendsto_zero + green_boundary_tendsto_f. -/
-theorem newtonianPotential_solves_poisson (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
+/-- **Cutoff of the fundamental solution.** For `ε > 0` there is a globally `C²` function `w`
+    that agrees with `Φ(·−x)` on the neighborhood `{y : ε/2 < ‖y−x‖}` of the closed annulus,
+    obtained by multiplying `Φ(·−x)` by a smooth cutoff that vanishes near `x`. -/
+lemma mollified_fund (x : ℝⁿ) (ε : ℝ) (hε : 0 < ε) :
+    ∃ w : ℝⁿ → ℝ, ContDiff ℝ 2 w
+      ∧ ∀ y, ε / 2 < ‖y - x‖ → w =ᶠ[nhds y] fun z => fundamentalSolution (z - x) := by
+  set b : ContDiffBump x := ⟨ε / 4, ε / 2, by positivity, by linarith⟩ with hb
+  refine ⟨fun y => (1 - b y) * fundamentalSolution (y - x), ?_, ?_⟩
+  · rw [contDiff_iff_contDiffAt]
+    intro y
+    by_cases hy : dist y x < ε / 4
+    · have hzero : (fun z => (1 - b z) * fundamentalSolution (z - x)) =ᶠ[nhds y] fun _ => 0 := by
+        refine Filter.eventuallyEq_of_mem
+          (IsOpen.mem_nhds Metric.isOpen_ball (Metric.mem_ball.mpr hy)) (fun z hz => ?_)
+        rw [Metric.mem_ball] at hz
+        have : b z = 1 := b.one_of_mem_closedBall (Metric.mem_closedBall.mpr hz.le)
+        rw [this]; ring
+      exact contDiffAt_const.congr_of_eventuallyEq hzero
+    · have hle : ε / 4 ≤ dist y x := not_lt.mp hy
+      have hyne : y - x ≠ 0 := by
+        rw [sub_ne_zero]; intro h; rw [h, dist_self] at hle; linarith
+      have hb_cd : ContDiffAt ℝ 2 (fun z => 1 - b z) y :=
+        contDiffAt_const.sub (b.contDiff.contDiffAt)
+      have hΦ_cd : ContDiffAt ℝ 2 (fun z => fundamentalSolution (z - x)) y := by
+        have h1 : ContDiffAt ℝ 2 (fundamentalSolution (n := n)) (y - x) :=
+          (fundamentalSolution_contDiff_off_zero.contDiffAt
+            (isOpen_compl_singleton.mem_nhds (Set.mem_compl_singleton_iff.mpr hyne))).of_le le_top
+        have hsub : ContDiffAt ℝ 2 (fun z : ℝⁿ => z - x) y :=
+          contDiffAt_id.sub contDiffAt_const
+        exact ContDiffAt.comp (g := (fundamentalSolution : ℝⁿ → ℝ))
+          (f := fun z : ℝⁿ => z - x) y h1 hsub
+      exact hb_cd.mul hΦ_cd
+  · intro y hy
+    refine Filter.eventuallyEq_of_mem
+      (IsOpen.mem_nhds (isOpen_lt continuous_const (continuous_norm.comp
+        (continuous_id.sub continuous_const))) hy) (fun z hz => ?_)
+    simp only [Set.mem_setOf_eq] at hz
+    have : b z = 0 := b.zero_of_le_dist (by rw [dist_eq_norm]; exact hz.le)
+    rw [this]; ring
+
+/-- Gradient respects local equality. -/
+lemma gradient_congr {f g : ℝⁿ → ℝ} {y : ℝⁿ} (h : f =ᶠ[nhds y] g) :
+    gradient f y = gradient g y := by
+  unfold gradient
+  rw [h.fderiv_eq]
+
+/-- Translation of the gradient: `∇(g(·−x))(y) = (∇g)(y−x)`. -/
+lemma gradient_comp_sub (g : ℝⁿ → ℝ) (x y : ℝⁿ) (hg : DifferentiableAt ℝ g (y - x)) :
+    gradient (fun z => g (z - x)) y = gradient g (y - x) := by
+  unfold gradient
+  congr 1
+  have h := hg.hasFDerivAt.comp y ((hasFDerivAt_id y).sub_const x)
+  simpa using h.fderiv
+
+/-- **Green's identity on the annulus for the fundamental solution** (the singular case).
+    Applying `green_identity_annulus` to the cutoff `w` (which agrees with `Φ(·−x)` on the
+    annulus) gives, since `Φ` is harmonic there and `f` vanishes on the outer sphere:
+    `∫_{annulus} Φ(x−y)·Δf = − ∮_{∂B(x,ε)} (Φ⟪∇f,ν⟫ − f⟪∇Φ,ν⟫)`. -/
+lemma green_annulus_fund (hn : 2 ≤ n) (x : ℝⁿ) (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
+    (r ε : ℝ) (hε : 0 < ε) (hεr : ε < r)
+    (hsupp : ∀ y, r ≤ ‖y - x‖ → f y = 0)
+    (hsuppg : ∀ y, r ≤ ‖y - x‖ → gradient f y = 0) :
+    ∫ y in Metric.ball x r \ Metric.ball x ε, fundamentalSolution (x - y) * Δ f y
+    = - ∫ y in Metric.sphere x ε,
+        (fundamentalSolution (y - x) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - f y * ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+        ∂(μHE[n - 1] : Measure ℝⁿ) := by
+  obtain ⟨w, hw_cd, hw_agree⟩ := mollified_fund x ε hε
+  have hval : ∀ y, ε / 2 < ‖y - x‖ → w y = fundamentalSolution (y - x) :=
+    fun y hy => (hw_agree y hy).eq_of_nhds
+  have hΦdiff : ∀ y, ε / 2 < ‖y - x‖ →
+      DifferentiableAt ℝ (fundamentalSolution : ℝⁿ → ℝ) (y - x) := fun y hy => by
+    have hne : y - x ≠ 0 := by rw [← norm_pos_iff]; linarith
+    have hcd : ContDiffAt ℝ 2 (fundamentalSolution : ℝⁿ → ℝ) (y - x) :=
+      (fundamentalSolution_contDiff_off_zero.contDiffAt
+        (isOpen_compl_singleton.mem_nhds (Set.mem_compl_singleton_iff.mpr hne))).of_le le_top
+    exact hcd.differentiableAt (by norm_num)
+  have hgrad : ∀ y, ε / 2 < ‖y - x‖ →
+      gradient w y = gradient (fundamentalSolution : ℝⁿ → ℝ) (y - x) := fun y hy => by
+    rw [gradient_congr (hw_agree y hy), gradient_comp_sub fundamentalSolution x y (hΦdiff y hy)]
+  have hlap : ∀ y, ε / 2 < ‖y - x‖ → Δ w y = 0 := fun y hy => by
+    have hne : y - x ≠ 0 := by rw [← norm_pos_iff]; linarith
+    rw [(laplacian_congr_nhds (hw_agree y hy)).eq_of_nhds, laplacian_comp_sub',
+      fundamentalSolution_harmonic_off_zero (y - x) hne]
+  have hann : ∀ y ∈ Metric.ball x r \ Metric.ball x ε, ε / 2 < ‖y - x‖ := by
+    intro y hy
+    simp only [Set.mem_diff, Metric.mem_ball, not_lt, dist_eq_norm] at hy
+    linarith [hy.2]
+  have hgia := green_identity_annulus hn w f hw_cd hf x r ε (lt_trans hε hεr) hε hεr
+  have e1 : (∫ y in Metric.ball x r \ Metric.ball x ε, (f y * Δ w y - w y * Δ f y))
+      = -∫ y in Metric.ball x r \ Metric.ball x ε, fundamentalSolution (x - y) * Δ f y := by
+    rw [← integral_neg]
+    refine setIntegral_congr_fun (measurableSet_ball.diff measurableSet_ball) (fun y hy => ?_)
+    have hy2 := hann y hy
+    have hsym : fundamentalSolution (y - x) = fundamentalSolution (x - y) := by
+      have hnn : ‖y - x‖ = ‖x - y‖ := norm_sub_rev y x
+      simp only [fundamentalSolution, hnn]
+    rw [hlap y hy2, hval y hy2, hsym]; ring
+  have e2 : (∫ y in Metric.sphere x r,
+        (f y * ⟪gradient w y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - w y * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+        ∂(μHE[n - 1] : Measure ℝⁿ)) = 0 := by
+    have hz : ∀ y ∈ Metric.sphere x r,
+        (f y * ⟪gradient w y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - w y * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ) = 0 := by
+      intro y hy
+      rw [Metric.mem_sphere, dist_eq_norm] at hy
+      rw [hsupp y (le_of_eq hy.symm), hsuppg y (le_of_eq hy.symm)]; simp
+    rw [setIntegral_congr_fun Metric.isClosed_sphere.measurableSet hz, integral_zero]
+  have e3 : (∫ y in Metric.sphere x ε,
+        (f y * ⟪gradient w y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - w y * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+        ∂(μHE[n - 1] : Measure ℝⁿ))
+      = -∫ y in Metric.sphere x ε,
+        (fundamentalSolution (y - x) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+         - f y * ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+        ∂(μHE[n - 1] : Measure ℝⁿ) := by
+    rw [← integral_neg]
+    refine setIntegral_congr_fun Metric.isClosed_sphere.measurableSet (fun y hy => ?_)
+    rw [Metric.mem_sphere, dist_eq_norm] at hy
+    have hy2 : ε / 2 < ‖y - x‖ := by rw [hy]; linarith
+    rw [hgrad y hy2, hval y hy2]; ring
+  rw [e1, e2, e3] at hgia
+  linarith [hgia]
+
+/-- **Part B of the representation formula**: `∫ Φ(x−y)·Δf(y) dy = −f(x)`.  The `ε→0` limit of
+    the annulus identity: the near part `∫_{B(x,ε)}` vanishes and the boundary term tends to
+    `f(x)` (`green_boundary_tendsto_f`). -/
+lemma fund_poisson_integral (hn : 2 ≤ n) (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
+    (hf_supp : HasCompactSupport f) (x : ℝⁿ) :
+    (∫ y, fundamentalSolution (x - y) * Δ f y) = - f x := by
+  have hΦloc : LocallyIntegrable (fundamentalSolution : ℝⁿ → ℝ) := fundamentalSolution_locallyIntegrable
+  have hΔc : Continuous (Δ f) := by
+    rw [show Δ f = fun z => ∑ i, iteratedFDeriv ℝ 2 f z
+        ![stdOrthonormalBasis ℝ ℝⁿ i, stdOrthonormalBasis ℝ ℝⁿ i] from
+      funext (fun z => congr_fun (laplacian_eq_iteratedFDeriv_stdOrthonormalBasis f) z)]
+    refine continuous_finset_sum _ (fun i _ => ?_)
+    exact (ContinuousMultilinearMap.apply ℝ (fun _ => ℝⁿ) ℝ
+        ![stdOrthonormalBasis ℝ ℝⁿ i, stdOrthonormalBasis ℝ ℝⁿ i]).continuous.comp
+      (hf.continuous_iteratedFDeriv (by norm_num))
+  have hΔcs : HasCompactSupport (Δ f) := by
+    apply IsCompact.of_isClosed_subset hf_supp (isClosed_tsupport _)
+    apply closure_minimal _ (isClosed_tsupport _)
+    intro y hy
+    by_contra hyn
+    have hf0 : f =ᶠ[nhds y] 0 :=
+      Filter.eventuallyEq_of_mem (isOpen_compl_iff.mpr (isClosed_tsupport f) |>.mem_nhds hyn)
+        (fun z hz => image_eq_zero_of_notMem_tsupport hz)
+    exact hy (by rw [(laplacian_congr_nhds hf0).eq_of_nhds]; exact congr_fun laplacian_const y)
+  have hg : Integrable (fun y => fundamentalSolution (x - y) * Δ f y) := by
+    have hpot := pot_integrable (fundamentalSolution : ℝⁿ → ℝ) hΦloc (Δ f) hΔc hΔcs x
+    have hT : MeasurePreserving (fun y : ℝⁿ => x - y) volume volume :=
+      Measure.measurePreserving_sub_left volume x
+    have hemb : MeasurableEmbedding (fun y : ℝⁿ => x - y) :=
+      (Homeomorph.subLeft x).measurableEmbedding
+    rw [← hT.integrable_comp_emb hemb]
+    refine hpot.congr (Filter.Eventually.of_forall fun z => ?_)
+    simp only [Function.comp, smul_eq_mul, sub_sub_cancel]
+  obtain ⟨R, hRsub⟩ := hf_supp.isCompact.isBounded.subset_ball x
+  set r := max R 1 with hrdef
+  have hr0 : 0 < r := lt_of_lt_of_le one_pos (le_max_right _ _)
+  have hrR : R ≤ r := le_max_left _ _
+  have htsub : tsupport f ⊆ Metric.ball x r :=
+    hRsub.trans (Metric.ball_subset_ball hrR)
+  have hsupp : ∀ y, r ≤ ‖y - x‖ → f y = 0 := by
+    intro y hy
+    apply image_eq_zero_of_notMem_tsupport
+    intro hmem
+    have := htsub hmem
+    rw [Metric.mem_ball, dist_eq_norm] at this
+    linarith
+  have hsuppg : ∀ y, r ≤ ‖y - x‖ → gradient f y = 0 := by
+    intro y hy
+    have hyn : y ∉ tsupport f := fun hmem => by
+      have := htsub hmem; rw [Metric.mem_ball, dist_eq_norm] at this; linarith
+    have hf0 : f =ᶠ[nhds y] 0 :=
+      Filter.eventuallyEq_of_mem (isOpen_compl_iff.mpr (isClosed_tsupport f) |>.mem_nhds hyn)
+        (fun z hz => image_eq_zero_of_notMem_tsupport hz)
+    rw [gradient_congr hf0]
+    unfold gradient; simp [fderiv_const]
+  have hΔ0 : ∀ y, r ≤ ‖y - x‖ → Δ f y = 0 := by
+    intro y hy
+    have hyn : y ∉ tsupport f := fun hmem => by
+      have := htsub hmem; rw [Metric.mem_ball, dist_eq_norm] at this; linarith
+    have hf0 : f =ᶠ[nhds y] 0 :=
+      Filter.eventuallyEq_of_mem (isOpen_compl_iff.mpr (isClosed_tsupport f) |>.mem_nhds hyn)
+        (fun z hz => image_eq_zero_of_notMem_tsupport hz)
+    rw [(laplacian_congr_nhds hf0).eq_of_nhds]; exact congr_fun laplacian_const y
+  have hfull : (∫ y, fundamentalSolution (x - y) * Δ f y)
+      = ∫ y in Metric.ball x r, fundamentalSolution (x - y) * Δ f y := by
+    rw [← setIntegral_eq_integral_of_forall_compl_eq_zero (s := Metric.ball x r) (fun y hy => ?_)]
+    rw [Metric.mem_ball, dist_eq_norm, not_lt] at hy
+    rw [hΔ0 y hy, mul_zero]
+  obtain ⟨M₀, hM₀⟩ := hΔcs.isCompact.exists_bound_of_continuousOn hΔc.continuousOn
+  set M := max M₀ 0 with hMdef
+  have hM0 : 0 ≤ M := le_max_right _ _
+  have hMbd : ∀ y, ‖Δ f y‖ ≤ M := fun y => by
+    by_cases hy : y ∈ tsupport (Δ f)
+    · exact le_trans (hM₀ y hy) (le_max_left _ _)
+    · rw [image_eq_zero_of_notMem_tsupport hy, norm_zero]; exact hM0
+  have hΦxint : ∀ ε : ℝ, IntegrableOn (fun y => ‖fundamentalSolution (x - y)‖)
+      (Metric.ball x ε) volume := by
+    intro ε
+    have hT : MeasurePreserving (fun y : ℝⁿ => x - y) volume volume :=
+      Measure.measurePreserving_sub_left volume x
+    have hemb : MeasurableEmbedding (fun y : ℝⁿ => x - y) :=
+      (Homeomorph.subLeft x).measurableEmbedding
+    have h1 : IntegrableOn (fundamentalSolution : ℝⁿ → ℝ) (Metric.ball 0 ε) volume :=
+      (hΦloc.integrableOn_isCompact (isCompact_closedBall 0 ε)).mono_set
+        Metric.ball_subset_closedBall
+    have hbase : IntegrableOn (fun z => ‖fundamentalSolution z‖) (Metric.ball 0 ε) volume := h1.norm
+    have hpre : (fun y : ℝⁿ => x - y) ⁻¹' Metric.ball 0 ε = Metric.ball x ε := by
+      ext y
+      simp only [Set.mem_preimage, Metric.mem_ball, dist_eq_norm, sub_zero, norm_sub_rev x y]
+    rw [← hpre]
+    exact (hT.integrableOn_comp_preimage hemb).mpr hbase
+  have hNlim : Filter.Tendsto (fun ε => ∫ y in Metric.ball x ε, fundamentalSolution (x - y) * Δ f y)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) := by
+    apply squeeze_zero_norm' (a := fun ε => M * ∫ y in Metric.ball x ε, ‖fundamentalSolution (x - y)‖)
+    · filter_upwards with ε
+      calc ‖∫ y in Metric.ball x ε, fundamentalSolution (x - y) * Δ f y‖
+          ≤ ∫ y in Metric.ball x ε, ‖fundamentalSolution (x - y) * Δ f y‖ :=
+            norm_integral_le_integral_norm _
+        _ ≤ ∫ y in Metric.ball x ε, M * ‖fundamentalSolution (x - y)‖ := by
+            apply setIntegral_mono_on (hg.norm.integrableOn) ((hΦxint ε).const_mul M)
+              measurableSet_ball
+            intro y _
+            rw [norm_mul, mul_comm]
+            exact mul_le_mul_of_nonneg_right (hMbd y) (norm_nonneg _)
+        _ = M * ∫ y in Metric.ball x ε, ‖fundamentalSolution (x - y)‖ := integral_const_mul M _
+    · simpa using (fundamentalSolution_near_integral_tendsto_zero x).const_mul M
+  have key : Filter.Tendsto
+      (fun _ : ℝ => ∫ y in Metric.ball x r, fundamentalSolution (x - y) * Δ f y)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds (- f x)) := by
+    have hRHS : Filter.Tendsto
+        (fun ε => (- ∫ y in Metric.sphere x ε,
+            (fundamentalSolution (y - x) * ⟪gradient f y, ‖y - x‖⁻¹ • (y - x)⟫_ℝ
+             - f y * ⟪gradient fundamentalSolution (y - x), ‖y - x‖⁻¹ • (y - x)⟫_ℝ)
+            ∂(μHE[n - 1] : Measure ℝⁿ))
+          + ∫ y in Metric.ball x ε, fundamentalSolution (x - y) * Δ f y)
+        (nhdsWithin 0 (Set.Ioi 0)) (nhds (- f x)) := by
+      have := ((green_boundary_tendsto_f hn f hf hf_supp x).neg).add hNlim
+      simpa using this
+    refine hRHS.congr' ?_
+    filter_upwards [self_mem_nhdsWithin,
+      mem_nhdsWithin_of_mem_nhds (Iio_mem_nhds hr0)] with ε hε_pos hε_lt
+    have hεpos : 0 < ε := hε_pos
+    have hεlt : ε < r := hε_lt
+    have hga := green_annulus_fund hn x f hf r ε hεpos hεlt hsupp hsuppg
+    have hsub : Metric.ball x ε ⊆ Metric.ball x r := Metric.ball_subset_ball hεlt.le
+    have hunion : ∫ y in Metric.ball x r, fundamentalSolution (x - y) * Δ f y
+        = (∫ y in Metric.ball x ε, fundamentalSolution (x - y) * Δ f y)
+          + ∫ y in Metric.ball x r \ Metric.ball x ε, fundamentalSolution (x - y) * Δ f y := by
+      rw [← setIntegral_union disjoint_sdiff_self_right
+        (measurableSet_ball.diff measurableSet_ball) hg.integrableOn hg.integrableOn,
+        Set.union_diff_cancel hsub]
+    rw [hunion, hga]; ring
+  have hfinal := tendsto_nhds_unique tendsto_const_nhds key
+  rw [hfull, hfinal]
+
+/-- **Representation Formula** (Evans §2.2.4, Theorem 9): `u(x) = ∫ Φ(x−y) f(y) dy` solves
+    `−Δu = f` for `n ≥ 2`. Combines Part A (`laplacian_newtonianPotential`: `Δu = ∫ Φ(x−y)·Δf`)
+    with Part B (`fund_poisson_integral`: `∫ Φ(x−y)·Δf = −f(x)`). -/
+theorem newtonianPotential_solves_poisson (hn : 2 ≤ n) (f : ℝⁿ → ℝ) (hf : ContDiff ℝ 2 f)
     (hf_supp : HasCompactSupport f) :
     IsPoissonSolution Set.univ f (newtonianPotential f) := by
   intro x _
-  sorry
+  rw [laplacian_newtonianPotential f hf hf_supp x, fund_poisson_integral hn f hf hf_supp x, neg_neg]
