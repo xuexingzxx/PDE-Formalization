@@ -425,9 +425,21 @@ rule in particular is a self-contained result that does not exist in Mathlib.
   \texttt{measurePreserving\_rigid\_μHE} & rigid motions preserve the surface measure $\mu_H$ & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
   \texttt{integral\_Iic\_split} & oriented $\mathrm{Iic}$-additivity of a 1-D integral & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
   \texttt{divergence\_theorem} & Gauss--Green on a bounded $C^1$ domain (Chapter~6) & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
+  \texttt{pot\_hasFDerivAt} & $D_z\!\int\Phi(y)g(z-y)=\int\Phi(y)\,Dg(z-y)$ (scalar diff-under-$\int$ onto a $C^1$ compact-support factor) & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{fundamentalSolution\_locallyIntegrable} & $\Phi\in L^1_{\mathrm{loc}}$ & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{gradient\_congr} / \texttt{gradient\_comp\_sub} & $\nabla$ under \texttt{EventuallyEq}; $\nabla(g(\cdot-x))(y)=\nabla g(y-x)$ & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
+  \texttt{mollified\_fund} & \texttt{ContDiffBump} cutoff making $\Phi(\cdot-x)$ globally $C^2$ on the annulus & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
   \bottomrule
 \end{tabular}
 \end{center}
+
+\noindent\textbf{Design lesson (scalar vs.\ CLM).} Both the heat-kernel and Newtonian-potential
+convolutions differentiate under the integral. Routing this through Mathlib's bundled
+convolution derivative (\texttt{HasCompactSupport.hasFDerivAt\_convolution\_right}, whose output
+is a \texttt{precompR} CLM-valued convolution) \emph{diverges} when iterated to a Laplacian --- the
+nested \texttt{precompR} wrappers blow up. Both chapters instead keep everything as \emph{scalar}
+integrals ($\int\Phi(y)\bullet g(z-y)$) and reduce to the genuine analytic facts via
+\texttt{laplacian\_integral\_eq}; \texttt{pot\_hasFDerivAt} is the Laplace-chapter workhorse.
 
 The \texttt{leibniz\_integral} family is the strongest candidate for upstreaming to Mathlib
 (it is fully general and fills a genuine library gap); the Gaussian moments and radial-power
@@ -502,7 +514,10 @@ The following were initially defined but later found to be redundant:
       rectangular-box-only divergence theorem in Mathlib \\
   Green's second identity on annular domains
     & Poisson representation formula
-    & Now reachable from \texttt{divergence\_theorem} (Chapter~6); specialization to spheres pending \\
+    & \emph{Resolved}: \texttt{green\_identity\_annulus} (via \texttt{divergence\_theorem} $+$
+      \texttt{setIntegral\_diff}); the singular fundamental-solution case handled with a
+      \texttt{ContDiffBump} cutoff (\texttt{mollified\_fund}, \texttt{green\_annulus\_fund}).
+      The full representation formula $-\Delta(\Phi*f)=f$ is proved \\
   $n$-dimensional polar/spherical coordinates
     & $\int_{B(0,1)} \|x\|^p\,dx < \infty$, integrability of $\Phi$
     & \emph{Resolved}: Mathlib's \texttt{integrable\_fun\_norm\_addHaar} reduces a radial
@@ -511,8 +526,9 @@ The following were initially defined but later found to be redundant:
       \texttt{integrableOn\_norm\_rpow\_unitBall} ($\|\cdot\|^p\in L^1(B(0,1))$ iff $p>-n$) \\
   Sphere Hausdorff measure formula
     & $\sigma(\partial B(0,r)) = n\omega_n r^{n-1}$
-    & \texttt{hausdorffMeasure\_sphere} not in Mathlib;
-      blocks \texttt{fundamentalSolution\_totalFlux} \\
+    & \emph{Resolved}: \texttt{sphere\_surfaceMeasure} (for the Riemannian $\mu_{HE}$), a corollary
+      of \texttt{divergence\_theorem} on $F=\mathrm{id}$; \texttt{fundamentalSolution\_totalFlux}
+      $=-1$ now proved \\
   Translation of set integrals
     & \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
     & Proved manually via \texttt{integral\_sub\_left\_eq\_self} \\
@@ -1126,31 +1142,69 @@ theorem harmonic_smooth    ... : ContDiffOn R Top u U
 
 \subsection{§2.2.4 Representation Formula}
 
-All the \emph{tools} for the representation formula now exist (nothing is blocked on missing
-Mathlib); what remains is the concrete --- and lengthy --- proof work. Current status:
+\textbf{Complete ($n \ge 2$).} The capstone \texttt{newtonianPotential\_solves\_poisson} is
+proved: $u(x) = \int \Phi(x-y) f(y)\,dy$ solves $-\Delta u = f$ for $f \in C^2_c$. Everything
+below is off the Chapter~6 \texttt{divergence\_theorem}; no Mathlib machinery was missing.
 
 \begin{center}
 \begin{tabular}{@{}L{6.0cm}L{7.4cm}C@{}}
   \toprule
-  \textbf{Lemma} & \textbf{Status / what remains} & \textbf{} \\
+  \textbf{Lemma} & \textbf{What it proves} & \textbf{} \\
   \midrule
   \texttt{fundamentalSolution\_near\_integral\_tendsto\_zero}
-    & proved (Mathlib's $n$-dim polar integration) & \textcolor{mathgreen}{\checkmark} \\
+    & $\int_{B(x,\varepsilon)}\|\Phi(x-\cdot)\| \to 0$ (Mathlib $n$-dim polar) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_identity\_annulus}
-    & proved: \texttt{divergence\_theorem} on the annulus via \texttt{setIntegral\_diff}, up to
-      negation $+$ normal reconciliation & \textcolor{mathgreen}{\checkmark} \\
+    & Green's 2nd identity on the annulus, $\mu_{HE}$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fundamentalSolution\_totalFlux}
-    & proved ($=-1$): $\nabla\Phi$ via \texttt{hasFDerivAt\_norm\_rpow\_of\_ne} (\texttt{flux\_rpow}/
-      \texttt{flux\_log}) $\times$ \texttt{sphere\_surfaceMeasure}, $\mu_{HE}$ & \textcolor{mathgreen}{\checkmark} \\
+    & total flux $=-1$ ($\mu_{HE}$), via \texttt{flux\_rpow}/\texttt{flux\_log} $\times$
+      \texttt{sphere\_surfaceMeasure} & \textcolor{mathgreen}{\checkmark} \\
   \texttt{green\_boundary\_tendsto\_f}
-    & $\varepsilon\to0$ singular-integral limit (strategy below); $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
+    & boundary integral $\to f(x)$ as $\varepsilon\to0$, $\mu_{HE}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_newtonianPotential} (Part A)
+    & $\Delta u = \int \Phi(x-y)\,\Delta f(y)\,dy$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{green\_annulus\_fund}, \texttt{fund\_poisson\_integral} (Part B)
+    & $\int \Phi(x-y)\,\Delta f = -f(x)$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{newtonianPotential\_solves\_poisson}
-    & capstone; assembles the above & \textcolor{sorryred}{sorry} \\
+    & capstone: $-\Delta u = f$ & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{Strategy for \texttt{green\_boundary\_tendsto\_f}} (the remaining analytic core). The
+\textbf{Part A --- moving $\Delta$ through the singular $\Phi$
+(\texttt{laplacian\_newtonianPotential}).} $\Delta u = \int \Phi(x-y)\,\Delta f(y)\,dy$. Because
+$\Phi$ is singular at $0$, the derivatives cannot land on $\Phi$; change variables to
+$u(x) = \int \Phi(y) f(x-y)\,dy$ and differentiate twice \emph{onto} the smooth compact-support
+factor $f$. Kept entirely scalar --- the \texttt{precompR}/CLM convolution route diverges (see
+Reusable Tools). The reusable \texttt{pot\_hasFDerivAt} does one differentiation-under-the-integral
+of $z \mapsto \int \Phi(y)\,g(z-y)\,dy$ for any $C^1$ compact-support $g$ (domination: $\|\Phi\|$
+on the compact set $\overline{B(x,1)} - \operatorname{tsupp}(Dg)$), applied to $g=f$ and
+$g = (w \mapsto Df(w)\,v_i)$; \texttt{laplacian\_integral\_eq} then assembles the diagonal second
+directional derivatives into $\Delta$.
+
+\textbf{Part B --- $\int \Phi(x-y)\,\Delta f = -f(x)$ (\texttt{fund\_poisson\_integral}).} This is
+the $\varepsilon\to0$ limit. \emph{The obstruction:} \texttt{green\_identity\_annulus} needs a
+\emph{globally} $C^2$ function, but $u = \Phi(\cdot - x)$ is singular at $x$. \emph{Resolution}
+(\texttt{mollified\_fund}): multiply by a cutoff, $w = \chi \cdot \Phi(\cdot - x)$ with
+$\chi = 1 - b$, $b$ a \texttt{ContDiffBump} ($r_{\mathrm{in}}=\varepsilon/4$,
+$r_{\mathrm{out}}=\varepsilon/2$). Then $\chi\equiv1$ on $\{\|\cdot-x\|>\varepsilon/2\}\supseteq$
+the closed annulus and $\chi\equiv0$ near $x$, so $w$ is globally $C^2$
+(\texttt{contDiff\_iff\_contDiffAt}: $\equiv0$ near $x$, a smooth product elsewhere) and agrees
+with $\Phi(\cdot-x)$ on a neighbourhood of the annulus. Applying Green to $(w,f)$ on
+$B(x,r)\setminus B(x,\varepsilon)$ (\texttt{green\_annulus\_fund}): on the annulus $\Delta w = 0$
+(harmonic) and $w=\Phi$, on the outer sphere $f=\nabla f=0$ ($r$ past $\operatorname{tsupp} f$),
+leaving $\int_{\mathrm{ann}}\Phi(x-y)\Delta f = -\oint_{\partial B(x,\varepsilon)}
+(\Phi\langle\nabla f,\nu\rangle - f\langle\nabla\Phi,\nu\rangle)$. The gradient/Laplacian
+agreements transfer off the \texttt{EventuallyEq} cutoff via \texttt{gradient\_congr}
+(\texttt{EventuallyEq.fderiv\_eq}), \texttt{gradient\_comp\_sub}
+($\nabla(g(\cdot-x))(y)=\nabla g(y-x)$), and Mathlib's \texttt{laplacian\_congr\_nhds}. Then
+$\varepsilon\to0$: the boundary term $\to f(x)$ (\texttt{green\_boundary\_tendsto\_f}) and the near
+part $\int_{B(x,\varepsilon)}\Phi(x-y)\Delta f \to 0$ (squeezed by
+$M\!\int_{B}\|\Phi(x-\cdot)\|\to0$; $\|\Phi(x-\cdot)\|$ is integrable on balls via the
+measure-preserving reflection $y\mapsto x-y$). With $\int_{\mathbb{R}^n}=\int_{B(x,r)}$ (compact
+support of $\Delta f$), \texttt{tendsto\_nhds\_unique} on the constant $\int_{B(x,r)}$ gives
+$\int \Phi(x-y)\Delta f = -f(x)$. Capstone: $-\Delta u = -(-f) = f$.
+
+\textbf{Strategy for \texttt{green\_boundary\_tendsto\_f}} (the analytic core, now proved). The
 boundary integrand splits as $\Phi(y-x)\langle\nabla f,\nu\rangle - f\,\langle\nabla\Phi(y-x),\nu\rangle
 = \mathrm{A} - \mathrm{B}$. On $\partial B(x,\varepsilon)$, $\Phi$ is radial so $\Phi(y-x)=\Phi(\varepsilon)$
 is constant and the flux integrand $\langle\nabla\Phi(y-x),\nu\rangle = K(\varepsilon)$ is constant.
@@ -1160,10 +1214,6 @@ is constant and the flux integrand $\langle\nabla\Phi(y-x),\nu\rangle = K(\varep
 B}\langle\nabla f,\nu\rangle = \Phi(\varepsilon)\int_{B(x,\varepsilon)}\Delta f$
 (\texttt{integral\_laplacian\_ball}), and $|\Phi(\varepsilon)\!\int_B\Delta f| \le
 |\Phi(\varepsilon)|\,M\,\mathrm{vol}(B) \sim \varepsilon^{2-n}\varepsilon^{n} = \varepsilon^2 \to 0$.
-Hence $\mathrm{A}-\mathrm{B}\to f(x)$. Formalizing needs the \emph{translated} \texttt{totalFlux}/
-\texttt{integral\_laplacian\_ball} (μHE sphere integrals are translation-invariant), the piecewise
-$\Phi$-constant facts, a sphere-average$\to$value continuity lemma, and the piecewise
-$|\Phi(\varepsilon)|\varepsilon^n\to0$ bound.
 
 \textbf{Correctness fix: raw $\mu_H$ $\to$ Riemannian $\mu_{HE}$.} The three surface-integral
 lemmas were originally stated against the raw $(n-1)$-Hausdorff measure
@@ -1181,10 +1231,9 @@ $d\sigma$. This also \emph{resolves} two obstructions listed in earlier drafts: 
 measure $\sigma(\partial B(0,\varepsilon)) = n\omega_n\varepsilon^{n-1}$ is now the proved
 \texttt{sphere\_surfaceMeasure} (a corollary of \texttt{divergence\_theorem} on $F = \mathrm{id}$),
 and Gauss--Green on the annulus follows from \texttt{divergence\_theorem} $+$ \texttt{setIntegral\_diff}
-(the earlier ``Stokes not in Mathlib'' comments are stale). What is genuinely left is a few hundred
-lines of piecewise-$n$ ($n=2$ log vs.\ $n\ge3$ power) constant-chasing, the annulus-domain plumbing,
-and the $\varepsilon\to0$ limit --- the substantial remaining block of Chapter~2.2, together with
-interior regularity.
+(the earlier ``Stokes not in Mathlib'' comments are stale). All of this is now proved; the only
+remaining \texttt{sorry} in Chapter~2.2 is interior $C^\infty$ regularity
+(\texttt{harmonic\_smooth}).
 
 \subsection{Status Summary}
 
@@ -1209,20 +1258,22 @@ interior regularity.
   \texttt{meanValue\_implies\_harmonic} & converse of MVP ($n\ge2$)      & \textcolor{mathgreen}{\checkmark} \\
   \texttt{harmonic\_strongMax}       & strong maximum principle ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{const\_on\_ball\_of\_max}  & ball rigidity (mean $=$ max $\Rightarrow$ const) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{green\_identity\_annulus}  & Green's 2nd identity on annulus, $\mu_{HE}$ & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fundamentalSolution\_totalFlux} & total flux $= -1$, $\mu_{HE}$ ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{green\_boundary\_tendsto\_f} & boundary integral $\to f(x)$, $\mu_{HE}$ ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{laplacian\_newtonianPotential} & $\Delta u = \int\Phi(x-y)\Delta f$ (Part A) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{fund\_poisson\_integral}   & $\int\Phi(x-y)\Delta f = -f(x)$ (Part B) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{newtonianPotential\_solves\_poisson} & representation formula ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$ (interior regularity) & \textcolor{sorryred}{sorry} \\
-  \texttt{green\_identity\_annulus}  & Green's 2nd identity on annulus, $\mu_{HE}$ (Step 1 proved) & \textcolor{sorryred}{sorry} \\
-  \texttt{fundamentalSolution\_totalFlux} & total flux $= -1$, $\mu_{HE}$ ($n\ge2$) & \textcolor{sorryred}{sorry} \\
-  \texttt{green\_boundary\_tendsto\_f} & boundary integral $\to f(x)$, $\mu_{HE}$ & \textcolor{sorryred}{sorry} \\
-  \texttt{newtonianPotential\_solves\_poisson} & representation formula (capstone) & \textcolor{sorryred}{sorry} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent{\small The entire §2.2.2--2.2.3 mean-value and maximum-principle theory is now proved
-($n \ge 2$), all off the Chapter~6 \texttt{divergence\_theorem} with no missing Mathlib machinery.
-The remaining \texttt{sorry}s are the §2.2.4 representation formula (re-stated with the Riemannian
-surface measure $\mu_{HE}$; a few hundred lines of $\nabla\Phi$/flux computation, annulus plumbing,
-and the $\varepsilon\to0$ limit) and interior $C^\infty$ regularity.}
+\noindent{\small The entire §2.2.2--2.2.4 theory --- mean-value property, both maximum principles,
+and the Poisson representation formula ($-\Delta(\Phi * f) = f$, $n \ge 2$) --- is now proved, all
+off the Chapter~6 \texttt{divergence\_theorem} with no missing Mathlib machinery. The single
+remaining \texttt{sorry} in Chapter~2.2 is interior $C^\infty$ regularity (\texttt{harmonic\_smooth}),
+provable via radial mollification.}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 3: Heat Equation (Evans §2.3)}

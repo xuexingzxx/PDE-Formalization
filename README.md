@@ -27,7 +27,7 @@ Built with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 | Chapter | File | Status | Notes |
 |---|---|---|---|
 | §2.1 Transport | `Transport.lean` | ✅ **complete, zero `sorry`** | homogeneous IVP solved **and proved unique**; inhomogeneous Duhamel formula **provably solves the IVP** (Leibniz rule + spatial differentiation under the integral both proved) |
-| §2.2 Laplace/Poisson | `Laplace.lean` | partial | fundamental solution, radial-power & `log` Laplacians, and the **weak maximum principle** proved; **the entire mean-value + maximum-principle theory of §2.2.2–2.2.3 is now proved** (`n ≥ 2`) — sphere & ball mean-value property, its converse (`meanValue_implies_harmonic`), and the **strong maximum principle** — all off the `AreaFormula.lean` divergence theorem with no missing Mathlib machinery (the ball version via the field `u(x+r·z)·z` + an ODE, *not* a coarea formula; strong max via a ball-mean rigidity + clopen/connectedness). Remaining `sorry`: interior `C^∞` regularity (`harmonic_smooth`) and the §2.2.4 Poisson representation formula. The latter's surface integrals were **re-stated with the Riemannian surface measure `μHE`** — the raw `(n−1)`-Hausdorff stubs were *false for `n ≥ 3`* (their constants, e.g. total flux `= −1`, only hold for the true surface area `μHE`, not `μH = μHE/c₀`) |
+| §2.2 Laplace/Poisson | `Laplace.lean` | **§2.2.1–2.2.4 complete** (one `sorry`: interior regularity) | fundamental solution, radial-power & `log` Laplacians; **the entire mean-value + maximum-principle theory of §2.2.2–2.2.3** (`n ≥ 2`) — sphere & ball mean-value property, its converse, both maximum principles (ball version via the field `u(x+r·z)·z` + an ODE, *not* coarea; strong max via ball-mean rigidity + clopen/connectedness); **and the §2.2.4 Poisson representation formula `newtonianPotential_solves_poisson` (`n ≥ 2`): `u = ∫ Φ(x−y) f(y) dy` solves `−Δu = f`** — Part A (`Δu = ∫ Φ(x−y)·Δf`, moving `Δ` through the singular `Φ` onto `f` by a scalar diff-under-integral, `pot_hasFDerivAt`; the `precompR`/CLM convolution route diverges) + Part B (`∫ Φ(x−y)·Δf = −f(x)` via Green on the annulus for the singular `Φ`, using a `ContDiffBump` cutoff `mollified_fund`, then `ε→0` with `green_boundary_tendsto_f` + the vanishing near part). Surface integrals use the Riemannian `μHE` (the raw `(n−1)`-Hausdorff stubs were *false for `n ≥ 3`*: total flux `= −1` only holds for `μHE`, not `μH = μHE/c₀`). All off the `AreaFormula.lean` divergence theorem, no missing Mathlib. Remaining `sorry`: interior `C^∞` regularity (`harmonic_smooth`) |
 | §2.3 Heat | `Heat.lean` | ✅ **complete, zero `sorry`** | heat kernel is positive, has unit mass, and solves the heat equation; for **bounded continuous** `g`, the convolution `∫ Φ(x−y,t) g(y) dy` **provably solves the IVP** — both the time-derivative and the spatial-Laplacian are moved under the integral (n-dim Gaussian moments + nested differentiation under the integral); plus the **weak maximum principle** on a parabolic cylinder and **uniqueness** on a bounded cylinder (§2.3.3–2.3.4) |
 | §2.4 Wave | `Wave.lean` | ✅ **complete, zero `sorry`** | traveling waves, d'Alembert (existence + `C²` regularity + initial conditions), energy conservation, uniqueness, finite propagation speed |
 | §5.2 Sobolev | `Sobolev/Basic.lean` | ✅ **foundations, zero `sorry`** | test functions `C_c^∞(U)`, weak directional derivatives, the classical⟹weak bridge (integration by parts), linearity, a.e.-invariance, the smooth product (Leibniz) rule, a.e. uniqueness (fundamental lemma of the calculus of variations), closedness under `L¹`-on-compacts **and `Lᵖ`** limits (via a Hölder bridge), the weak-derivative graph is **closed in `Lᵖ × Lᵖ`**, and hence **`W^{1,p}(ℝⁿ)` is a Banach space** — with the genuine Sobolev norm `(‖u‖ₚᵖ + Σᵢ‖∂ᵢu‖ₚᵖ)^{1/p}` (via `PiLp`) — and **`W^{1,p}(U)` is a Banach space for any measurable `U`** over the restricted measure `Lᵖ(U)`; bundled as a named type `W1p` with a `CompleteSpace` instance and the function-value and weak-partial-derivative maps `W^{1,p}(U) → Lᵖ(U)` as **bounded linear operators**; plus `W^{1,p}` membership, locality, and `C_c^∞ ⊆ W^{1,p}` |
@@ -46,9 +46,9 @@ and documented at their use sites.
 
 ## Known blockers (missing Mathlib infrastructure)
 
-The outstanding `sorry`s are all in **Laplace**, and are **not** gaps in the mathematics nor in
-available tools — **all three original blockers are now resolved** in this project. What remains
-is the (lengthy) proof work for the §2.2.4 representation formula and interior regularity.
+The single outstanding `sorry` is interior `C^∞` regularity (`harmonic_smooth`) in **Laplace** —
+**not** a gap in the mathematics nor in available tools. **All three original blockers are now
+resolved**, and the §2.2.4 representation formula they were blocking is **proved**.
 
 - ~~**Stokes' theorem on spherical domains**~~ (Laplace `green_identity_annulus`,
   `green_boundary_tendsto_f`) — **resolved**: the general `divergence_theorem` in
@@ -62,11 +62,13 @@ is the (lengthy) proof work for the §2.2.4 representation formula and interior 
   **resolved** via Mathlib's `integrable_fun_norm_addHaar`, packaged as
   `integrableOn_unitBall_radial` / `integrableOn_norm_rpow_unitBall`.
 
-The remaining §2.2.4 work (fundamental-solution flux, annulus Green's identity, the `ε→0`
-singular-integral limit, and the representation-formula capstone) needs no new Mathlib
-infrastructure — the tools (`hasFDerivAt_norm_rpow_of_ne` for `∇Φ`, `sphere_surfaceMeasure`,
-`divergence_theorem` + `setIntegral_diff` for the annulus) are all in place; it is a few hundred
-lines of piecewise-`n` constant-chasing and limits.
+The §2.2.4 representation formula (`newtonianPotential_solves_poisson`) is complete: the
+fundamental-solution flux (`= −1`, `μHE`), the annulus Green's identity, the `ε→0`
+singular-integral limit (`green_boundary_tendsto_f`), moving `Δ` through the singular `Φ` onto `f`
+(`laplacian_newtonianPotential`, a scalar diff-under-integral), and the annulus argument for the
+singular `Φ` via a `ContDiffBump` cutoff (`mollified_fund` / `green_annulus_fund`) — all off the
+`divergence_theorem`, no new Mathlib infrastructure. The one remaining `sorry`, interior `C^∞`
+regularity (`harmonic_smooth`), is provable by radial mollification.
 
 The **Heat** chapter's spatial-Laplacian-under-the-integral step required navigating a
 genuine Mathlib instance gap — `ContinuousENorm` (hence `Integrable`/`integral_apply`) is
