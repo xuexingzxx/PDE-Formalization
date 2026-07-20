@@ -1122,9 +1122,23 @@ $u \equiv M$ on $B(y,r)$ --- and \emph{closed} (continuity); by connectedness
 rigidity or surface-measure positivity was needed --- the \emph{ball} version, over Lebesgue volume,
 is cleaner.
 
-Only \texttt{harmonic\_smooth} (interior $C^\infty$ regularity) remains; the slick route is
-``harmonic $\Rightarrow$ equals its radial mollification $\Rightarrow$ $C^\infty$'', unlocked by the
-mean value property, rather than full elliptic regularity.
+\texttt{harmonic\_smooth} (interior $C^\infty$ regularity, Evans Thm 6) is now \emph{proved} by
+the ``harmonic $\Rightarrow$ equals its radial mollification $\Rightarrow$ $C^\infty$'' route,
+unlocked by the mean value property, rather than full elliptic regularity. \textbf{Correctness
+fix (C$^\infty$ vs.\ analytic):} the conclusion was stated \texttt{ContDiffOn R Top}, but in
+current Mathlib the smoothness parameter is \texttt{WithTop} $\mathbb{N}_\infty$ with
+$\top = \omega = $ \emph{analytic} --- that is Evans \emph{Theorem 10} (hard), not the cited
+Theorem 6. It is restated at the $C^\infty$ level \texttt{ContDiffOn R ($\top$ : $\mathbb{N}_\infty$)}
+(with $n \ge 2$), which mollification proves (\texttt{Real.smoothTransition} is $C^\infty$ but not
+analytic). \emph{Route:} a \emph{radial} $C^\infty$ mollifier \texttt{moll} (Mathlib's
+\texttt{ContDiffBump} is not guaranteed radial, and radiality is essential); its mean-value
+reproduction \texttt{moll\_reproduce}: $\int \texttt{moll}\,\rho \cdot h = 0$ for $h$ with vanishing
+centred-ball integrals --- proved by a \emph{layer-cake} ($\texttt{moll}\,\rho\,z =
+\int_{(\lVert z\rVert,\rho]}(-\Psi')$ via the profile's FTC, then Fubini
+\texttt{integral\_integral\_swap}); the assembly convolves $u$ (through a $C^\infty$ cutoff $\tilde
+u = \chi\cdot u$) with \texttt{moll}, giving $u = (\texttt{moll} \star \tilde u)/c$ locally (via
+\texttt{moll\_reproduce} $+$ \texttt{harmonic\_ballMeanValue} on $\tilde u$), which is $C^\infty$
+(\texttt{contDiff\_convolution\_left}). \textbf{Chapter~2.2 is now sorry-free.}
 
 \begin{lstlisting}[caption={Maximum principles and regularity}]
 -- proved: weak maximum principle (v_ε = u + ε‖·‖² perturbation)
@@ -1136,8 +1150,10 @@ theorem harmonic_weakMax (hn : 1 <= n) (hU : IsOpen U)
 theorem harmonic_strongMax (hn : 2 <= n) (hconn : IsConnected U)
     (hu : IsHarmonic U u) (hu_c2 : ContDiff R 2 u) (hmax : ...) :
     ForAll x in U, u x = u x0
--- still sorry (interior regularity via radial mollification):
-theorem harmonic_smooth    ... : ContDiffOn R Top u U
+-- proved: interior C^∞ regularity via radial mollification (n ≥ 2)
+theorem harmonic_smooth (hn : 2 <= n) (hU : IsOpen U)
+    (hu : IsHarmonic U u) (hu_c2 : ContDiffOn R 2 u U) :
+    ContDiffOn R (Top : ℕ∞) u U
 \end{lstlisting}
 
 \subsection{§2.2.4 Representation Formula}
@@ -1264,16 +1280,17 @@ remaining \texttt{sorry} in Chapter~2.2 is interior $C^\infty$ regularity
   \texttt{laplacian\_newtonianPotential} & $\Delta u = \int\Phi(x-y)\Delta f$ (Part A) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fund\_poisson\_integral}   & $\int\Phi(x-y)\Delta f = -f(x)$ (Part B) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{newtonianPotential\_solves\_poisson} & representation formula ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
-  \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$ (interior regularity) & \textcolor{sorryred}{sorry} \\
+  \texttt{moll\_reproduce}           & radial mollifier reproduces mean-value fns (layer-cake) & \textcolor{mathgreen}{\checkmark} \\
+  \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$ interior regularity ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent{\small The entire §2.2.2--2.2.4 theory --- mean-value property, both maximum principles,
-and the Poisson representation formula ($-\Delta(\Phi * f) = f$, $n \ge 2$) --- is now proved, all
-off the Chapter~6 \texttt{divergence\_theorem} with no missing Mathlib machinery. The single
-remaining \texttt{sorry} in Chapter~2.2 is interior $C^\infty$ regularity (\texttt{harmonic\_smooth}),
-provable via radial mollification.}
+\noindent{\small \textbf{Chapter~2.2 is complete and sorry-free.} The entire §2.2.1--2.2.4 theory
+--- fundamental solution, mean-value property, both maximum principles, the Poisson representation
+formula ($-\Delta(\Phi * f) = f$, $n \ge 2$), and interior $C^\infty$ regularity
+(\texttt{harmonic\_smooth}, via radial mollification) --- is proved, all off the Chapter~6
+\texttt{divergence\_theorem} with no missing Mathlib machinery.}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 3: Heat Equation (Evans §2.3)}
