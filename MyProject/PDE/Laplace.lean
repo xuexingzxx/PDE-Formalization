@@ -1245,11 +1245,301 @@ theorem harmonic_weakMax (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
 
 /-! ### Smoothness of Harmonic Functions -/
 
-/-- **Regularity** (Evans §2.2.3, Theorem 6). -/
-theorem harmonic_smooth (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
+namespace HarmSmooth
+
+/-- A radial `C^∞` mollifier of radius `ρ`: `≡ smoothTransition(2 − 2‖z‖²/ρ²)`, which is
+    `1` for `‖z‖ ≤ ρ/√2`, `0` for `‖z‖ ≥ ρ`. Radial (a function of `‖z‖²`), smooth, nonneg,
+    compactly supported in `closedBall 0 ρ`, and positive near `0`. Mathlib's `ContDiffBump`
+    is *not* guaranteed radial, and radiality is essential for the mean-value reproduction. -/
+noncomputable def moll (ρ : ℝ) (z : ℝⁿ) : ℝ :=
+  Real.smoothTransition (2 - 2 * ‖z‖ ^ 2 / ρ ^ 2)
+
+lemma moll_contDiff (ρ : ℝ) : ContDiff ℝ (⊤ : ℕ∞) (moll ρ : ℝⁿ → ℝ) := by
+  unfold moll
+  have hsq : ContDiff ℝ (⊤ : ℕ∞) (fun z : ℝⁿ => ‖z‖ ^ 2) := contDiff_norm_sq ℝ
+  exact Real.smoothTransition.contDiff.comp
+    (contDiff_const.sub ((contDiff_const.mul hsq).div_const (ρ ^ 2)))
+
+lemma moll_nonneg (ρ : ℝ) (z : ℝⁿ) : 0 ≤ moll ρ z := Real.smoothTransition.nonneg _
+
+lemma moll_eq_zero {ρ : ℝ} (hρ : 0 < ρ) {z : ℝⁿ} (hz : ρ ≤ ‖z‖) : moll ρ z = 0 := by
+  apply Real.smoothTransition.zero_of_nonpos
+  rw [sub_nonpos, le_div_iff₀ (by positivity)]
+  have : ρ ^ 2 ≤ ‖z‖ ^ 2 := by nlinarith [norm_nonneg z]
+  nlinarith
+
+lemma moll_pos {ρ : ℝ} (hρ : 0 < ρ) {z : ℝⁿ} (hz : ‖z‖ < ρ / 2) : 0 < moll ρ z := by
+  apply Real.smoothTransition.pos_of_pos
+  rw [sub_pos, div_lt_iff₀ (by positivity)]
+  have hz2 : ‖z‖ ^ 2 < (ρ / 2) ^ 2 := by
+    have := norm_nonneg z; nlinarith
+  nlinarith
+
+lemma moll_hasCompactSupport {ρ : ℝ} (hρ : 0 < ρ) :
+    HasCompactSupport (moll ρ : ℝⁿ → ℝ) := by
+  apply HasCompactSupport.intro (isCompact_closedBall 0 ρ)
+  intro z hz
+  rw [Metric.mem_closedBall, dist_zero_right, not_le] at hz
+  exact moll_eq_zero hρ hz.le
+
+/-- The radial profile of the mollifier: `moll ρ z = mollProfile ρ ‖z‖`. -/
+noncomputable def mollProfile (ρ s : ℝ) : ℝ := Real.smoothTransition (2 - 2 * s ^ 2 / ρ ^ 2)
+
+lemma moll_eq_profile (ρ : ℝ) (z : ℝⁿ) : moll ρ z = mollProfile ρ ‖z‖ := rfl
+
+lemma mollProfile_contDiff (ρ : ℝ) : ContDiff ℝ (⊤ : ℕ∞) (mollProfile ρ) := by
+  unfold mollProfile
+  have hsq : ContDiff ℝ (⊤ : ℕ∞) (fun s : ℝ => s ^ 2) := contDiff_id.pow 2
+  exact Real.smoothTransition.contDiff.comp
+    (contDiff_const.sub ((contDiff_const.mul hsq).div_const (ρ ^ 2)))
+
+lemma mollProfile_zero {ρ : ℝ} (hρ : 0 < ρ) {s : ℝ} (hs : ρ ≤ s) : mollProfile ρ s = 0 := by
+  apply Real.smoothTransition.zero_of_nonpos
+  rw [sub_nonpos, le_div_iff₀ (by positivity)]
+  have hs2 : ρ ^ 2 ≤ s ^ 2 := by nlinarith [hρ.le, le_trans hρ.le hs]
+  nlinarith
+
+/-- `deriv (mollProfile ρ)` vanishes for `s > ρ` (the profile is constant `0` past `ρ`). -/
+lemma mollProfile_deriv_zero_of_gt {ρ : ℝ} (hρ : 0 < ρ) {s : ℝ} (hs : ρ < s) :
+    deriv (mollProfile ρ) s = 0 := by
+  have h : mollProfile ρ =ᶠ[nhds s] (fun _ => 0) := by
+    filter_upwards [eventually_gt_nhds hs] with t ht
+    rw [mollProfile_zero hρ ht.le]
+  rw [h.deriv_eq, deriv_const']
+
+/-- FTC representation of the radial profile: for `0 ≤ s`,
+    `mollProfile ρ s = ∫_{Ioc s ρ} (−deriv (mollProfile ρ))`. -/
+lemma mollProfile_ftc {ρ : ℝ} (hρ : 0 < ρ) {s : ℝ} (hs : 0 ≤ s) :
+    mollProfile ρ s = ∫ t in Set.Ioc s ρ, - deriv (mollProfile ρ) t := by
+  by_cases hsρ : s < ρ
+  · have hdiff : Differentiable ℝ (mollProfile ρ) :=
+      (mollProfile_contDiff ρ).differentiable (by norm_num)
+    have hcont : Continuous (deriv (mollProfile ρ)) :=
+      (mollProfile_contDiff ρ).continuous_deriv (by norm_num)
+    rw [← intervalIntegral.integral_of_le hsρ.le, intervalIntegral.integral_neg,
+      intervalIntegral.integral_deriv_eq_sub (fun t _ => hdiff.differentiableAt)
+        (hcont.intervalIntegrable s ρ)]
+    rw [mollProfile_zero hρ le_rfl]
+    ring
+  · rw [mollProfile_zero hρ (not_lt.mp hsρ), Set.Ioc_eq_empty hsρ, Measure.restrict_empty,
+      integral_zero_measure]
+
+/-- **Mean-value reproduction.** If every centered ball integral of `h` vanishes (`h = u(x−·)−u(x)`
+    for a function with the ball mean-value property), then `∫ moll ρ · h = 0`. Layer-cake: write
+    `moll ρ z = ∫_{Ioc ‖z‖ ρ}(−Ψ')` and swap the order of integration. -/
+lemma moll_reproduce {ρ : ℝ} (hρ : 0 < ρ) (h : ℝⁿ → ℝ) (hh : Continuous h)
+    (hball : ∀ t : ℝ, t ∈ Set.Ioc 0 ρ → ∫ z in Metric.ball (0 : ℝⁿ) t, h z = 0) :
+    ∫ z, moll ρ z * h z = 0 := by
+  set w : ℝ → ℝ := fun t => - deriv (mollProfile ρ) t with hw
+  have hinter : ∀ z : ℝⁿ, Set.Ioc (0 : ℝ) ρ ∩ Set.Ioi ‖z‖ = Set.Ioc ‖z‖ ρ := by
+    intro z
+    ext t
+    simp only [Set.mem_inter_iff, Set.mem_Ioc, Set.mem_Ioi]
+    exact ⟨fun ⟨⟨_, h2⟩, h3⟩ => ⟨h3, h2⟩,
+      fun ⟨h1, h2⟩ => ⟨⟨lt_of_le_of_lt (norm_nonneg z) h1, h2⟩, h1⟩⟩
+  have key1 : ∀ z : ℝⁿ, moll ρ z * h z
+      = ∫ t in Set.Ioc 0 ρ, w t * (Metric.ball (0 : ℝⁿ) t).indicator h z := by
+    intro z
+    have hrw : (fun t => w t * (Metric.ball (0 : ℝⁿ) t).indicator h z)
+        = (Set.Ioi ‖z‖).indicator (fun t => w t * h z) := by
+      funext t
+      by_cases hzt : ‖z‖ < t
+      · have hz : z ∈ Metric.ball (0 : ℝⁿ) t := by rw [Metric.mem_ball, dist_zero_right]; exact hzt
+        rw [Set.indicator_of_mem hz, Set.indicator_of_mem (Set.mem_Ioi.mpr hzt)]
+      · have hz : z ∉ Metric.ball (0 : ℝⁿ) t := by
+          rw [Metric.mem_ball, dist_zero_right]; exact hzt
+        rw [Set.indicator_of_notMem hz, mul_zero,
+          Set.indicator_of_notMem (by rwa [Set.mem_Ioi])]
+    rw [hrw, setIntegral_indicator measurableSet_Ioi, hinter z, integral_mul_const,
+      ← mollProfile_ftc hρ (norm_nonneg z), moll_eq_profile]
+  simp_rw [key1]
+  have hwcont : Continuous w := ((mollProfile_contDiff ρ).continuous_deriv (by norm_num)).neg
+  haveI hν : IsFiniteMeasure (volume.restrict (Set.Ioc (0 : ℝ) ρ)) :=
+    ⟨by rw [Measure.restrict_apply_univ]; exact measure_Ioc_lt_top⟩
+  obtain ⟨W, hW⟩ := (isCompact_Icc (a := (0 : ℝ)) (b := ρ)).exists_bound_of_continuousOn
+    hwcont.continuousOn
+  have hW0 : 0 ≤ W := le_trans (norm_nonneg _) (hW 0 (Set.left_mem_Icc.mpr hρ.le))
+  set G : ℝⁿ → ℝ := fun z => W * (Metric.closedBall (0 : ℝⁿ) ρ).indicator (fun z => ‖h z‖) z with hG
+  have hGint : Integrable G := by
+    refine Integrable.const_mul ?_ W
+    rw [integrable_indicator_iff measurableSet_closedBall]
+    exact (hh.norm.continuousOn).integrableOn_compact (isCompact_closedBall 0 ρ)
+  have hswap : (∫ z, ∫ t in Set.Ioc 0 ρ, w t * (Metric.ball (0 : ℝⁿ) t).indicator h z)
+      = ∫ t in Set.Ioc 0 ρ, ∫ z, w t * (Metric.ball (0 : ℝⁿ) t).indicator h z := by
+    apply integral_integral_swap
+    refine Integrable.mono' (hGint.mul_prod (integrable_const (1 : ℝ))) ?_ ?_
+    · apply Measurable.aestronglyMeasurable
+      show Measurable (fun p : ℝⁿ × ℝ => w p.2 * (Metric.ball (0 : ℝⁿ) p.2).indicator h p.1)
+      apply (hwcont.measurable.comp measurable_snd).mul
+      have hset : (fun p : ℝⁿ × ℝ => (Metric.ball (0 : ℝⁿ) p.2).indicator h p.1)
+          = {p : ℝⁿ × ℝ | ‖p.1‖ < p.2}.indicator (fun p => h p.1) := by
+        funext p
+        simp only [Set.indicator, Metric.mem_ball, dist_zero_right, Set.mem_setOf_eq]
+      rw [hset]
+      exact (hh.measurable.comp measurable_fst).indicator
+        (measurableSet_lt (measurable_norm.comp measurable_fst) measurable_snd)
+    · have hGnn : ∀ z : ℝⁿ, 0 ≤ G z := fun z =>
+        mul_nonneg hW0 (Set.indicator_nonneg (fun _ _ => norm_nonneg _) z)
+      refine Filter.Eventually.of_forall fun p => ?_
+      show ‖w p.2 * (Metric.ball (0 : ℝⁿ) p.2).indicator h p.1‖ ≤ G p.1 * 1
+      rw [mul_one, norm_mul]
+      rcases lt_or_ge 0 p.2 with ht0 | ht0
+      · rcases le_or_gt p.2 ρ with htρ | htρ
+        · by_cases hzt : ‖p.1‖ < p.2
+          · have hz : p.1 ∈ Metric.closedBall (0 : ℝⁿ) ρ := by
+              rw [Metric.mem_closedBall, dist_zero_right]; exact le_trans hzt.le htρ
+            have e1 : (Metric.ball (0 : ℝⁿ) p.2).indicator h p.1 = h p.1 :=
+              Set.indicator_of_mem (by rw [Metric.mem_ball, dist_zero_right]; exact hzt) _
+            have e2 : G p.1 = W * ‖h p.1‖ := by simp [hG, Set.indicator_of_mem hz]
+            rw [e1, e2]
+            exact mul_le_mul_of_nonneg_right (hW p.2 ⟨ht0.le, htρ⟩) (norm_nonneg _)
+          · have e1 : (Metric.ball (0 : ℝⁿ) p.2).indicator h p.1 = 0 :=
+              Set.indicator_of_notMem (by rw [Metric.mem_ball, dist_zero_right]; exact hzt) _
+            rw [e1, norm_zero, mul_zero]; exact hGnn p.1
+        · have hw0 : w p.2 = 0 := by rw [hw]; simp [mollProfile_deriv_zero_of_gt hρ htρ]
+          rw [hw0, norm_zero, zero_mul]; exact hGnn p.1
+      · have he : (Metric.ball (0 : ℝⁿ) p.2).indicator h p.1 = 0 := by
+          rw [Metric.ball_eq_empty.mpr ht0]; simp
+        rw [he, norm_zero, mul_zero]; exact hGnn p.1
+  rw [hswap]
+  refine (setIntegral_eq_zero_of_forall_eq_zero fun t ht => ?_)
+  rw [integral_const_mul, integral_indicator measurableSet_ball, hball t ht, mul_zero]
+
+/-- `∫ moll ρ > 0` (nonneg, continuous, positive on `ball 0 (ρ/2)`). -/
+lemma moll_integral_pos {ρ : ℝ} (hρ : 0 < ρ) : 0 < ∫ z, moll ρ (z : ℝⁿ) := by
+  have hcont : Continuous (moll ρ : ℝⁿ → ℝ) := (moll_contDiff ρ).continuous
+  have hint : Integrable (moll ρ : ℝⁿ → ℝ) :=
+    hcont.integrable_of_hasCompactSupport (moll_hasCompactSupport hρ)
+  rw [integral_pos_iff_support_of_nonneg (fun z => moll_nonneg ρ z) hint]
+  have hsub : Metric.ball (0 : ℝⁿ) (ρ / 2) ⊆ Function.support (moll ρ) := by
+    intro z hz
+    rw [Metric.mem_ball, dist_zero_right] at hz
+    exact Function.mem_support.mpr (moll_pos hρ hz).ne'
+  exact lt_of_lt_of_le (Metric.measure_ball_pos volume 0 (by positivity)) (measure_mono hsub)
+
+end HarmSmooth
+
+open HarmSmooth in
+set_option maxHeartbeats 800000 in
+/-- **Regularity / interior smoothness of harmonic functions** (Evans §2.2.3, Theorem 6),
+    C^∞ version. Note `⊤ = ω = analytic` in current Mathlib, so the C^∞ statement is
+    `ContDiffOn ℝ (⊤ : ℕ∞)` (analyticity is the harder Theorem 10). Route: `u = (moll ρ ⋆ ũ)/c`
+    locally (mean-value reproduction `moll_reproduce` + ball MVP on the cutoff `ũ`), and the
+    convolution is C^∞. -/
+theorem harmonic_smooth (hn : 2 ≤ n) (U : Set ℝⁿ) (u : ℝⁿ → ℝ)
     (hU : IsOpen U) (hu : IsHarmonic U u) (hu_c2 : ContDiffOn ℝ 2 u U) :
-    ContDiffOn ℝ ⊤ u U := by
-  sorry
+    ContDiffOn ℝ (⊤ : ℕ∞) u U := by
+  intro x hx
+  obtain ⟨R, hR, hRU⟩ : ∃ R, 0 < R ∧ Metric.closedBall x R ⊆ U := by
+    obtain ⟨R, hR, hRU⟩ := Metric.isOpen_iff.mp hU x hx
+    exact ⟨R / 2, by positivity, (Metric.closedBall_subset_ball (by linarith)).trans hRU⟩
+  set ρ := R / 8 with hρdef
+  set r₁ := R / 4 with hr1def
+  set r₂ := R / 2 with hr2def
+  have hρpos : 0 < ρ := by positivity
+  have hballU : Metric.ball x R ⊆ U := Metric.ball_subset_closedBall.trans hRU
+  set χ : ContDiffBump x := ⟨r₁, r₂, by positivity, by rw [hr1def, hr2def]; linarith⟩ with hχdef
+  set ũ : ℝⁿ → ℝ := fun y => χ y * u y with hũdef
+  have hχ_cs : HasCompactSupport (⇑χ : ℝⁿ → ℝ) := by
+    apply HasCompactSupport.intro (isCompact_closedBall x r₂)
+    intro z hz
+    rw [Metric.mem_closedBall, not_le] at hz
+    exact χ.zero_of_le_dist hz.le
+  have hũu : ∀ y ∈ Metric.ball x r₁, ũ y = u y := fun y hy => by
+    simp only [hũdef]
+    rw [χ.one_of_mem_closedBall (Metric.ball_subset_closedBall hy), one_mul]
+  have hũ_cd : ContDiff ℝ 2 ũ := by
+    rw [contDiff_iff_contDiffAt]
+    intro y
+    by_cases hy : y ∈ Metric.ball x R
+    · have hχ2 : ContDiff ℝ 2 (⇑χ : ℝⁿ → ℝ) := χ.contDiff
+      exact hχ2.contDiffAt.mul (hu_c2.contDiffAt (hU.mem_nhds (hballU hy)))
+    · have hyx : R ≤ dist y x := by rw [Metric.mem_ball, not_lt] at hy; exact hy
+      have hzero : ũ =ᶠ[nhds y] 0 := by
+        refine Filter.eventuallyEq_of_mem
+          (Metric.ball_mem_nhds y (show (0 : ℝ) < R - r₂ by rw [hr2def]; linarith)) ?_
+        intro z hzmem
+        rw [Metric.mem_ball] at hzmem
+        have hdzx : r₂ ≤ dist z x := by
+          have h1 : dist y x ≤ dist z y + dist z x := by
+            rw [dist_comm z y]; exact dist_triangle y z x
+          rw [hr2def]; linarith [hzmem]
+        simp only [hũdef, Pi.zero_apply]
+        rw [χ.zero_of_le_dist hdzx, zero_mul]
+      exact contDiffAt_const.congr_of_eventuallyEq hzero
+  have hũ_cs : HasCompactSupport ũ := hχ_cs.mul_right
+  have hũ_cont : Continuous ũ := hũ_cd.continuous
+  have hũ_int : Integrable ũ := hũ_cont.integrable_of_hasCompactSupport hũ_cs
+  have hũ_harm : IsHarmonic (Metric.ball x r₁) ũ := fun z hz => by
+    have hzu : ũ =ᶠ[nhds z] u := by
+      filter_upwards [IsOpen.mem_nhds Metric.isOpen_ball hz] with w hw using hũu w hw
+    rw [(laplacian_congr_nhds hzu).eq_of_nhds]
+    exact hu z (hballU (Metric.ball_subset_ball (by rw [hr1def]; linarith) hz))
+  set c := ∫ z, moll ρ (z : ℝⁿ) with hcdef
+  have hcpos : 0 < c := moll_integral_pos hρpos
+  set v : ℝⁿ → ℝ := fun y =>
+    (MeasureTheory.convolution (moll ρ) ũ (ContinuousLinearMap.lsmul ℝ ℝ) volume y) / c with hvdef
+  have hv_cd : ContDiff ℝ (⊤ : ℕ∞) v :=
+    ContDiff.div_const ((moll_hasCompactSupport hρpos).contDiff_convolution_left _
+      (moll_contDiff ρ) hũ_cont.locallyIntegrable) c
+  have huv_conv : ∀ y : ℝⁿ, v y = (∫ z, moll ρ z * ũ (y - z)) / c := fun _ => rfl
+  have hmoll_cont : Continuous (moll ρ : ℝⁿ → ℝ) := (moll_contDiff ρ).continuous
+  have hmoll_int : Integrable (moll ρ : ℝⁿ → ℝ) :=
+    hmoll_cont.integrable_of_hasCompactSupport (moll_hasCompactSupport hρpos)
+  have huv : ∀ y ∈ Metric.ball x (r₁ - ρ), u y = v y := by
+    intro y hy
+    rw [Metric.mem_ball, dist_eq_norm] at hy
+    have hyr1 : y ∈ Metric.ball x r₁ := by rw [Metric.mem_ball, dist_eq_norm]; linarith
+    have hũyz_int : Integrable (fun z => ũ (y - z)) :=
+      ((Measure.measurePreserving_sub_left volume y).integrable_comp_emb
+        (Homeomorph.subLeft y).measurableEmbedding).mpr hũ_int
+    have hmu_int : Integrable (fun z => moll ρ z * ũ (y - z)) :=
+      (hmoll_cont.mul (hũ_cont.comp (continuous_const.sub continuous_id))).integrable_of_hasCompactSupport
+        (HasCompactSupport.mul_right (moll_hasCompactSupport hρpos))
+    have hrepr : (∫ z, moll ρ z * (ũ (y - z) - ũ y)) = 0 := by
+      apply moll_reproduce hρpos (fun z => ũ (y - z) - ũ y)
+        ((hũ_cont.comp (continuous_const.sub continuous_id)).sub continuous_const)
+      intro t ht
+      have hcball : Metric.closedBall y t ⊆ Metric.ball x r₁ := by
+        intro w hw
+        rw [Metric.mem_closedBall, dist_eq_norm] at hw
+        rw [Metric.mem_ball, dist_eq_norm]
+        have h3 : ‖w - x‖ ≤ ‖w - y‖ + ‖y - x‖ := by
+          have := norm_add_le (w - y) (y - x); simpa using this
+        linarith [ht.2]
+      have hbmv := harmonic_ballMeanValue hn (Metric.ball x r₁) ũ Metric.isOpen_ball
+        hũ_harm hũ_cd y t ht.1 hcball
+      have hrefl : (∫ z in Metric.ball (0 : ℝⁿ) t, ũ (y - z)) = ∫ w in Metric.ball y t, ũ w := by
+        have hmp : MeasurePreserving (fun z : ℝⁿ => y - z) volume volume :=
+          Measure.measurePreserving_sub_left volume y
+        have hpre : (fun z : ℝⁿ => y - z) ⁻¹' Metric.ball y t = Metric.ball (0 : ℝⁿ) t := by
+          ext z
+          simp only [Set.mem_preimage, Metric.mem_ball, dist_eq_norm, sub_sub_cancel_left,
+            norm_neg, sub_zero]
+        rw [← hmp.setIntegral_preimage_emb (Homeomorph.subLeft y).measurableEmbedding ũ, hpre]
+      have hvpos : 0 < (volume (Metric.ball y t)).toReal :=
+        ENNReal.toReal_pos (Metric.measure_ball_pos volume y ht.1).ne' measure_ball_lt_top.ne
+      have hvoleq : volume (Metric.ball y t) = volume (Metric.ball (0 : ℝⁿ) t) := by
+        rw [Measure.addHaar_ball_center]
+      have hII : (∫ w in Metric.ball y t, ũ w) = (volume (Metric.ball y t)).toReal • ũ y := by
+        have h := hbmv
+        rw [ballMean, setAverage_eq, measureReal_def] at h
+        rw [h, smul_smul, mul_inv_cancel₀ hvpos.ne', one_smul]
+      rw [integral_sub hũyz_int.integrableOn (integrableOn_const measure_ball_lt_top.ne),
+        hrefl, setIntegral_const, hII, hvoleq, measureReal_def, sub_self]
+    have hval : (∫ z, moll ρ z * ũ (y - z)) = c * ũ y := by
+      have hsplit : (∫ z, moll ρ z * (ũ (y - z) - ũ y))
+          = (∫ z, moll ρ z * ũ (y - z)) - c * ũ y := by
+        rw [hcdef, ← integral_mul_const, ← integral_sub hmu_int (hmoll_int.mul_const (ũ y))]
+        congr 1; funext z; ring
+      rw [hsplit] at hrepr; linarith [hrepr]
+    rw [huv_conv y, hval, mul_comm c (ũ y), mul_div_assoc, div_self hcpos.ne', mul_one,
+      hũu y hyr1]
+  have hxmem : x ∈ Metric.ball x (r₁ - ρ) :=
+    Metric.mem_ball_self (by rw [hr1def, hρdef]; linarith)
+  exact ((hv_cd.contDiffAt).congr_of_eventuallyEq
+    (Filter.eventuallyEq_of_mem (IsOpen.mem_nhds Metric.isOpen_ball hxmem)
+      (fun y hy => huv y hy))).contDiffWithinAt
 
 /-! ### Representation Formula for Poisson's Equation -/
 
