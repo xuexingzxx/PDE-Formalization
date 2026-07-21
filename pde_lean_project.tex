@@ -9,6 +9,7 @@
 \usepackage{listings}
 \usepackage{enumitem}
 \usepackage{booktabs}
+\usepackage{longtable}
 \usepackage{array}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
@@ -282,11 +283,11 @@ already exists in Mathlib}.
 
 \subsection{Objects from Mathlib (used directly)}
 
-\begin{center}
-\begin{tabular}{@{}L{4.2cm}L{7.0cm}L{3.6cm}@{}}
+\begin{longtable}{@{}L{4.2cm}L{7.0cm}L{3.6cm}@{}}
   \toprule
   \textbf{Mathematical object} & \textbf{Mathlib name} & \textbf{Used in} \\
   \midrule
+  \endhead
   $\mathbb{R}^n$ & \texttt{EuclideanSpace ℝ (Fin n)} & all files \\
   $C^k$ functions & \texttt{ContDiff ℝ k} & all files \\
   $C^k$ on a set & \texttt{ContDiffOn ℝ k} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
@@ -318,16 +319,15 @@ already exists in Mathlib}.
   Connected set & \texttt{IsConnected} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
   Bounded set & \texttt{Bornology.IsBounded} & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 \subsection{Objects newly defined in this project}
 
-\begin{center}
-\begin{tabular}{@{}L{4.5cm}L{6.8cm}L{3.5cm}@{}}
+\begin{longtable}{@{}L{4.5cm}L{6.8cm}L{3.5cm}@{}}
   \toprule
   \textbf{Name} & \textbf{Description} & \textbf{File} \\
   \midrule
+  \endhead
   \texttt{spatialGradient}          & $Du(x,t)$: gradient of $x'\mapsto u(x',t)$ at $x$  & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
   \texttt{timeDerivative}           & $u_t(x,t)$: derivative of $t'\mapsto u(x,t')$ at $t$ & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
   \texttt{spatialLaplacian}         & $\Delta_x u(x,t)$ for spacetime functions           & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
@@ -377,8 +377,7 @@ already exists in Mathlib}.
   \texttt{IsBoundedC1Domain}        & bounded $C^1$ domain (boundary locally a graph) & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
   \texttt{IsOutwardNormal}          & outward unit normal field (chart-compatible) & \texttt{Common/\allowbreak AreaFormula.\allowbreak lean} \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 \subsection{Reusable lemmas / tools developed in this project}
 
@@ -387,11 +386,11 @@ dimension-agnostic \emph{lemmas} that fill gaps in Mathlib's analysis library. S
 hoisted into \texttt{Common/\allowbreak Calculus.\allowbreak lean} so multiple chapters can share them; the combined Leibniz
 rule in particular is a self-contained result that does not exist in Mathlib.
 
-\begin{center}
-\begin{tabular}{@{}L{4.8cm}L{6.3cm}L{3.7cm}@{}}
+\begin{longtable}{@{}L{4.8cm}L{6.3cm}L{3.7cm}@{}}
   \toprule
   \textbf{Name} & \textbf{Statement} & \textbf{File} \\
   \midrule
+  \endhead
   \texttt{hasDerivAt\_crossTerm} & cross-term $\int_t^{t'}(H\,t'-H\,t)\,ds$ has $0$ derivative & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
   \texttt{leibniz\_integral} & combined Leibniz rule (variable limit $+$ parameter) & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
   \texttt{integrable\_exp\_neg\_mul\_norm\_sq} & $0$th $n$-dim Gaussian moment & \texttt{Common/\allowbreak Calculus.\allowbreak lean} \\
@@ -432,8 +431,7 @@ rule in particular is a self-contained result that does not exist in Mathlib.
   \texttt{mollified\_fund} & \texttt{ContDiffBump} cutoff making $\Phi(\cdot-x)$ globally $C^2$ on the annulus & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
   \texttt{moll\_reproduce} & radial mollifier reproduces mean-value functions: $\int \mathrm{moll}\,\rho\cdot h = 0$ when every centred-ball integral of $h$ vanishes (layer-cake $+$ Fubini) & \texttt{PDE/\allowbreak Laplace.\allowbreak lean} \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 \noindent\textbf{Design lesson (scalar vs.\ CLM).} Both the heat-kernel and Newtonian-potential
 convolutions differentiate under the integral. Routing this through Mathlib's bundled
@@ -503,11 +501,11 @@ The following were initially defined but later found to be redundant:
 
 \subsection{Objects not yet in Mathlib (future work)}
 
-\begin{center}
-\begin{tabular}{@{}L{3.0cm}L{3.3cm}L{8.5cm}@{}}
+\begin{longtable}{@{}L{3.0cm}L{3.3cm}L{8.5cm}@{}}
   \toprule
   \textbf{Object} & \textbf{Needed for} & \textbf{Notes} \\
   \midrule
+  \endhead
   Stokes / Gauss--Green on curved domains
     & Green's identity, Poisson representation, Sobolev trace/extension
     & \emph{Resolved}: the general divergence theorem on a bounded $C^1$ domain is now proved,
@@ -555,8 +553,7 @@ The following were initially defined but later found to be redundant:
       (\texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous}, \texttt{rellich\_kondrachov}) \\
   Trace operator $u|_{\partial\Omega}$       & boundary value problems & \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 1: Transport Equation (Evans §2.1)}
@@ -1255,11 +1252,11 @@ remaining \texttt{sorry} in Chapter~2.2 is interior $C^\infty$ regularity
 
 \subsection{Status Summary}
 
-\begin{center}
-\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
+\begin{longtable}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
+  \endhead
   \texttt{isHarmonic\_iff\_isPoissonSolution\_zero} & Laplace is Poisson with $f=0$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{fundamentalSolution\_contDiff\_off\_zero} & $\Phi \in C^\infty(\mathbb{R}^n \setminus \{0\})$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{laplacian\_const\_mul}     & linearity of $\Delta$              & \textcolor{mathgreen}{\checkmark} \\
@@ -1285,8 +1282,7 @@ remaining \texttt{sorry} in Chapter~2.2 is interior $C^\infty$ regularity
   \texttt{moll\_reproduce}           & radial mollifier reproduces mean-value fns (layer-cake) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{harmonic\_smooth}          & harmonic $\Rightarrow C^\infty$ interior regularity ($n\ge2$) & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 \noindent{\small \textbf{Chapter~2.2 is complete and sorry-free.} The entire §2.2.1--2.2.4 theory
 --- fundamental solution, mean-value property, both maximum principles, the Poisson representation
@@ -1356,11 +1352,11 @@ directional derivative of the Gaussian along each $e_i$ is computed by the produ
 summing gives $\Delta$ using $\sum_i \langle x, e_i\rangle^2 = |x|^2$; the constant
 $(4\pi t)^{-n/2}$ factors out by linearity. The result coincides with the time derivative.
 
-\begin{center}
-\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
+\begin{longtable}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Result} & \textbf{Description} & \textbf{Status} \\
   \midrule
+  \endhead
   \texttt{isHeatSolution\_iff\_isInhomHeatSolution\_zero} & homogeneous $=$ source $0$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_of\_nonpos} & $\Phi = 0$ for $t \le 0$ & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heatKernel\_pos} & $\Phi > 0$ for $t > 0$ & \textcolor{mathgreen}{\checkmark} \\
@@ -1386,8 +1382,7 @@ $(4\pi t)^{-n/2}$ factors out by linearity. The result coincides with the time d
   \texttt{heat\_le\_sSup\_parabolicBoundary} & weak maximum principle (§2.3.3) & \textcolor{mathgreen}{\checkmark} \\
   \texttt{heat\_eq\_of\_eq\_on\_parabolicBoundary} & uniqueness on a cylinder (§2.3.4) & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 \begin{proof}
 The cancellation is the heart of the matter. For each fixed $y$, the translated kernel
@@ -1812,11 +1807,11 @@ supply the $\partial_{x_i}$ (flux) half of the graph Gauss--Green theorem (\S6.3
 
 \subsection{Status Summary}
 
-\begin{center}
-\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
+\begin{longtable}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Definition} & \textbf{Description} & \textbf{Status} \\
   \midrule
+  \endhead
   \texttt{spatialGradient}  & $Du(x,t)$ as a vector in $\mathbb{R}^n$          & \textcolor{mathgreen}{\checkmark} \\
   \texttt{timeDerivative}   & $u_t(x,t)$ as a scalar                            & \textcolor{mathgreen}{\checkmark} \\
   \texttt{spatialLaplacian} & $\Delta_x u(x,t)$ wrapping \texttt{Δ}             & \textcolor{mathgreen}{\checkmark} \\
@@ -1839,8 +1834,7 @@ supply the $\partial_{x_i}$ (flux) half of the graph Gauss--Green theorem (\S6.3
   \texttt{integral\_eq\_zero\_of\_forall\_insertNth\_integral\_zero} & single-coordinate Fubini lift & \textcolor{mathgreen}{\checkmark} \\
   \texttt{integral\_horizontal\_ibp} / \texttt{\_euclidean} & multivariate horizontal integration by parts & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 5: Sobolev Spaces (Evans §5.2)}
@@ -2270,11 +2264,11 @@ explicitly in each lemma avoids it.
 
 \subsection{Status Summary}
 
-\begin{center}
-\begin{tabular}{@{}L{6.4cm}L{7.0cm}C@{}}
+\begin{longtable}{@{}L{6.4cm}L{7.0cm}C@{}}
   \toprule
   \textbf{Object} & \textbf{Description} & \textbf{Status} \\
   \midrule
+  \endhead
   \texttt{IsTestFunction}       & $\phi \in C^\infty_c(U)$                              & \textcolor{mathgreen}{\checkmark} \\
   \texttt{IsWeakDerivInDir}     & weak derivative in a direction $e$                   & \textcolor{mathgreen}{\checkmark} \\
   \texttt{MemW1p}               & membership in $W^{1,p}(U)$                            & \textcolor{mathgreen}{\checkmark} \\
@@ -2305,8 +2299,7 @@ explicitly in each lemma avoids it.
   \texttt{W1p.toLpCLM} & function-value operator $W^{1,p}(U)\to L^p(U)$, bounded & \textcolor{mathgreen}{\checkmark} \\
   \texttt{W1p.weakDerivCLM} & weak partial $D_i : W^{1,p}(U)\to L^p(U)$, bounded & \textcolor{mathgreen}{\checkmark} \\
   \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
 \subsection{Mollification and the Meyers--Serrin theorem (§5.3)}
 
