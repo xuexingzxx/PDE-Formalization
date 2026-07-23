@@ -571,4 +571,17 @@ lemma riesz_bound {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (hn : 2 ≤ n) (x
       (integral_nonneg (fun v => Real.rpow_nonneg (norm_nonneg v) _)),
     ← Real.rpow_mul hr.le, hexp]
 
+/-! ### Step 4: toward the `C^{0,1−n/p}` statement -/
+
+/-- Compose steps 2 + 3: `∫_B|u(x+z)−u(x)| ≤ (rⁿ/n)·(∫_B‖Du‖^p)^{1/p}·r^{1−n/p}·C`.
+    The direct input to the two-point lens argument. -/
+lemma potential_holder {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (hn : 2 ≤ n) (x : ℝⁿ) {r : ℝ}
+    (hr : 0 < r) {p q : ℝ} (hpq : p.HolderConjugate q) (hqn : ((n:ℝ) - 1) * q < n) :
+    ∫ z in Metric.ball (0:ℝⁿ) r, |u (x + z) - u x|
+      ≤ (r ^ n / n) * ((∫ w in Metric.ball (0:ℝⁿ) r, ‖fderiv ℝ u (x + w)‖ ^ p) ^ (1 / p)
+        * (r ^ (1 - (n:ℝ) / p)
+          * (∫ v in Metric.ball (0:ℝⁿ) 1, ‖v‖ ^ (-((n:ℝ) - 1) * q)) ^ (1 / q))) :=
+  (potential_estimate hu hn x hr).trans
+    (mul_le_mul_of_nonneg_left (riesz_bound hu hn x hr hpq hqn) (by positivity))
+
 end Morrey
