@@ -541,4 +541,34 @@ lemma ball_rpow_integral_scale (s : ℝ) {r : ℝ} (hr : 0 < r) :
   rw [Real.rpow_add hr, Real.rpow_natCast, eq_comm, mul_assoc, hkey, ← mul_assoc,
     mul_inv_cancel₀ hrn, one_mul]
 
+/-- **Step 3 assembled**: the `p > n` Hölder bound with the `r^{1−n/p}` scaling.
+    `∫_B ‖Du‖/‖w‖^{n-1} ≤ (∫_B ‖Du‖^p)^{1/p} · r^{1−n/p} · C` (`C` a `p`,`n`-dependent constant). -/
+lemma riesz_bound {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (hn : 2 ≤ n) (x : ℝⁿ) {r : ℝ} (hr : 0 < r)
+    {p q : ℝ} (hpq : p.HolderConjugate q) (hqn : ((n:ℝ) - 1) * q < n) :
+    ∫ w in Metric.ball (0:ℝⁿ) r, ‖fderiv ℝ u (x + w)‖ / ‖w‖ ^ ((n:ℝ) - 1)
+      ≤ (∫ w in Metric.ball (0:ℝⁿ) r, ‖fderiv ℝ u (x + w)‖ ^ p) ^ (1 / p)
+        * (r ^ (1 - (n:ℝ) / p)
+          * (∫ v in Metric.ball (0:ℝⁿ) 1, ‖v‖ ^ (-((n:ℝ) - 1) * q)) ^ (1 / q)) := by
+  have hp0 : 0 < p := hpq.pos
+  have hq0 : 0 < q := hpq.symm.pos
+  have hpne : p ≠ 0 := hp0.ne'
+  have hqne : q ≠ 0 := hq0.ne'
+  have hconj : p⁻¹ + q⁻¹ = 1 := by have h := hpq.inv_add_inv_eq_inv; simpa using h
+  refine (riesz_holder x hpq (memLp_fderiv_ball hu x hr _)
+    (memLp_kernel_ball hn hq0 hr hqn)).trans (le_of_eq ?_)
+  congr 1
+  have hcongr : ∫ w in Metric.ball (0:ℝⁿ) r, (‖w‖ ^ (-((n:ℝ) - 1))) ^ q
+      = ∫ w in Metric.ball (0:ℝⁿ) r, ‖w‖ ^ (-((n:ℝ) - 1) * q) :=
+    setIntegral_congr_fun measurableSet_ball
+      (fun w _ => (Real.rpow_mul (norm_nonneg w) _ _).symm)
+  have hpqmul : p * q = p + q := by field_simp at hconj; linarith [hconj]
+  have hexp : ((n:ℝ) + -((n:ℝ) - 1) * q) * (1 / q) = 1 - (n:ℝ) / p := by
+    rw [mul_one_div]
+    field_simp
+    nlinarith [hpqmul, hp0, hq0]
+  rw [hcongr, ball_rpow_integral_scale (-((n:ℝ) - 1) * q) hr,
+    Real.mul_rpow (Real.rpow_nonneg hr.le _)
+      (integral_nonneg (fun v => Real.rpow_nonneg (norm_nonneg v) _)),
+    ← Real.rpow_mul hr.le, hexp]
+
 end Morrey
