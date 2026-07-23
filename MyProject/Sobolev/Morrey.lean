@@ -604,4 +604,126 @@ lemma lp_local_le_global {u : ℝⁿ → ℝ} {p : ℝ} (hp0 : 0 < p) (x : ℝ�
   exact setIntegral_le_integral hcomp
     (Filter.Eventually.of_forall fun w => Real.rpow_nonneg (norm_nonneg _) _)
 
+/-- **Ball-average bound** (shift + Φ): for any center `a`,
+    `∫_{B(a,r)}|u(a)−u(z)| ≤ (rⁿ/n)·‖Du‖_{L^p}·r^{1−n/p}·C`. -/
+lemma ball_avg_bound {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (hn : 2 ≤ n) {p q : ℝ}
+    (hpq : p.HolderConjugate q) (hqn : ((n:ℝ) - 1) * q < n)
+    (hDu : Integrable (fun w : ℝⁿ => ‖fderiv ℝ u w‖ ^ p) volume) (a : ℝⁿ) {r : ℝ} (hr : 0 < r) :
+    ∫ z in Metric.ball a r, |u a - u z|
+      ≤ (r ^ n / n) * ((∫ w : ℝⁿ, ‖fderiv ℝ u w‖ ^ p) ^ (1 / p)
+        * (r ^ (1 - (n:ℝ) / p)
+          * (∫ v in Metric.ball (0:ℝⁿ) 1, ‖v‖ ^ (-((n:ℝ) - 1) * q)) ^ (1 / q))) := by
+  have hmp : MeasurePreserving (fun w : ℝⁿ => a + w) volume volume :=
+    ⟨(continuous_const.add continuous_id).measurable, map_add_left_eq_self volume a⟩
+  have hemb : MeasurableEmbedding (fun w : ℝⁿ => a + w) :=
+    (Homeomorph.addLeft a).measurableEmbedding
+  have hpre : (fun w : ℝⁿ => a + w) ⁻¹' Metric.ball a r = Metric.ball 0 r := by
+    ext z
+    simp only [Set.mem_preimage, Metric.mem_ball, dist_eq_norm, sub_zero, add_sub_cancel_left]
+  have hshift : ∫ z in Metric.ball a r, |u a - u z|
+      = ∫ z in Metric.ball (0:ℝⁿ) r, |u a - u (a + z)| := by
+    rw [← hmp.setIntegral_preimage_emb hemb (fun z => |u a - u z|) (Metric.ball a r), hpre]
+  rw [hshift]
+  simp_rw [abs_sub_comm (u a)]
+  refine (potential_holder hu hn a hr hpq hqn).trans ?_
+  refine mul_le_mul_of_nonneg_left ?_ (by positivity)
+  refine mul_le_mul_of_nonneg_right ?_ (by positivity)
+  exact lp_local_le_global hpq.pos a r hDu
+
+/-- **Morrey's inequality** (Evans §5.6.2): for `n ≥ 2`, `p > n` (encoded by `(n−1)q < n` with
+    `q` the Hölder conjugate), and `Du ∈ L^p(ℝⁿ)`, `u` is Hölder continuous with exponent
+    `1 − n/p`: `|u(x)−u(y)| ≤ C·‖x−y‖^{1−n/p}·‖Du‖_{L^p}`. -/
+theorem morrey_holder {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (hn : 2 ≤ n) {p q : ℝ}
+    (hpq : p.HolderConjugate q) (hqn : ((n:ℝ) - 1) * q < n)
+    (hDu : Integrable (fun w : ℝⁿ => ‖fderiv ℝ u w‖ ^ p) volume) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ x y : ℝⁿ, |u x - u y|
+      ≤ C * ‖x - y‖ ^ (1 - (n:ℝ) / p) * (∫ w : ℝⁿ, ‖fderiv ℝ u w‖ ^ p) ^ (1 / p) := by
+  have hn1 : 1 ≤ n := le_trans one_le_two hn
+  haveI : Nontrivial ℝⁿ :=
+    ⟨0, EuclideanSpace.single ⟨0, hn1⟩ 1, by
+      intro h
+      have h0 : (EuclideanSpace.single ⟨0, hn1⟩ (1:ℝ) : Fin n → ℝ) ⟨0, hn1⟩ = 0 := by rw [← h]; simp
+      simp at h0⟩
+  have hcont : Continuous u := hu.continuous
+  set M := (∫ w : ℝⁿ, ‖fderiv ℝ u w‖ ^ p) ^ (1 / p) with hMdef
+  set C1 := (∫ v in Metric.ball (0:ℝⁿ) 1, ‖v‖ ^ (-((n:ℝ) - 1) * q)) ^ (1 / q) with hC1def
+  set ω := (volume (Metric.ball (0:ℝⁿ) 1)).toReal with hωdef
+  have hp0 : 0 < p := hpq.pos
+  have hq0 : 0 < q := hpq.symm.pos
+  have hconj : p⁻¹ + q⁻¹ = 1 := by have h := hpq.inv_add_inv_eq_inv; simpa using h
+  have hpne : p ≠ 0 := hp0.ne'
+  have hqne : q ≠ 0 := hq0.ne'
+  have hpqmul : p * q = p + q := by field_simp at hconj; linarith [hconj]
+  have hpn : (n:ℝ) < p := by
+    nlinarith [hqn, hpqmul, hp0, hq0, (by exact_mod_cast hn1 : (1:ℝ) ≤ (n:ℝ))]
+  have h1np : 0 < 1 - (n:ℝ) / p := by rw [sub_pos, div_lt_one hp0]; exact hpn
+  have hωpos : 0 < ω :=
+    ENNReal.toReal_pos (Metric.measure_ball_pos volume (0:ℝⁿ) (by norm_num : (0:ℝ) < 1)).ne'
+      measure_ball_lt_top.ne
+  have hC1nn : 0 ≤ C1 :=
+    Real.rpow_nonneg (integral_nonneg fun v => Real.rpow_nonneg (norm_nonneg _) _) _
+  have habs_int : ∀ (c cen : ℝⁿ) (rad : ℝ),
+      IntegrableOn (fun z => |u c - u z|) (Metric.ball cen rad) := fun c cen rad =>
+    ((continuous_const.sub hcont).abs.locallyIntegrable.integrableOn_isCompact
+      (isCompact_closedBall cen rad)).mono_set Metric.ball_subset_closedBall
+  refine ⟨2 ^ (n + 1) * C1 / (n * ω), by positivity, ?_⟩
+  intro x y
+  by_cases hxy : x = y
+  · subst hxy
+    simp only [sub_self, abs_zero, norm_zero]
+    rw [Real.zero_rpow h1np.ne', mul_zero, zero_mul]
+  · have hr : 0 < ‖x - y‖ := by rw [norm_pos_iff, sub_ne_zero]; exact hxy
+    set r := ‖x - y‖ with hrdef
+    set m := midpoint ℝ x y with hmdef
+    have hdmx : dist m x = r / 2 := by
+      rw [hmdef, dist_midpoint_left, dist_eq_norm, ← hrdef,
+        show (‖(2:ℝ)‖) = 2 from by norm_num]; ring
+    have hdmy : dist m y = r / 2 := by
+      rw [hmdef, dist_midpoint_right, dist_eq_norm, ← hrdef,
+        show (‖(2:ℝ)‖) = 2 from by norm_num]; ring
+    have hmx : Metric.ball m (r / 2) ⊆ Metric.ball x r :=
+      Metric.ball_subset_ball' (by rw [hdmx]; linarith)
+    have hmy : Metric.ball m (r / 2) ⊆ Metric.ball y r :=
+      Metric.ball_subset_ball' (by rw [hdmy]; linarith)
+    have hvolW : (volume (Metric.ball m (r / 2))).toReal = (r / 2) ^ n * ω := by
+      rw [Measure.addHaar_ball _ _ (by positivity), finrank_euclideanSpace_fin,
+        ENNReal.toReal_mul, ENNReal.toReal_ofReal (by positivity)]
+    have hvolWpos : 0 < (volume (Metric.ball m (r / 2))).toReal :=
+      ENNReal.toReal_pos (Metric.measure_ball_pos volume m (by positivity)).ne'
+        measure_ball_lt_top.ne
+    have hkey : (volume (Metric.ball m (r / 2))).toReal * |u x - u y|
+        ≤ 2 * ((r ^ n / n) * (M * (r ^ (1 - (n:ℝ) / p) * C1))) := by
+      calc (volume (Metric.ball m (r / 2))).toReal * |u x - u y|
+          = ∫ _z in Metric.ball m (r / 2), |u x - u y| := by
+            rw [setIntegral_const, smul_eq_mul, measureReal_def]
+        _ ≤ ∫ z in Metric.ball m (r / 2), (|u x - u z| + |u y - u z|) := by
+            refine setIntegral_mono_on (integrableOn_const measure_ball_lt_top.ne)
+              ((habs_int x m (r / 2)).add (habs_int y m (r / 2))) measurableSet_ball
+              (fun z _ => ?_)
+            rw [abs_sub_comm (u y) (u z)]; exact abs_sub_le (u x) (u z) (u y)
+        _ = (∫ z in Metric.ball m (r / 2), |u x - u z|)
+              + ∫ z in Metric.ball m (r / 2), |u y - u z| :=
+            integral_add (habs_int x m (r / 2)) (habs_int y m (r / 2))
+        _ ≤ (∫ z in Metric.ball x r, |u x - u z|) + ∫ z in Metric.ball y r, |u y - u z| :=
+            add_le_add
+              (setIntegral_mono_set (habs_int x x r)
+                (Filter.Eventually.of_forall fun z => abs_nonneg _) hmx.eventuallyLE)
+              (setIntegral_mono_set (habs_int y y r)
+                (Filter.Eventually.of_forall fun z => abs_nonneg _) hmy.eventuallyLE)
+        _ ≤ (r ^ n / n) * (M * (r ^ (1 - (n:ℝ) / p) * C1))
+              + (r ^ n / n) * (M * (r ^ (1 - (n:ℝ) / p) * C1)) :=
+            add_le_add (ball_avg_bound hu hn hpq hqn hDu x hr)
+              (ball_avg_bound hu hn hpq hqn hDu y hr)
+        _ = 2 * ((r ^ n / n) * (M * (r ^ (1 - (n:ℝ) / p) * C1))) := by ring
+    have hfinal : |u x - u y|
+        ≤ 2 * ((r ^ n / n) * (M * (r ^ (1 - (n:ℝ) / p) * C1)))
+          / (volume (Metric.ball m (r / 2))).toReal :=
+      (le_div_iff₀ hvolWpos).mpr (by rw [mul_comm]; exact hkey)
+    refine hfinal.trans_eq ?_
+    rw [hvolW, div_pow, pow_succ]
+    have hrn : (r:ℝ) ^ n ≠ 0 := (by positivity : (0:ℝ) < r ^ n).ne'
+    have hnn : (n:ℝ) ≠ 0 := Nat.cast_ne_zero.mpr (by omega)
+    have h2n : (2:ℝ) ^ n ≠ 0 := (by positivity : (0:ℝ) < (2:ℝ) ^ n).ne'
+    field_simp
+
 end Morrey
