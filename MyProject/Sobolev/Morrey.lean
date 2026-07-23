@@ -471,4 +471,74 @@ theorem potential_estimate {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (hn : 2 
     rw [rhs_lint_eq hu hn1 x hr, Real.rpow_natCast]
   exact (ENNReal.ofReal_le_ofReal_iff hRHSnn).mp hchain
 
+/-! ### Step 3: the Hölder step (`p > n`) — infrastructure -/
+
+/-- **Hölder step** (Morrey step 3a): apply Hölder to the Riesz potential integrand
+    `‖Du(x+w)‖/‖w‖^{n-1} = ‖Du(x+w)‖ · ‖w‖^{-(n-1)}`. -/
+lemma riesz_holder {u : ℝⁿ → ℝ} (x : ℝⁿ) {r : ℝ} {p q : ℝ} (hpq : p.HolderConjugate q)
+    (hf : MemLp (fun w : ℝⁿ => ‖fderiv ℝ u (x + w)‖) (ENNReal.ofReal p)
+      (volume.restrict (Metric.ball 0 r)))
+    (hg : MemLp (fun w : ℝⁿ => ‖w‖ ^ (-((n:ℝ) - 1))) (ENNReal.ofReal q)
+      (volume.restrict (Metric.ball 0 r))) :
+    ∫ w in Metric.ball (0:ℝⁿ) r, ‖fderiv ℝ u (x + w)‖ / ‖w‖ ^ ((n:ℝ) - 1)
+      ≤ (∫ w in Metric.ball (0:ℝⁿ) r, ‖fderiv ℝ u (x + w)‖ ^ p) ^ (1 / p)
+        * (∫ w in Metric.ball (0:ℝⁿ) r, (‖w‖ ^ (-((n:ℝ) - 1))) ^ q) ^ (1 / q) := by
+  have hEq : ∀ w : ℝⁿ, ‖fderiv ℝ u (x + w)‖ / ‖w‖ ^ ((n:ℝ) - 1)
+      = ‖fderiv ℝ u (x + w)‖ * ‖w‖ ^ (-((n:ℝ) - 1)) :=
+    fun w => by rw [Real.rpow_neg (norm_nonneg w), div_eq_mul_inv]
+  rw [setIntegral_congr_fun measurableSet_ball (fun w _ => hEq w)]
+  exact integral_mul_le_Lp_mul_Lq_of_nonneg hpq
+    (Filter.Eventually.of_forall (fun w => norm_nonneg _))
+    (Filter.Eventually.of_forall (fun w => Real.rpow_nonneg (norm_nonneg w) _)) hf hg
+
+/-- `‖Du(x+·)‖ ∈ L^p(B(0,r))` for any `p`: bounded-continuous on a finite-measure ball. -/
+lemma memLp_fderiv_ball {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (x : ℝⁿ) {r : ℝ} (hr : 0 < r)
+    (p : ℝ≥0∞) :
+    MemLp (fun w : ℝⁿ => ‖fderiv ℝ u (x + w)‖) p (volume.restrict (Metric.ball 0 r)) := by
+  haveI : IsFiniteMeasure (volume.restrict (Metric.ball (0:ℝⁿ) r)) :=
+    ⟨by rw [Measure.restrict_apply_univ]; exact measure_ball_lt_top⟩
+  have hfcont : Continuous (fun w : ℝⁿ => ‖fderiv ℝ u (x + w)‖) :=
+    ((hu.continuous_fderiv one_ne_zero).comp (continuous_const.add continuous_id)).norm
+  obtain ⟨C, hC⟩ := (isCompact_closedBall (0:ℝⁿ) r).exists_bound_of_continuousOn hfcont.continuousOn
+  refine MemLp.of_bound hfcont.aestronglyMeasurable C ?_
+  filter_upwards [ae_restrict_mem measurableSet_ball] with w hw
+  exact hC w (Metric.ball_subset_closedBall hw)
+
+/-- Kernel `MemLp`: `‖·‖^{-(n-1)} ∈ L^q(B(0,r))` when `(n-1)q < n` (⟺ `p > n`). -/
+lemma memLp_kernel_ball (hn : 2 ≤ n) {q : ℝ} (hq0 : 0 < q) {r : ℝ} (hr : 0 < r)
+    (hqn : ((n:ℝ) - 1) * q < n) :
+    MemLp (fun w : ℝⁿ => ‖w‖ ^ (-((n:ℝ) - 1))) (ENNReal.ofReal q)
+      (volume.restrict (Metric.ball 0 r)) := by
+  have hn1 : 1 ≤ n := le_trans one_le_two hn
+  have hint : IntegrableOn (fun w : ℝⁿ => ‖w‖ ^ (-((n:ℝ) - 1) * q)) (Metric.ball 0 r) :=
+    integrableOn_norm_rpow_ball hn1 (by linarith : -(n:ℝ) < -((n:ℝ) - 1) * q) hr
+  refine ⟨Measurable.aestronglyMeasurable (by fun_prop), ?_⟩
+  rw [eLpNorm_lt_top_iff_lintegral_rpow_enorm_lt_top (ENNReal.ofReal_pos.mpr hq0).ne'
+      ENNReal.ofReal_ne_top, ENNReal.toReal_ofReal hq0.le]
+  have hpt : ∀ w : ℝⁿ, ‖‖w‖ ^ (-((n:ℝ) - 1))‖ₑ ^ q
+      = ENNReal.ofReal (‖w‖ ^ (-((n:ℝ) - 1) * q)) := by
+    intro w
+    have hnn : (0:ℝ) ≤ ‖w‖ ^ (-((n:ℝ) - 1)) := Real.rpow_nonneg (norm_nonneg w) _
+    rw [Real.rpow_mul (norm_nonneg w), ← ENNReal.ofReal_rpow_of_nonneg hnn hq0.le,
+      Real.enorm_eq_ofReal hnn]
+  simp_rw [hpt]
+  rw [← ofReal_integral_eq_lintegral_ofReal hint
+    (Filter.Eventually.of_forall (fun w => Real.rpow_nonneg (norm_nonneg w) _))]
+  exact ENNReal.ofReal_lt_top
+
+/-- **Radial scaling** of `∫_B ‖w‖^s` under `w = r·v`: `∫_{B(0,r)}‖w‖^s = r^{n+s}∫_{B(0,1)}‖v‖^s`. -/
+lemma ball_rpow_integral_scale (s : ℝ) {r : ℝ} (hr : 0 < r) :
+    ∫ w in Metric.ball (0:ℝⁿ) r, ‖w‖ ^ s
+      = r ^ ((n:ℝ) + s) * ∫ v in Metric.ball (0:ℝⁿ) 1, ‖v‖ ^ s := by
+  have hkey := Measure.setIntegral_comp_smul_of_pos volume
+    (fun w : ℝⁿ => ‖w‖ ^ s) (Metric.ball 0 1) hr
+  rw [finrank_euclideanSpace_fin, smul_eq_mul, smul_ball hr.ne' (0:ℝⁿ) 1, smul_zero,
+    Real.norm_eq_abs, abs_of_pos hr, mul_one] at hkey
+  have hpt : ∀ v : ℝⁿ, ‖(r:ℝ) • v‖ ^ s = r ^ s * ‖v‖ ^ s := fun v => by
+    rw [norm_smul, Real.norm_eq_abs, abs_of_pos hr, Real.mul_rpow hr.le (norm_nonneg v)]
+  simp_rw [hpt, integral_const_mul] at hkey
+  have hrn : (r:ℝ) ^ n ≠ 0 := by positivity
+  rw [Real.rpow_add hr, Real.rpow_natCast, eq_comm, mul_assoc, hkey, ← mul_assoc,
+    mul_inv_cancel₀ hrn, one_mul]
+
 end Morrey
