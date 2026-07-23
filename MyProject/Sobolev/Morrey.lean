@@ -584,4 +584,24 @@ lemma potential_holder {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) (hn : 2 ≤ 
   (potential_estimate hu hn x hr).trans
     (mul_le_mul_of_nonneg_left (riesz_bound hu hn x hr hpq hqn) (by positivity))
 
+/-- **L^p local → global**: `(∫_{B(0,r)}‖Du(x+w)‖^p)^{1/p} ≤ ‖Du‖_{L^p(ℝⁿ)}`
+    (translation invariance + `setIntegral_le_integral`). -/
+lemma lp_local_le_global {u : ℝⁿ → ℝ} {p : ℝ} (hp0 : 0 < p) (x : ℝⁿ) (r : ℝ)
+    (hDu : Integrable (fun w : ℝⁿ => ‖fderiv ℝ u w‖ ^ p) volume) :
+    (∫ w in Metric.ball (0:ℝⁿ) r, ‖fderiv ℝ u (x + w)‖ ^ p) ^ (1 / p)
+      ≤ (∫ w : ℝⁿ, ‖fderiv ℝ u w‖ ^ p) ^ (1 / p) := by
+  have hmp : MeasurePreserving (fun w : ℝⁿ => x + w) volume volume :=
+    ⟨(continuous_const.add continuous_id).measurable, map_add_left_eq_self volume x⟩
+  have hemb : MeasurableEmbedding (fun w : ℝⁿ => x + w) :=
+    (Homeomorph.addLeft x).measurableEmbedding
+  have hcomp : Integrable (fun w : ℝⁿ => ‖fderiv ℝ u (x + w)‖ ^ p) volume :=
+    (hmp.integrable_comp_emb hemb).mpr hDu
+  have htrans : ∫ w : ℝⁿ, ‖fderiv ℝ u (x + w)‖ ^ p = ∫ w : ℝⁿ, ‖fderiv ℝ u w‖ ^ p :=
+    hmp.integral_comp hemb (fun w => ‖fderiv ℝ u w‖ ^ p)
+  refine Real.rpow_le_rpow (integral_nonneg fun w => Real.rpow_nonneg (norm_nonneg _) _) ?_
+    (by positivity)
+  rw [← htrans]
+  exact setIntegral_le_integral hcomp
+    (Filter.Eventually.of_forall fun w => Real.rpow_nonneg (norm_nonneg _) _)
+
 end Morrey
