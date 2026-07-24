@@ -416,20 +416,12 @@ the estimate with a constant `C` independent of `ε`, then send `ε → 0` by do
 This finishes the boundary estimate — the analytic heart of the trace theorem — across the entire
 Sobolev range. -/
 theorem trace_estimate_lp {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
-    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν)
-    {u : (ℝ^(m + 2)) → ℝ} (hu : ContDiff ℝ 1 u) {p : ℝ} (hp : 1 ≤ p) :
-    ∃ C : ℝ, 0 ≤ C ∧
+    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν) {p : ℝ} (hp : 1 ≤ p) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ u : (ℝ^(m + 2)) → ℝ, ContDiff ℝ 1 u →
       ∫ x in frontier Ω, ((u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
         ≤ C * ((∫ x in Ω, ((u x) ^ 2) ^ (p / 2)) + ∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) := by
   obtain ⟨F, hFcd, hFν⟩ := exists_transverse_field hΩ hν
-  have hcontDuP : Continuous (fun x => ‖fderiv ℝ u x‖ ^ p) :=
-    (hu.continuous_fderiv one_ne_zero).norm.rpow_const (fun _ => Or.inr (by linarith))
-  -- continuity of `(c + u²)^{p/2}` for any `c` (base `≥ 0`, exponent `≥ 0`)
-  have hcontc : ∀ c : ℝ, Continuous (fun x => (c + (u x) ^ 2) ^ (p / 2)) := fun c =>
-    (continuous_const.add (hu.continuous.pow 2)).rpow_const (fun _ => Or.inr (by linarith))
-  have hcontU0 : Continuous (fun x => ((u x) ^ 2) ^ (p / 2)) :=
-    (hu.continuous.pow 2).rpow_const (fun _ => Or.inr (by linarith))
-  -- plumbing
+  -- plumbing (independent of `u`)
   have hvolfin : volume Ω ≠ ∞ :=
     ((measure_mono subset_closure).trans_lt hΩ.isCompact_closure.measure_lt_top).ne
   have hμfin : (μHE[m + 1] : Measure (ℝ^(m + 2))) (frontier Ω) ≠ ∞ :=
@@ -455,6 +447,14 @@ theorem trace_estimate_lp {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
   have hM₂'nn : (0 : ℝ) ≤ M₂' := le_max_right _ _
   set C : ℝ := M₁' + p * M₂' with hCdef
   have hCnn : (0 : ℝ) ≤ C := by positivity
+  refine ⟨C, hCnn, fun u hu => ?_⟩
+  have hcontDuP : Continuous (fun x => ‖fderiv ℝ u x‖ ^ p) :=
+    (hu.continuous_fderiv one_ne_zero).norm.rpow_const (fun _ => Or.inr (by linarith))
+  -- continuity of `(c + u²)^{p/2}` for any `c` (base `≥ 0`, exponent `≥ 0`)
+  have hcontc : ∀ c : ℝ, Continuous (fun x => (c + (u x) ^ 2) ^ (p / 2)) := fun c =>
+    (continuous_const.add (hu.continuous.pow 2)).rpow_const (fun _ => Or.inr (by linarith))
+  have hcontU0 : Continuous (fun x => ((u x) ^ 2) ^ (p / 2)) :=
+    (hu.continuous.pow 2).rpow_const (fun _ => Or.inr (by linarith))
   -- the smoothed estimate, with `C` independent of `ε`
   have hsmooth : ∀ e : ℝ, 0 < e →
       ∫ x in frontier Ω, (e ^ 2 + (u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
@@ -564,6 +564,77 @@ theorem trace_estimate_lp {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
       exact (Real.continuousAt_rpow_const _ (p / 2) (Or.inr (by linarith))).tendsto.comp hbt
   have hAtendsto := dctTendsto (μHE[m + 1].restrict (frontier Ω)) (intFr (hcontc 1))
   have hBtendsto := dctTendsto (volume.restrict Ω) (intΩ (hcontc 1))
-  refine ⟨C, hCnn, le_of_tendsto_of_tendsto' hAtendsto
-    ((hBtendsto.add_const _).const_mul C) (fun k => hsmooth (a k) (ha_pos k))⟩
+  exact le_of_tendsto_of_tendsto' hAtendsto
+    ((hBtendsto.add_const _).const_mul C) (fun k => hsmooth (a k) (ha_pos k))
+
+/-- **The trace estimate in `Lᵖ`-operator form.** There is a constant `K ≥ 0` such that for every
+`C¹` function `u` the `Lᵖ(∂Ω)` norm of its boundary trace is bounded by `K` times the `W^{1,p}`
+graph norm `max(‖u‖_{Lᵖ(Ω)}, ‖Du‖_{Lᵖ(Ω)})` (with `Du` the derivative in `Lᵖ(Ω; (ℝⁿ→L ℝ))`).
+This is `trace_estimate_lp` rewritten through `‖·.toLp·‖ = (∫ ‖·‖^p)^{1/p}`; it is the boundedness
+that makes the trace a continuous linear operator. -/
+theorem trace_lp_bound {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
+    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν) {p : ℝ} (hp : 1 ≤ p) :
+    ∃ K : ℝ, 0 ≤ K ∧ ∀ (u : (ℝ^(m + 2)) → ℝ), ContDiff ℝ 1 u →
+      ∀ (hbd : MemLp u (ENNReal.ofReal p) (μHE[m + 1].restrict (frontier Ω)))
+        (hΩu : MemLp u (ENNReal.ofReal p) (volume.restrict Ω))
+        (hΩd : MemLp (fun x => fderiv ℝ u x) (ENNReal.ofReal p) (volume.restrict Ω)),
+        ‖hbd.toLp u‖ ≤ K * max ‖hΩu.toLp u‖ ‖hΩd.toLp (fun x => fderiv ℝ u x)‖ := by
+  haveI : Fact (1 ≤ ENNReal.ofReal p) := ⟨ENNReal.one_le_ofReal.mpr hp⟩
+  obtain ⟨C, hCnn, hEst⟩ := trace_estimate_lp hΩ hν hp
+  have hp0 : (0 : ℝ) < p := by linarith
+  have hP0 : (ENNReal.ofReal p) ≠ 0 := (ENNReal.ofReal_pos.mpr hp0).ne'
+  have hPt : (ENNReal.ofReal p) ≠ ⊤ := ENNReal.ofReal_ne_top
+  have hPtoReal : (ENNReal.ofReal p).toReal = p := ENNReal.toReal_ofReal hp0.le
+  have hbridge : ∀ t : ℝ, ((t ^ 2) ^ (p / 2) : ℝ) = |t| ^ p := fun t => by
+    rw [← sq_abs t, ← Real.rpow_natCast |t| 2, ← Real.rpow_mul (abs_nonneg t)]
+    congr 1; push_cast; ring
+  -- `‖toLp f‖ = (∫ ‖f‖^p)^{1/p}`, valid for scalar and vector-valued `f`
+  have hnormform : ∀ {E : Type} [NormedAddCommGroup E] {μ : Measure (ℝ^(m + 2))}
+      (f : (ℝ^(m + 2)) → E) (hf : MemLp f (ENNReal.ofReal p) μ),
+      ‖hf.toLp f‖ = (∫ x, ‖f x‖ ^ p ∂μ) ^ p⁻¹ := by
+    intro E _ μ f hf
+    rw [Lp.norm_def, eLpNorm_congr_ae hf.coeFn_toLp, hf.eLpNorm_eq_integral_rpow_norm hP0 hPt,
+      hPtoReal, ENNReal.toReal_ofReal (Real.rpow_nonneg
+        (integral_nonneg fun x => Real.rpow_nonneg (norm_nonneg _) _) _)]
+  refine ⟨(2 * C) ^ p⁻¹, by positivity, fun u hu hbd hΩu hΩd => ?_⟩
+  have hB_nn : 0 ≤ ∫ x in Ω, ((u x) ^ 2) ^ (p / 2) :=
+    integral_nonneg fun x => Real.rpow_nonneg (sq_nonneg _) _
+  have hD_nn : 0 ≤ ∫ x in Ω, ‖fderiv ℝ u x‖ ^ p :=
+    integral_nonneg fun x => Real.rpow_nonneg (norm_nonneg _) _
+  have hA_nn : 0 ≤ ∫ x in frontier Ω, ((u x) ^ 2) ^ (p / 2)
+      ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := integral_nonneg fun x => Real.rpow_nonneg (sq_nonneg _) _
+  have hMnn : 0 ≤ max ‖hΩu.toLp u‖ ‖hΩd.toLp (fun x => fderiv ℝ u x)‖ :=
+    le_max_of_le_left (norm_nonneg (hΩu.toLp u))
+  -- the three `Lᵖ` norms as `(∫ ·)^{1/p}`, matching `trace_estimate_lp`
+  have hnB : ‖hΩu.toLp u‖ = (∫ x in Ω, ((u x) ^ 2) ^ (p / 2)) ^ p⁻¹ := by
+    rw [hnormform u hΩu]; congr 1
+    exact integral_congr_ae (ae_of_all _ fun x => by dsimp only; rw [Real.norm_eq_abs, ← hbridge])
+  have hnD : ‖hΩd.toLp (fun x => fderiv ℝ u x)‖ = (∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) ^ p⁻¹ := by
+    rw [hnormform _ hΩd]
+  have hnbd : ‖hbd.toLp u‖
+      = (∫ x in frontier Ω, ((u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))) ^ p⁻¹ := by
+    rw [hnormform u hbd]; congr 1
+    exact integral_congr_ae (ae_of_all _ fun x => by dsimp only; rw [Real.norm_eq_abs, ← hbridge])
+  have hpow_id : ∀ x : ℝ, 0 ≤ x → (x ^ p⁻¹) ^ p = x := fun x hx => by
+    rw [← Real.rpow_mul hx, inv_mul_cancel₀ hp0.ne', Real.rpow_one]
+  rw [hnbd]
+  set M : ℝ := max ‖hΩu.toLp u‖ ‖hΩd.toLp (fun x => fderiv ℝ u x)‖ with hM
+  have hBle : (∫ x in Ω, ((u x) ^ 2) ^ (p / 2)) ≤ M ^ p := by
+    have h1 : (∫ x in Ω, ((u x) ^ 2) ^ (p / 2)) ^ p⁻¹ ≤ M := hnB ▸ le_max_left _ _
+    calc (∫ x in Ω, ((u x) ^ 2) ^ (p / 2))
+        = ((∫ x in Ω, ((u x) ^ 2) ^ (p / 2)) ^ p⁻¹) ^ p := (hpow_id _ hB_nn).symm
+      _ ≤ M ^ p := Real.rpow_le_rpow (Real.rpow_nonneg hB_nn _) h1 hp0.le
+  have hDle : (∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) ≤ M ^ p := by
+    have h1 : (∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) ^ p⁻¹ ≤ M := hnD ▸ le_max_right _ _
+    calc (∫ x in Ω, ‖fderiv ℝ u x‖ ^ p)
+        = ((∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) ^ p⁻¹) ^ p := (hpow_id _ hD_nn).symm
+      _ ≤ M ^ p := Real.rpow_le_rpow (Real.rpow_nonneg hD_nn _) h1 hp0.le
+  have hAle : (∫ x in frontier Ω, ((u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2))))
+      ≤ 2 * C * M ^ p :=
+    (hEst u hu).trans (by nlinarith [hBle, hDle, hCnn])
+  calc (∫ x in frontier Ω, ((u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))) ^ p⁻¹
+      ≤ (2 * C * M ^ p) ^ p⁻¹ := Real.rpow_le_rpow hA_nn hAle (by positivity)
+    _ = (2 * C) ^ p⁻¹ * M := by
+        rw [Real.mul_rpow (by positivity) (Real.rpow_nonneg hMnn _), ← Real.rpow_mul hMnn,
+          mul_inv_cancel₀ hp0.ne', Real.rpow_one]
 end Sobolev
