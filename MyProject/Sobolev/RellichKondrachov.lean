@@ -186,4 +186,66 @@ theorem uniformEquicontinuous_translate_of_totallyBounded {ι : Type*} {p : ℝ�
             ← ENNReal.ofReal_add (by positivity) (by positivity)]
         congr 1; ring
 
+/-- **Tightness half of Fréchet–Kolmogorov** (the second half of the whole-space converse):
+    a family totally bounded in `Lᵖ(ℝⁿ)` is uniformly tight at infinity — for every `ε`, a single
+    finite-measure set `s` works for all `i`. With `uniformEquicontinuous_translate_of_totallyBounded`
+    this is the full converse. Same `ε/2`-net argument. -/
+theorem unifTight_of_totallyBounded {ι : Type*} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    {u : ι → ℝⁿ → ℝ} (hu : ∀ i, MemLp (u i) p volume)
+    (htb : TotallyBounded (Set.range (fun i => (hu i).toLp (u i)))) :
+    ∀ ε : ℝ, 0 < ε → ∃ s : Set ℝⁿ, MeasurableSet s ∧ volume s < ⊤ ∧ ∀ i,
+      eLpNorm (sᶜ.indicator (u i)) p volume ≤ ENNReal.ofReal ε := by
+  intro ε hε
+  set F : ι → Lp ℝ p volume := fun i => (hu i).toLp (u i) with hF
+  obtain ⟨t, hTfin, hcov⟩ := Metric.totallyBounded_iff.mp htb (ε / 2) (by positivity)
+  have hε2ne : (ENNReal.ofReal (ε / 2)) ≠ 0 := (ENNReal.ofReal_pos.mpr (by positivity)).ne'
+  choose s hsm hsμ hsε using
+    fun z : Lp ℝ p (volume : Measure ℝⁿ) =>
+      (Lp.memLp z).exists_eLpNorm_indicator_compl_lt hp hε2ne
+  have hSmeas : MeasurableSet (⋃ z ∈ t, s z) :=
+    MeasurableSet.biUnion hTfin.countable (fun z _ => hsm z)
+  have hSfin : volume (⋃ z ∈ t, s z) < ⊤ := by
+    apply measure_biUnion_lt_top hTfin
+    intro z _
+    exact hsμ z
+  refine ⟨⋃ z ∈ t, s z, hSmeas, hSfin, fun i => ?_⟩
+  set S : Set ℝⁿ := ⋃ z ∈ t, s z with hSdef
+  obtain ⟨z, hz, hball⟩ := Set.mem_iUnion₂.mp (hcov (Set.mem_range_self i))
+  have hzmem : MemLp (⇑z) p volume := Lp.memLp z
+  have hcoe : ⇑(F i) =ᵐ[volume] u i := MemLp.coeFn_toLp (hu i)
+  have hSsub : Sᶜ ⊆ (s z)ᶜ := Set.compl_subset_compl.mpr (Set.subset_biUnion_of_mem hz)
+  have hScmeas : MeasurableSet (Sᶜ) := hSmeas.compl
+  have hDsm : AEStronglyMeasurable (fun x => u i x - ⇑z x) volume :=
+    (hu i).aestronglyMeasurable.sub hzmem.aestronglyMeasurable
+  -- net term: `‖u i − z‖_p ≤ ε/2`
+  have hN : eLpNorm (fun x => u i x - ⇑z x) p volume ≤ ENNReal.ofReal (ε / 2) := by
+    have hae : (fun x => u i x - ⇑z x) =ᵐ[volume] (⇑(F i) - ⇑z) := by
+      filter_upwards [hcoe] with x hx; simp only [Pi.sub_apply]; rw [hx]
+    rw [eLpNorm_congr_ae hae]
+    have hne : eLpNorm (⇑(F i) - ⇑z) p volume ≠ ⊤ := by
+      rw [← eLpNorm_congr_ae (Lp.coeFn_sub (F i) z)]; exact Lp.eLpNorm_ne_top (F i - z)
+    rw [ENNReal.le_ofReal_iff_toReal_le hne (by positivity), ← Lp.dist_def]
+    exact le_of_lt (Metric.mem_ball.mp hball)
+  calc eLpNorm (Sᶜ.indicator (u i)) p volume
+      = eLpNorm (Sᶜ.indicator (fun x => u i x - ⇑z x) + Sᶜ.indicator (⇑z)) p volume := by
+        congr 1
+        funext x
+        by_cases hx : x ∈ Sᶜ
+        · simp only [Pi.add_apply, Set.indicator_of_mem hx]; ring
+        · simp only [Pi.add_apply, Set.indicator_of_notMem hx, add_zero]
+    _ ≤ eLpNorm (Sᶜ.indicator (fun x => u i x - ⇑z x)) p volume
+          + eLpNorm (Sᶜ.indicator (⇑z)) p volume :=
+        eLpNorm_add_le (hDsm.indicator hScmeas) (hzmem.aestronglyMeasurable.indicator hScmeas)
+          Fact.out
+    _ ≤ eLpNorm (fun x => u i x - ⇑z x) p volume + eLpNorm ((s z)ᶜ.indicator (⇑z)) p volume := by
+        gcongr
+        · exact eLpNorm_indicator_le _
+        · refine eLpNorm_mono (fun x => ?_)
+          by_cases hx : x ∈ Sᶜ
+          · rw [Set.indicator_of_mem hx, Set.indicator_of_mem (hSsub hx)]
+          · rw [Set.indicator_of_notMem hx, norm_zero]; positivity
+    _ ≤ ENNReal.ofReal (ε / 2) + ENNReal.ofReal (ε / 2) := add_le_add hN (le_of_lt (hsε z))
+    _ = ENNReal.ofReal ε := by
+        rw [← ENNReal.ofReal_add (by positivity) (by positivity)]; congr 1; ring
+
 end Sobolev
