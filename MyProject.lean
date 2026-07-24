@@ -12,3 +12,5 @@ import MyProject.Sobolev.Mollification
 import MyProject.Sobolev.Rellich
 import MyProject.Sobolev.FrechetKolmogorov
 import MyProject.Sobolev.RellichKondrachov
+import MyProject.Sobolev.Morrey
+import MyProject.Sobolev.Trace
