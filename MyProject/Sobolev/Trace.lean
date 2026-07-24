@@ -637,4 +637,125 @@ theorem trace_lp_bound {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
     _ = (2 * C) ^ p⁻¹ * M := by
         rw [Real.mul_rpow (by positivity) (Real.rpow_nonneg hMnn _), ← Real.rpow_mul hMnn,
           mul_inv_cancel₀ hp0.ne', Real.rpow_one]
+
+/-! ### The trace operator
+
+We package the boundary trace as a genuine bounded linear operator.  A `C¹` function on the bounded
+`C¹` domain is `Lᵖ` on `Ω` (bounded on the compact `closure Ω`), its derivative is `Lᵖ(Ω)`, and its
+boundary restriction is `Lᵖ(∂Ω)`.  Sending `u ↦ (u, Du)` embeds the `C¹` functions into the graph
+space `H = Lᵖ(Ω) × Lᵖ(Ω; ℝⁿ →L ℝ)` (a `W^{1,p}`-type space), and `trace_lp_bound` makes the trace
+`u ↦ u|_{∂Ω}` bounded relative to that embedding.  It therefore factors through the range of the
+embedding as a `ContinuousLinearMap` into `Lᵖ(∂Ω)`. -/
+
+/-- A continuous function is `Lᵖ` on the bounded `C¹` domain `Ω` (bounded on the compact closure). -/
+theorem memLp_of_continuous_restrict_Ω {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω) {p : ℝ}
+    (hp : 1 ≤ p) {E : Type} [NormedAddCommGroup E] {φ : (ℝ^(m + 2)) → E} (hφ : Continuous φ) :
+    MemLp φ (ENNReal.ofReal p) (volume.restrict Ω) := by
+  haveI : IsFiniteMeasure (volume.restrict Ω) :=
+    ⟨by rw [Measure.restrict_apply_univ]
+        exact (measure_mono subset_closure).trans_lt hΩ.isCompact_closure.measure_lt_top⟩
+  obtain ⟨B, hB⟩ := hΩ.isCompact_closure.exists_bound_of_continuousOn hφ.continuousOn
+  exact MemLp.of_bound hφ.aestronglyMeasurable B
+    ((ae_restrict_iff' hΩ.measurableSet).mpr (ae_of_all _ fun x hx => hB x (subset_closure hx)))
+
+/-- A continuous function is `Lᵖ` on the boundary `∂Ω` (bounded on the compact `∂Ω`, finite `μ_H`). -/
+theorem memLp_of_continuous_restrict_frontier {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
+    {p : ℝ} (hp : 1 ≤ p) {E : Type} [NormedAddCommGroup E] {φ : (ℝ^(m + 2)) → E}
+    (hφ : Continuous φ) : MemLp φ (ENNReal.ofReal p) (μHE[m + 1].restrict (frontier Ω)) := by
+  haveI : IsFiniteMeasure ((μHE[m + 1] : Measure (ℝ^(m + 2))).restrict (frontier Ω)) :=
+    ⟨by rw [Measure.restrict_apply_univ]; exact surfaceMeasure_frontier_lt_top hΩ⟩
+  obtain ⟨B, hB⟩ := hΩ.isCompact_frontier.exists_bound_of_continuousOn hφ.continuousOn
+  exact MemLp.of_bound hφ.aestronglyMeasurable B
+    ((ae_restrict_iff' isClosed_frontier.measurableSet).mpr (ae_of_all _ fun x hx => hB x hx))
+
+/-- The submodule of `C¹` functions inside the ambient function space. -/
+def contDiffSubmodule : Submodule ℝ ((ℝ^(m + 2)) → ℝ) where
+  carrier := {u | ContDiff ℝ 1 u}
+  add_mem' {a b} (ha : ContDiff ℝ 1 a) (hb : ContDiff ℝ 1 b) := ha.add hb
+  zero_mem' := (contDiff_const : ContDiff ℝ 1 (0 : (ℝ^(m + 2)) → ℝ))
+  smul_mem' c a (ha : ContDiff ℝ 1 a) := ha.const_smul c
+
+/-- `C¹`-ness extracted from membership in `contDiffSubmodule`. -/
+theorem contDiff_of_mem_contDiffSubmodule (u : contDiffSubmodule (m := m)) :
+    ContDiff ℝ 1 (u : (ℝ^(m + 2)) → ℝ) := u.2
+
+/-- The graph space `H = Lᵖ(Ω) × Lᵖ(Ω; ℝⁿ →L ℝ)` housing `(u, Du)`. -/
+abbrev traceGraphSpace (Ω : Set (ℝ^(m + 2))) (p : ℝ) [Fact (1 ≤ ENNReal.ofReal p)] : Type _ :=
+  Lp ℝ (ENNReal.ofReal p) (volume.restrict Ω) ×
+    Lp ((ℝ^(m + 2)) →L[ℝ] ℝ) (ENNReal.ofReal p) (volume.restrict Ω)
+
+variable {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
+  {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} {p : ℝ} (hp : 1 ≤ p)
+  [Fact (1 ≤ ENNReal.ofReal p)]
+
+set_option maxHeartbeats 1000000 in
+/-- The Sobolev embedding `u ↦ (u, Du)` of the `C¹` functions into the graph space. -/
+noncomputable def traceEmbed :
+    contDiffSubmodule (m := m) →ₗ[ℝ] traceGraphSpace Ω p where
+  toFun u := ((memLp_of_continuous_restrict_Ω hΩ hp (contDiff_of_mem_contDiffSubmodule u).continuous).toLp u,
+    (memLp_of_continuous_restrict_Ω hΩ hp
+      ((contDiff_of_mem_contDiffSubmodule u).continuous_fderiv one_ne_zero)).toLp
+      (fun x => fderiv ℝ (u : (ℝ^(m + 2)) → ℝ) x))
+  map_add' u v := by
+    have hu := contDiff_of_mem_contDiffSubmodule u
+    have hv := contDiff_of_mem_contDiffSubmodule v
+    have huv := contDiff_of_mem_contDiffSubmodule (u + v)
+    refine Prod.ext ?_ ?_
+    · exact (MemLp.toLp_congr (memLp_of_continuous_restrict_Ω hΩ hp huv.continuous)
+        ((memLp_of_continuous_restrict_Ω hΩ hp hu.continuous).add
+          (memLp_of_continuous_restrict_Ω hΩ hp hv.continuous))
+        Filter.EventuallyEq.rfl).trans
+        (MemLp.toLp_add (memLp_of_continuous_restrict_Ω hΩ hp hu.continuous)
+          (memLp_of_continuous_restrict_Ω hΩ hp hv.continuous))
+    · exact (MemLp.toLp_congr
+        (memLp_of_continuous_restrict_Ω hΩ hp (huv.continuous_fderiv one_ne_zero))
+        ((memLp_of_continuous_restrict_Ω hΩ hp (hu.continuous_fderiv one_ne_zero)).add
+          (memLp_of_continuous_restrict_Ω hΩ hp (hv.continuous_fderiv one_ne_zero)))
+        (ae_of_all _ fun x => ((hu.differentiable one_ne_zero x).hasFDerivAt.add
+          (hv.differentiable one_ne_zero x).hasFDerivAt).fderiv)).trans
+        (MemLp.toLp_add (memLp_of_continuous_restrict_Ω hΩ hp (hu.continuous_fderiv one_ne_zero))
+          (memLp_of_continuous_restrict_Ω hΩ hp (hv.continuous_fderiv one_ne_zero)))
+  map_smul' c u := by
+    have hu := contDiff_of_mem_contDiffSubmodule u
+    have hcu := contDiff_of_mem_contDiffSubmodule (c • u)
+    refine Prod.ext ?_ ?_
+    · exact (MemLp.toLp_congr (memLp_of_continuous_restrict_Ω hΩ hp hcu.continuous)
+        ((memLp_of_continuous_restrict_Ω hΩ hp hu.continuous).const_smul c)
+        Filter.EventuallyEq.rfl).trans
+        (MemLp.toLp_const_smul c (memLp_of_continuous_restrict_Ω hΩ hp hu.continuous))
+    · exact (MemLp.toLp_congr
+        (memLp_of_continuous_restrict_Ω hΩ hp (hcu.continuous_fderiv one_ne_zero))
+        ((memLp_of_continuous_restrict_Ω hΩ hp (hu.continuous_fderiv one_ne_zero)).const_smul c)
+        (ae_of_all _ fun x =>
+          ((hu.differentiable one_ne_zero x).hasFDerivAt.const_smul c).fderiv)).trans
+        (MemLp.toLp_const_smul c
+          (memLp_of_continuous_restrict_Ω hΩ hp (hu.continuous_fderiv one_ne_zero)))
+
+set_option maxHeartbeats 1000000 in
+/-- The boundary-trace linear map `u ↦ u|_{∂Ω}` on the `C¹` functions. -/
+noncomputable def traceRestrict :
+    contDiffSubmodule (m := m) →ₗ[ℝ] Lp ℝ (ENNReal.ofReal p) (μHE[m + 1].restrict (frontier Ω)) where
+  toFun u := (memLp_of_continuous_restrict_frontier hΩ hp
+    (contDiff_of_mem_contDiffSubmodule u).continuous).toLp u
+  map_add' u v :=
+    (MemLp.toLp_congr (memLp_of_continuous_restrict_frontier hΩ hp
+        (contDiff_of_mem_contDiffSubmodule (u + v)).continuous)
+      ((memLp_of_continuous_restrict_frontier hΩ hp
+          (contDiff_of_mem_contDiffSubmodule u).continuous).add
+        (memLp_of_continuous_restrict_frontier hΩ hp
+          (contDiff_of_mem_contDiffSubmodule v).continuous))
+      Filter.EventuallyEq.rfl).trans
+      (MemLp.toLp_add (memLp_of_continuous_restrict_frontier hΩ hp
+          (contDiff_of_mem_contDiffSubmodule u).continuous)
+        (memLp_of_continuous_restrict_frontier hΩ hp
+          (contDiff_of_mem_contDiffSubmodule v).continuous))
+  map_smul' c u :=
+    (MemLp.toLp_congr (memLp_of_continuous_restrict_frontier hΩ hp
+        (contDiff_of_mem_contDiffSubmodule (c • u)).continuous)
+      ((memLp_of_continuous_restrict_frontier hΩ hp
+          (contDiff_of_mem_contDiffSubmodule u).continuous).const_smul c)
+      Filter.EventuallyEq.rfl).trans (MemLp.toLp_const_smul c
+        (memLp_of_continuous_restrict_frontier hΩ hp
+          (contDiff_of_mem_contDiffSubmodule u).continuous))
+
 end Sobolev
