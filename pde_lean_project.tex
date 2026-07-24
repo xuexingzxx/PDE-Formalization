@@ -2627,10 +2627,22 @@ runs the \emph{same} Gauss--Green argument on the strictly positive smoothing $(
 $\varepsilon$}; sending $\varepsilon\to0$ along $\varepsilon_k=1/(k+1)$ by dominated convergence
 (the smoothings decrease monotonically to $|u|^p$, dominated by the integrable $(1+u^2)^{p/2}$) passes
 the inequality to the limit.  This completes the boundary estimate over the whole Sobolev range.
-What remains of the \emph{full} trace theorem is the passage from the estimate to a bounded
-\emph{operator}: the trace map $T$ and its extension from $C^1$ to all of $W^{1,p}(\Omega)$ by
-density --- which for a general domain needs a Sobolev extension operator (the separate future-work
-item below), a substantial development in its own right.
+
+The estimate is then recast in \emph{operator} form: \texttt{trace\_lp\_bound} rewrites it through
+$\|f.\mathtt{toLp}\|=(\int\|f\|^p)^{1/p}$ (\texttt{MemLp.eLpNorm\_eq\_integral\_rpow\_norm}) as
+$\|\,u|_{\partial\Omega}\,\|_{L^p(\partial\Omega)}\le K\max(\|u\|_{L^p(\Omega)},\|Du\|_{L^p(\Omega)})$,
+uniformly over $C^1$ functions $u$.  The supporting linear structure is also built: the $C^1$
+functions form a submodule (\texttt{contDiffSubmodule}), embed into the graph space
+$L^p(\Omega)\times L^p(\Omega;\mathbb{R}^n{\to_L}\mathbb{R})$ by $u\mapsto(u,Du)$
+(\texttt{traceEmbed}), and restrict to the boundary $u\mapsto u|_{\partial\Omega}$
+(\texttt{traceRestrict}), both as $\mathbb{R}$-linear maps.  Bundling these into the
+\emph{continuous linear operator} $T$ (factoring the trace through the range of the embedding by the
+bound) is mathematically routine but currently runs into a Lean \emph{elaboration-performance} wall:
+the definitional unfolding of maps into $L^p(\mathtt{ENNReal.ofReal}\,p)$ across the function-space
+quotient makes \texttt{whnf}/\texttt{isDefEq} explode (multi-minute compiles / heartbeat timeouts), so
+the final bundled \texttt{ContinuousLinearMap} is deferred pending a lighter encoding.  The other
+outstanding piece is the extension of $T$ from $C^1$ to all of $W^{1,p}(\Omega)$ by density, which for
+a general domain needs a Sobolev extension operator (the future-work item below).
 
 \subsection{Future work}
 
@@ -2649,11 +2661,13 @@ What remains:
   \item \textbf{Bounded-domain Rellich--Kondrachov}: transfer the compact-$K$ statement to
     $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$ on a bounded extension domain $U$ via a Sobolev
     extension operator.
-  \item \textbf{Trace operator.}  The boundary estimate itself is \emph{done} for all $p\ge 1$
-    (\texttt{trace\_estimate\_lp}; see the trace-estimate subsection).  What remains is to package it
-    as a bounded operator $T\colon W^{1,p}(\Omega)\to L^p(\partial\Omega)$: the trace map on $C^1$
-    functions and its extension to all of $W^{1,p}(\Omega)$ by density --- which for a general domain
-    requires a Sobolev extension operator (next item).
+  \item \textbf{Trace operator.}  The boundary estimate is \emph{done} for all $p\ge 1$, and it is
+    recast in operator form (\texttt{trace\_lp\_bound}) with the linear scaffolding built
+    (\texttt{traceEmbed}, \texttt{traceRestrict}); see the trace-estimate subsection.  Two pieces
+    remain: bundling these into the continuous linear operator $T$ (routine, currently deferred behind
+    a Lean elaboration-performance wall with the $L^p(\mathtt{ofReal}\,p)$ encoding), and extending $T$
+    from $C^1$ to all of $W^{1,p}(\Omega)$ by density --- which for a general domain requires a Sobolev
+    extension operator (next item).
 \end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════════════
