@@ -157,6 +157,46 @@ theorem trace_young {p : ℝ} (hp : 2 ≤ p) (s D : ℝ) (hD : 0 ≤ D) :
           mul_le_mul_of_nonneg_left hY hp0.le
       _ = (p - 1) * (s ^ 2) ^ (p / 2) + D ^ p := by field_simp
 
+/-- **Positive-base Young inequality** for the smoothed trace estimate.  For `p ≥ 1`, a strictly
+positive base `b > 0` with `s² ≤ b`, and `D ≥ 0`,
+`p |s| b^{p/2-1} D ≤ (p-1) b^{p/2} + D^p`.  The base `b = ε² + s² > 0` avoids the `s = 0` regularity
+issue, so this covers the whole range `p ≥ 1` (unlike `trace_young`, which needs `p ≥ 2`). -/
+theorem trace_young_pos {p : ℝ} (hp : 1 ≤ p) (b s D : ℝ) (hb : 0 < b) (hsb : s ^ 2 ≤ b)
+    (hD : 0 ≤ D) : p * |s| * b ^ (p / 2 - 1) * D ≤ (p - 1) * b ^ (p / 2) + D ^ p := by
+  have hp0 : (0 : ℝ) < p := by linarith
+  -- |s| ≤ √b = b^{1/2}
+  have hsle : |s| ≤ b ^ ((1 : ℝ) / 2) := by
+    rw [← Real.sqrt_sq_eq_abs, Real.sqrt_eq_rpow]
+    exact Real.rpow_le_rpow (sq_nonneg _) hsb (by norm_num)
+  -- |s| b^{p/2-1} ≤ b^{(p-1)/2}
+  have hcomb : |s| * b ^ (p / 2 - 1) ≤ b ^ ((p - 1) / 2) := by
+    calc |s| * b ^ (p / 2 - 1) ≤ b ^ ((1 : ℝ) / 2) * b ^ (p / 2 - 1) :=
+          mul_le_mul_of_nonneg_right hsle (Real.rpow_nonneg hb.le _)
+      _ = b ^ ((p - 1) / 2) := by rw [← Real.rpow_add hb]; congr 1; ring
+  have hbpm : (0 : ℝ) ≤ b ^ ((p - 1) / 2) := Real.rpow_nonneg hb.le _
+  -- the core `p · b^{(p-1)/2} · D ≤ (p-1) b^{p/2} + D^p`
+  have hcore : p * b ^ ((p - 1) / 2) * D ≤ (p - 1) * b ^ (p / 2) + D ^ p := by
+    rcases eq_or_lt_of_le hp with hp1 | hp1
+    · subst hp1
+      rw [show (((1 : ℝ) - 1) / 2) = 0 by norm_num, Real.rpow_zero, Real.rpow_one]
+      simp
+    · have hpm1 : p - 1 ≠ 0 := by linarith
+      have hconj : (p / (p - 1)).HolderConjugate p := by
+        rw [Real.holderConjugate_iff]
+        exact ⟨by rw [lt_div_iff₀ (by linarith)]; linarith, by field_simp; ring⟩
+      have hY := Real.young_inequality_of_nonneg hbpm hD hconj
+      have hpow : (b ^ ((p - 1) / 2)) ^ (p / (p - 1)) = b ^ (p / 2) := by
+        rw [← Real.rpow_mul hb.le]; congr 1; field_simp
+      rw [hpow] at hY
+      calc p * b ^ ((p - 1) / 2) * D = p * (b ^ ((p - 1) / 2) * D) := by ring
+        _ ≤ p * (b ^ (p / 2) / (p / (p - 1)) + D ^ p / p) :=
+            mul_le_mul_of_nonneg_left hY hp0.le
+        _ = (p - 1) * b ^ (p / 2) + D ^ p := by field_simp
+  calc p * |s| * b ^ (p / 2 - 1) * D = p * (|s| * b ^ (p / 2 - 1)) * D := by ring
+    _ ≤ p * b ^ ((p - 1) / 2) * D :=
+        mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left hcomb hp0.le) hD
+    _ ≤ (p - 1) * b ^ (p / 2) + D ^ p := hcore
+
 /-- **The `L²` (H¹) trace estimate** (Evans §5.5, `p = 2`): for a `C¹` function `u` on a bounded
 `C¹` domain `Ω`, the boundary `L²` mass is controlled by the `H¹(Ω)` energy,
 `∫_{∂Ω} u² dμ_H ≤ C (∫_Ω u² + ∫_Ω ‖Du‖²)`.  This is the analytic heart of the trace theorem.
@@ -367,4 +407,163 @@ theorem trace_estimate_pow {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
           (intΩ (continuous_const.mul (hcontUP.add hcontDuP))) hΩ.measurableSet hptwise
     _ = (M₁' + p * M₂') * ((∫ x in Ω, ((u x) ^ 2) ^ (p / 2)) + ∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) := by
         rw [integral_const_mul, integral_add (intΩ hcontUP) (intΩ hcontDuP)]
+
+/-- **The `Lᵖ` Sobolev trace estimate for all `p ≥ 1`** (Evans §5.5): for a `C¹` function `u` on a
+bounded `C¹` domain `Ω`, `∫_{∂Ω} |u|^p dμ_H ≤ C(∫_Ω |u|^p + ∫_Ω ‖Du‖^p)` with `|u|^p = (u²)^{p/2}`.
+For `1 ≤ p < 2` the integrand `(u²)^{p/2}` is no longer `C¹` at `u = 0`, so we run the argument on
+the strictly-positive smoothing `(ε²+u²)^{p/2}` (`C¹` since the base never vanishes), obtaining
+the estimate with a constant `C` independent of `ε`, then send `ε → 0` by dominated convergence.
+This finishes the boundary estimate — the analytic heart of the trace theorem — across the entire
+Sobolev range. -/
+theorem trace_estimate_lp {Ω : Set (ℝ^(m + 2))} (hΩ : IsBoundedC1Domain Ω)
+    {ν : (ℝ^(m + 2)) → (ℝ^(m + 2))} (hν : IsOutwardNormal Ω ν)
+    {u : (ℝ^(m + 2)) → ℝ} (hu : ContDiff ℝ 1 u) {p : ℝ} (hp : 1 ≤ p) :
+    ∃ C : ℝ, 0 ≤ C ∧
+      ∫ x in frontier Ω, ((u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+        ≤ C * ((∫ x in Ω, ((u x) ^ 2) ^ (p / 2)) + ∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) := by
+  obtain ⟨F, hFcd, hFν⟩ := exists_transverse_field hΩ hν
+  have hcontDuP : Continuous (fun x => ‖fderiv ℝ u x‖ ^ p) :=
+    (hu.continuous_fderiv one_ne_zero).norm.rpow_const (fun _ => Or.inr (by linarith))
+  -- continuity of `(c + u²)^{p/2}` for any `c` (base `≥ 0`, exponent `≥ 0`)
+  have hcontc : ∀ c : ℝ, Continuous (fun x => (c + (u x) ^ 2) ^ (p / 2)) := fun c =>
+    (continuous_const.add (hu.continuous.pow 2)).rpow_const (fun _ => Or.inr (by linarith))
+  have hcontU0 : Continuous (fun x => ((u x) ^ 2) ^ (p / 2)) :=
+    (hu.continuous.pow 2).rpow_const (fun _ => Or.inr (by linarith))
+  -- plumbing
+  have hvolfin : volume Ω ≠ ∞ :=
+    ((measure_mono subset_closure).trans_lt hΩ.isCompact_closure.measure_lt_top).ne
+  have hμfin : (μHE[m + 1] : Measure (ℝ^(m + 2))) (frontier Ω) ≠ ∞ :=
+    (surfaceMeasure_frontier_lt_top hΩ).ne
+  have hfrmeas : MeasurableSet (frontier Ω) := isClosed_frontier.measurableSet
+  have intΩ : ∀ {φ : (ℝ^(m + 2)) → ℝ}, Continuous φ → IntegrableOn φ Ω volume := by
+    intro φ hφ
+    obtain ⟨B, hB⟩ := hΩ.isCompact_closure.exists_bound_of_continuousOn hφ.continuousOn
+    exact Measure.integrableOn_of_bounded hvolfin hφ.aestronglyMeasurable
+      ((ae_restrict_iff' hΩ.measurableSet).mpr (ae_of_all _ (fun x hx => hB x (subset_closure hx))))
+  have intFr : ∀ {φ : (ℝ^(m + 2)) → ℝ}, Continuous φ →
+      IntegrableOn φ (frontier Ω) (μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+    intro φ hφ
+    obtain ⟨B, hB⟩ := hΩ.isCompact_frontier.exists_bound_of_continuousOn hφ.continuousOn
+    exact Measure.integrableOn_of_bounded hμfin hφ.aestronglyMeasurable
+      ((ae_restrict_iff' hfrmeas).mpr (ae_of_all _ (fun x hx => hB x hx)))
+  obtain ⟨M₁, hM₁⟩ := hΩ.isCompact_closure.exists_bound_of_continuousOn
+    (continuous_divergenceE hFcd).continuousOn
+  obtain ⟨M₂, hM₂⟩ := hΩ.isCompact_closure.exists_bound_of_continuousOn hFcd.continuous.continuousOn
+  set M₁' : ℝ := max M₁ 0 with hM₁'def
+  set M₂' : ℝ := max M₂ 0 with hM₂'def
+  have hM₁'nn : (0 : ℝ) ≤ M₁' := le_max_right _ _
+  have hM₂'nn : (0 : ℝ) ≤ M₂' := le_max_right _ _
+  set C : ℝ := M₁' + p * M₂' with hCdef
+  have hCnn : (0 : ℝ) ≤ C := by positivity
+  -- the smoothed estimate, with `C` independent of `ε`
+  have hsmooth : ∀ e : ℝ, 0 < e →
+      ∫ x in frontier Ω, (e ^ 2 + (u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+        ≤ C * ((∫ x in Ω, (e ^ 2 + (u x) ^ 2) ^ (p / 2)) + ∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) := by
+    intro e he
+    have hbne : ∀ x, (e ^ 2 + (u x) ^ 2) ≠ 0 := fun x =>
+      (add_pos_of_pos_of_nonneg (pow_pos he 2) (sq_nonneg (u x))).ne'
+    have hUcd : ContDiff ℝ 1 (fun x => (e ^ 2 + (u x) ^ 2) ^ (p / 2)) :=
+      (contDiff_const.add (hu.pow 2)).rpow_const_of_ne hbne
+    have hGcd : ContDiff ℝ 1 (fun y => (e ^ 2 + (u y) ^ 2) ^ (p / 2) • F y) := hUcd.smul hFcd
+    have hptwise : ∀ x ∈ Ω, divergenceE (fun y => (e ^ 2 + (u y) ^ 2) ^ (p / 2) • F y) x
+        ≤ C * ((e ^ 2 + (u x) ^ 2) ^ (p / 2) + ‖fderiv ℝ u x‖ ^ p) := by
+      intro x hx
+      have hxcl : x ∈ closure Ω := subset_closure hx
+      have hbpos : (0 : ℝ) < e ^ 2 + (u x) ^ 2 :=
+        add_pos_of_pos_of_nonneg (pow_pos he 2) (sq_nonneg _)
+      have hud : HasFDerivAt u (fderiv ℝ u x) x :=
+        (hu.differentiable one_ne_zero).differentiableAt.hasFDerivAt
+      have hbfd : HasFDerivAt (fun y => e ^ 2 + (u y) ^ 2) (0 + (2 • u x ^ 1) • fderiv ℝ u x) x :=
+        (hasFDerivAt_const (e ^ 2) x).add (hud.pow 2)
+      have hfd : HasFDerivAt (fun y => (e ^ 2 + (u y) ^ 2) ^ (p / 2))
+          ((p / 2 * (e ^ 2 + (u x) ^ 2) ^ (p / 2 - 1)) • (0 + (2 • u x ^ 1) • fderiv ℝ u x)) x :=
+        hbfd.rpow_const (Or.inl (hbne x))
+      have hLeib : divergenceE (fun y => (e ^ 2 + (u y) ^ 2) ^ (p / 2) • F y) x
+          = (e ^ 2 + (u x) ^ 2) ^ (p / 2) * divergenceE F x
+            + fderiv ℝ (fun y => (e ^ 2 + (u y) ^ 2) ^ (p / 2)) x (F x) :=
+        divergenceE_smul_scalar hfd.differentiableAt
+          (hFcd.differentiable one_ne_zero).differentiableAt
+      have hcross : fderiv ℝ (fun y => (e ^ 2 + (u y) ^ 2) ^ (p / 2)) x (F x)
+          = p * u x * (e ^ 2 + (u x) ^ 2) ^ (p / 2 - 1) * fderiv ℝ u x (F x) := by
+        rw [hfd.fderiv]
+        simp only [ContinuousLinearMap.smul_apply, smul_eq_mul, nsmul_eq_mul, pow_one, zero_add]
+        push_cast; ring
+      rw [hLeib, hcross]
+      have hB : (0 : ℝ) ≤ (e ^ 2 + (u x) ^ 2) ^ (p / 2) := Real.rpow_nonneg hbpos.le _
+      have hA : (0 : ℝ) ≤ (e ^ 2 + (u x) ^ 2) ^ (p / 2 - 1) := Real.rpow_nonneg hbpos.le _
+      have hDu : (0 : ℝ) ≤ ‖fderiv ℝ u x‖ := norm_nonneg _
+      have hDup : (0 : ℝ) ≤ ‖fderiv ℝ u x‖ ^ p := Real.rpow_nonneg hDu _
+      have hdivle : divergenceE F x ≤ M₁' :=
+        (le_abs_self _).trans ((Real.norm_eq_abs _ ▸ hM₁ x hxcl).trans (le_max_left _ _))
+      have t1 : (e ^ 2 + (u x) ^ 2) ^ (p / 2) * divergenceE F x
+          ≤ M₁' * (e ^ 2 + (u x) ^ 2) ^ (p / 2) := by nlinarith [hB, hdivle]
+      have hvle : |fderiv ℝ u x (F x)| ≤ ‖fderiv ℝ u x‖ * ‖F x‖ := by
+        have := (fderiv ℝ u x).le_opNorm (F x); rwa [Real.norm_eq_abs] at this
+      have hnF2 : ‖F x‖ ≤ M₂' := (hM₂ x hxcl).trans (le_max_left _ _)
+      have huv : u x * fderiv ℝ u x (F x) ≤ M₂' * (|u x| * ‖fderiv ℝ u x‖) :=
+        calc u x * fderiv ℝ u x (F x) ≤ |u x| * |fderiv ℝ u x (F x)| :=
+              (le_abs_self _).trans_eq (abs_mul _ _)
+          _ ≤ |u x| * (‖fderiv ℝ u x‖ * M₂') :=
+              mul_le_mul_of_nonneg_left
+                (hvle.trans (mul_le_mul_of_nonneg_left hnF2 hDu)) (abs_nonneg _)
+          _ = M₂' * (|u x| * ‖fderiv ℝ u x‖) := by ring
+      have hyoung := trace_young_pos hp (e ^ 2 + (u x) ^ 2) (u x) (‖fderiv ℝ u x‖) hbpos
+        (by nlinarith [sq_nonneg e]) hDu
+      have hcrossbound : p * u x * (e ^ 2 + (u x) ^ 2) ^ (p / 2 - 1) * fderiv ℝ u x (F x)
+          ≤ M₂' * ((p - 1) * (e ^ 2 + (u x) ^ 2) ^ (p / 2) + ‖fderiv ℝ u x‖ ^ p) :=
+        calc p * u x * (e ^ 2 + (u x) ^ 2) ^ (p / 2 - 1) * fderiv ℝ u x (F x)
+            ≤ p * (e ^ 2 + (u x) ^ 2) ^ (p / 2 - 1) * (M₂' * (|u x| * ‖fderiv ℝ u x‖)) := by
+              nlinarith [mul_le_mul_of_nonneg_left huv (mul_nonneg (by linarith : (0:ℝ) ≤ p) hA)]
+          _ ≤ M₂' * ((p - 1) * (e ^ 2 + (u x) ^ 2) ^ (p / 2) + ‖fderiv ℝ u x‖ ^ p) := by
+              nlinarith [mul_le_mul_of_nonneg_left hyoung hM₂'nn]
+      calc (e ^ 2 + (u x) ^ 2) ^ (p / 2) * divergenceE F x
+              + p * u x * (e ^ 2 + (u x) ^ 2) ^ (p / 2 - 1) * fderiv ℝ u x (F x)
+          ≤ M₁' * (e ^ 2 + (u x) ^ 2) ^ (p / 2)
+              + M₂' * ((p - 1) * (e ^ 2 + (u x) ^ 2) ^ (p / 2) + ‖fderiv ℝ u x‖ ^ p) :=
+            add_le_add t1 hcrossbound
+        _ ≤ C * ((e ^ 2 + (u x) ^ 2) ^ (p / 2) + ‖fderiv ℝ u x‖ ^ p) := by
+            rw [hCdef]
+            nlinarith [mul_nonneg hM₁'nn hDup, mul_nonneg hM₂'nn hB,
+              mul_nonneg (mul_nonneg (by linarith : (0:ℝ) ≤ p - 1) hM₂'nn) hDup]
+    calc ∫ x in frontier Ω, (e ^ 2 + (u x) ^ 2) ^ (p / 2) ∂(μHE[m + 1] : Measure (ℝ^(m + 2)))
+        ≤ ∫ x in frontier Ω, ⟪(e ^ 2 + (u x) ^ 2) ^ (p / 2) • F x, ν x⟫
+            ∂(μHE[m + 1] : Measure (ℝ^(m + 2))) := by
+          refine setIntegral_mono_on (intFr (hcontc _))
+            (intFr (Continuous.inner ((hcontc _).smul hFcd.continuous) hν.continuous))
+            hfrmeas (fun x hx => ?_)
+          rw [real_inner_smul_left]
+          nlinarith [Real.rpow_nonneg (add_pos_of_pos_of_nonneg (pow_pos he 2)
+            (sq_nonneg (u x))).le (p / 2), hFν x hx]
+      _ = ∫ x in Ω, divergenceE (fun y => (e ^ 2 + (u y) ^ 2) ^ (p / 2) • F y) x :=
+          (divergence_theorem hΩ hν hGcd).symm
+      _ ≤ ∫ x in Ω, C * ((e ^ 2 + (u x) ^ 2) ^ (p / 2) + ‖fderiv ℝ u x‖ ^ p) :=
+          setIntegral_mono_on (intΩ (continuous_divergenceE hGcd))
+            (intΩ (continuous_const.mul ((hcontc _).add hcontDuP))) hΩ.measurableSet hptwise
+      _ = C * ((∫ x in Ω, (e ^ 2 + (u x) ^ 2) ^ (p / 2)) + ∫ x in Ω, ‖fderiv ℝ u x‖ ^ p) := by
+          rw [integral_const_mul, integral_add (intΩ (hcontc _)) (intΩ hcontDuP)]
+  -- send `ε → 0` by dominated convergence along `aₖ = 1/(k+1)`
+  set a : ℕ → ℝ := fun k => 1 / ((k : ℝ) + 1) with ha_def
+  have ha_pos : ∀ k, 0 < a k := fun k => by positivity
+  have ha_le_one : ∀ k, a k ≤ 1 := fun k => by
+    rw [ha_def, div_le_one (by positivity)]; linarith [(Nat.cast_nonneg k : (0:ℝ) ≤ (k:ℝ))]
+  have ha0 : Filter.Tendsto a Filter.atTop (𝓝 0) := tendsto_one_div_add_atTop_nhds_zero_nat
+  have dctTendsto : ∀ (μ : Measure (ℝ^(m + 2))),
+      Integrable (fun x => (1 + (u x) ^ 2) ^ (p / 2)) μ →
+      Filter.Tendsto (fun k : ℕ => ∫ x, ((a k) ^ 2 + (u x) ^ 2) ^ (p / 2) ∂μ) Filter.atTop
+        (𝓝 (∫ x, ((u x) ^ 2) ^ (p / 2) ∂μ)) := by
+    intro μ hbint
+    refine tendsto_integral_of_dominated_convergence (fun x => (1 + (u x) ^ 2) ^ (p / 2))
+      (fun k => (hcontc _).aestronglyMeasurable) hbint (fun k => ?_) ?_
+    · refine ae_of_all _ (fun x => ?_)
+      rw [Real.norm_eq_abs, abs_of_nonneg (Real.rpow_nonneg (by positivity) _)]
+      exact Real.rpow_le_rpow (by positivity) (by nlinarith [ha_le_one k, (ha_pos k).le])
+        (by linarith)
+    · refine ae_of_all _ (fun x => ?_)
+      have hbt : Filter.Tendsto (fun k : ℕ => (a k) ^ 2 + (u x) ^ 2) Filter.atTop
+          (𝓝 ((u x) ^ 2)) := by simpa using (ha0.pow 2).add_const ((u x) ^ 2)
+      exact (Real.continuousAt_rpow_const _ (p / 2) (Or.inr (by linarith))).tendsto.comp hbt
+  have hAtendsto := dctTendsto (μHE[m + 1].restrict (frontier Ω)) (intFr (hcontc 1))
+  have hBtendsto := dctTendsto (volume.restrict Ω) (intΩ (hcontc 1))
+  refine ⟨C, hCnn, le_of_tendsto_of_tendsto' hAtendsto
+    ((hBtendsto.add_const _).const_mul C) (fun k => hsmooth (a k) (ha_pos k))⟩
 end Sobolev
