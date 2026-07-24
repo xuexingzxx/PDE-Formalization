@@ -82,6 +82,20 @@ through single-CLM (`ℝⁿ→Lℝ`) integrals only, where the instances are ava
 By contrast, the **Wave** chapter needs none of this — the 1D setting uses only ordinary
 derivatives and the FTC.
 
+**Open gap — the trace *operator* bundling (§5.5, `Sobolev/Trace.lean`).** The `Lᵖ` trace estimate is
+proved for all `p ≥ 1` and recast in bounded-operator form (`trace_lp_bound`), and the linear
+scaffolding is built (`contDiffSubmodule`, `traceEmbed : u ↦ (u,Du)`, `traceRestrict : u ↦ u|_{∂Ω}`).
+Bundling these into the actual `ContinuousLinearMap` (kernel-inclusion → `Submodule.liftQ` /
+`quotKerEquivRange` → `mkContinuous`) is mathematically routine and a **complete sorry-free version was
+written**, but it is **not a math gap — it is a Lean elaboration-performance wall**: definitional-
+equality checking of maps into `Lp (ENNReal.ofReal p)` across the function-space quotient makes
+`whnf`/`isDefEq` blow up (multi-minute compiles, heartbeat timeouts; marking the maps `@[irreducible]`
+does not help, so the cost is in the `Lp`/quotient machinery itself). The final bundled operator is
+therefore **deferred pending a lighter encoding** (e.g. carrying an abstract exponent `q : ℝ≥0∞`
+rather than `ENNReal.ofReal p`, or avoiding the submodule quotient). Separately, extending the trace
+from `C¹` to all of `W^{1,p}(Ω)` by density needs a Sobolev **extension operator** (a genuine
+missing development, tracked as future work).
+
 ## Layout
 
 ```

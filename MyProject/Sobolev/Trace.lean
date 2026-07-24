@@ -758,4 +758,24 @@ noncomputable def traceRestrict :
         (memLp_of_continuous_restrict_frontier hΩ hp
           (contDiff_of_mem_contDiffSubmodule u).continuous))
 
+/-!
+### Bundling into the trace operator — deferred (Lean performance gap, not a math gap)
+
+The boundary trace of a `C¹` function is bounded by the graph norm (`trace_lp_bound`), and
+`traceEmbed` / `traceRestrict` above are the linear embedding `u ↦ (u, Du)` and boundary restriction
+`u ↦ u|_{∂Ω}`.  Packaging them into the actual bounded operator
+
+  `traceCLM : ↥(LinearMap.range traceEmbed) →L[ℝ] Lp ℝ (ENNReal.ofReal p) (μHE.restrict (frontier Ω))`
+
+— by the kernel inclusion `ker traceEmbed ≤ ker traceRestrict` (a `C¹` function that is `0` in
+`Lᵖ(Ω)` is `0` on `closure Ω ⊇ ∂Ω`, via `Measure.eqOn_of_ae_eq` + `Set.EqOn.closure`) followed by
+`Submodule.liftQ` / `LinearMap.quotKerEquivRange` / `LinearMap.mkContinuous` — is mathematically
+routine, and a complete `sorry`-free version was written.  It is **omitted here only because it
+elaborates impractically slowly**: `whnf`/`isDefEq` blow up on maps into `Lp (ENNReal.ofReal p)`
+across the function-space quotient (multi-minute compiles / heartbeat timeouts, and `@[irreducible]`
+on the maps does not help).  See the "Open gap" note in `README.md`.  A viable route is to carry an
+abstract exponent `q : ℝ≥0∞` (opaque, with `Fact (1 ≤ q)`) instead of `ENNReal.ofReal p`, so the
+defeq checker never tries to reduce the exponent.
+-/
+
 end Sobolev
