@@ -2534,24 +2534,66 @@ $\varepsilon/3$-net of the (totally bounded) image, each net point being $L^p$-t
 (\texttt{tendsto\_eLpNorm\_translate\_sub}) uniformly over the finite net via
 \texttt{Set.Finite.eventually\_all}, and the splitting of $u_i(\cdot-y)-u_i$ through a nearby net
 point, two of whose three terms are $\|u_i-z\|_p<\varepsilon/3$ (translation is an $L^p$ isometry).
-Only the tightness half (uniform smallness of mass at infinity), needed for the full whole-space
-equivalence, is left.
+
+The \emph{tightness} half is now also formalized, \texttt{unifTight\_of\_totallyBounded}: a family
+totally bounded in $L^p(\mathbb{R}^n)$ is uniformly $p$-tight at infinity --- for every
+$\varepsilon>0$ there is a \emph{single} finite-measure set $s$ with
+$\sup_i\|\mathbf 1_{s^c}u_i\|_p\le\varepsilon$.  The proof is the symmetric $\varepsilon/2$-net
+transfer, resting on Mathlib's single-function tightness
+\texttt{MemLp.\allowbreak exists\_eLpNorm\_indicator\_compl\_lt}: cover the totally bounded image by
+finitely many $\varepsilon/2$-balls centred at net points $z$, take $s=\bigcup_z s_z$ (finite union of
+the per-$z$ tightness sets, hence finite measure), and split $\mathbf 1_{s^c}u_i$ through the nearest
+net point.  Together with \texttt{uniformEquicontinuous\_translate\_of\_totallyBounded} this gives the
+\textbf{full whole-space Fréchet--Kolmogorov converse}: total boundedness in $L^p(\mathbb{R}^n)$
+$\Rightarrow$ uniform equicontinuity \emph{and} uniform tightness.
+
+\subsection{Morrey's inequality (§5.6.2)}
+
+Morrey's inequality is the $p>n$ Sobolev embedding $W^{1,p}(\mathbb{R}^n)\hookrightarrow
+C^{0,1-n/p}$, the exact complement of the $p<n$ Gagliardo--Nirenberg--Sobolev embedding proved in the
+embedding subsection.  The end result, \texttt{morrey\_holder} in
+\texttt{Sobolev/\allowbreak Morrey.\allowbreak lean}, is the Hölder estimate
+\[
+  |u(x)-u(y)|\;\le\;C\,\|x-y\|^{\,1-n/p}\Big(\int_{\mathbb{R}^n}\|Du\|^{p}\Big)^{1/p},
+  \qquad C=\tfrac{2^{\,n+1}}{n\,\omega_n}\Big(\!\int_{B(0,1)}\!\|v\|^{-(n-1)q}\Big)^{1/q},
+\]
+for $u\in C^1$, $n\ge2$, and Hölder conjugates $p,q$ with $(n-1)q<n$ (equivalently $p>n$), $\omega_n$
+the volume of the unit ball.  It is proved sorry-free in four steps.
+
+\begin{enumerate}
+  \item \textbf{Potential (Riesz) estimate}, \texttt{potential\_estimate}:
+    $\int_{B(0,r)}|u(x+z)-u(x)|\,dz\le\tfrac{r^n}{n}\int_{B(0,r)}\|Du(x+w)\|/\|w\|^{\,n-1}\,dw$.
+    This is the hard core Mathlib lacked; it is proved by a \emph{sphere-free} Cartesian-dilation
+    route (no polar coordinates, hence no dependence on the Chapter~6 area formula): a fundamental-
+    theorem ray bound, a Tonelli swap, a dilation change of variables $w=\tau z$, and an
+    $\overline{\mathbb{R}}_{\ge0}$ double-Tonelli argument with a $\tau$-dependent ball domain carried
+    as an indicator, bridged back to the Bochner integral.
+  \item \textbf{Hölder bound}, \texttt{riesz\_bound}: Hölder's inequality applied to
+    $\|Du\|\cdot\|w\|^{-(n-1)}$ turns the Riesz integral into
+    $(\int_B\|Du\|^p)^{1/p}\,r^{\,1-n/p}\,(\int_{B(0,1)}\|v\|^{-(n-1)q})^{1/q}$, the kernel being
+    $L^q$ exactly when $(n-1)q<n$.  The exponent identity $(n-(n-1)q)/q=1-n/p$ follows from
+    $p^{-1}+q^{-1}=1$.
+  \item \textbf{Localisation}, \texttt{lp\_local\_le\_global}: $(\int_{B(0,r)}\|Du(x+w)\|^p)^{1/p}\le
+    \|Du\|_{L^p(\mathbb{R}^n)}$, translation being measure preserving.
+  \item \textbf{Two-point lens}: for the midpoint $m$ of $x,y$ and $r=\|x-y\|$, the ball $B(m,r/2)$
+    sits inside both $B(x,r)$ and $B(y,r)$; averaging $|u(x)-u(y)|\le|u(x)-u(z)|+|u(y)-u(z)|$ over
+    $B(m,r/2)$ and applying steps 1--3 to each term, the $r^n$ from the ball volume cancels the
+    $r^n$ in the potential estimate, leaving the $r^{\,1-n/p}$ Hölder modulus.
+\end{enumerate}
 
 \subsection{Future work}
 
 The higher-order theory ($W^{k,p}$, $H^k$), completeness of $W^{1,p}$, the Meyers--Serrin density
 theorem, the Gagliardo--Nirenberg--Sobolev embedding (now on \emph{all} of $W^{1,p}(\mathbb{R}^n)$,
 with no smoothness or compact-support hypothesis, via $C^\infty_c$ density --- see the embedding
-subsection) and Poincar\'e inequality, and the Rellich--Kondrachov compactness theorem are all
+subsection) and Poincar\'e inequality, the Rellich--Kondrachov compactness theorem (both directions:
+sufficiency, and the full whole-space Fréchet--Kolmogorov converse --- equicontinuity \emph{and}
+tightness), and \textbf{Morrey's inequality} ($W^{1,p}\hookrightarrow C^{0,1-n/p}$ for $p>n$) are all
 \emph{done} and documented in the subsections above.  What remains:
 
 \begin{enumerate}
   \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
     rests on the Rellich--Kondrachov compactness now available.
-  \item \textbf{Necessary direction of Fréchet--Kolmogorov}: the equicontinuity half is \emph{done}
-    (\texttt{uniformEquicontinuous\_translate\_of\_totallyBounded}; see the Rellich--Kondrachov
-    subsection); the remaining \emph{tightness} half --- a totally bounded family in $L^p(\mathbb{R}^n)$
-    is uniformly $p$-tight at infinity --- would complete the full whole-space equivalence.
   \item \textbf{Bounded-domain Rellich--Kondrachov}: transfer the compact-$K$ statement to
     $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$ on a bounded extension domain $U$ via a Sobolev
     extension operator.
@@ -2560,7 +2602,6 @@ subsection) and Poincar\'e inequality, and the Rellich--Kondrachov compactness t
     application of the Chapter~6 \texttt{divergence\_theorem} to $|u|^p$ times a vector field
     transverse to $\partial\Omega$, so the theorem is now \emph{unblocked}; what remains to build is
     the trace operator itself and the $C^1$-density passage.
-  \item \textbf{Morrey} inequality ($W^{1,p}\hookrightarrow C^{0,\alpha}$ for $p>n$).
 \end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════════════
