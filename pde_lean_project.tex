@@ -2581,6 +2581,42 @@ the volume of the unit ball.  It is proved sorry-free in four steps.
     $r^n$ in the potential estimate, leaving the $r^{\,1-n/p}$ Hölder modulus.
 \end{enumerate}
 
+\subsection{The trace estimate (§5.5)}
+
+The \textbf{trace theorem} produces a bounded operator $T\colon W^{1,p}(\Omega)\to L^p(\partial\Omega)$
+extending boundary restriction $u\mapsto u|_{\partial\Omega}$ of $C^1$ functions.  Its analytic heart
+is the boundary estimate $\int_{\partial\Omega}|u|^p\,d\mu_H\le C\,\|u\|_{W^{1,p}(\Omega)}^p$.  We have
+formalized this heart in the $p=2$ (H$^1$) case, \texttt{trace\_estimate\_sq} in
+\texttt{Sobolev/\allowbreak Trace.\allowbreak lean}: for $u\in C^1$ on a bounded $C^1$ domain
+$\Omega\subseteq\mathbb{R}^{m+2}$,
+\[
+  \int_{\partial\Omega} u^2\,d\mu_H \;\le\; C\Big(\int_\Omega u^2 + \int_\Omega \|Du\|^2\Big).
+\]
+The $p=2$ case is chosen first because $u^2$ is manifestly $C^1$, sidestepping the $|u|^p$
+differentiability subtlety at $u=0$ for general $p$.  The proof runs off the Chapter~6 general
+divergence theorem and rests on two reusable lemmas:
+
+\begin{itemize}
+  \item \texttt{exists\_transverse\_field}: a globally $C^1$ vector field $F$ with
+    $\langle F,\nu\rangle\ge 1$ on $\partial\Omega$, the geometric core.  Since the chart normal is a
+    \emph{unit} vector (\texttt{norm\_graphNormal}) and $e,\texttt{flatten}$ are isometries, $\nu$ is a
+    continuous unit field on the compact $\partial\Omega$; cutting it to a compactly supported field
+    equal to $\nu$ near $\partial\Omega$, uniformly approximating within $\tfrac12$ by a $C^\infty$
+    field (\texttt{UniformContinuous.\allowbreak exists\_contDiff\_dist\_le}) and doubling gives $F$.
+  \item \texttt{divergenceE\_smul\_scalar}: the divergence Leibniz rule
+    $\operatorname{div}(g\,F)=g\operatorname{div}F+Dg(F)$, proved by the smul product rule for
+    \texttt{fderiv} and the basis expansion $Dg(Fx)=\sum_i \partial_i g\,(Fx)_i$.
+\end{itemize}
+
+Applying Gauss--Green to $u^2 F$: on $\partial\Omega$, $\langle u^2 F,\nu\rangle\ge u^2$; in $\Omega$,
+the Leibniz rule with Cauchy--Schwarz and Young's inequality
+($2|u|\|Du\|\le u^2+\|Du\|^2$) give the pointwise bound
+$\operatorname{div}(u^2 F)\le C(u^2+\|Du\|^2)$, with $C$ read off from the suprema of
+$\operatorname{div}F$ and $\|F\|$ over the compact $\overline\Omega$.  Chaining the two boundary/interior
+monotonicities through the divergence theorem yields the estimate.  Extending to general $p$ (via the
+$(\varepsilon^2+u^2)^{p/2}$ smoothing) and building the trace operator and its $C^1$-density passage
+are what remain of the full trace theorem.
+
 \subsection{Future work}
 
 The higher-order theory ($W^{k,p}$, $H^k$), completeness of $W^{1,p}$, the Meyers--Serrin density
@@ -2588,8 +2624,9 @@ theorem, the Gagliardo--Nirenberg--Sobolev embedding (now on \emph{all} of $W^{1
 with no smoothness or compact-support hypothesis, via $C^\infty_c$ density --- see the embedding
 subsection) and Poincar\'e inequality, the Rellich--Kondrachov compactness theorem (both directions:
 sufficiency, and the full whole-space Fréchet--Kolmogorov converse --- equicontinuity \emph{and}
-tightness), and \textbf{Morrey's inequality} ($W^{1,p}\hookrightarrow C^{0,1-n/p}$ for $p>n$) are all
-\emph{done} and documented in the subsections above.  What remains:
+tightness), \textbf{Morrey's inequality} ($W^{1,p}\hookrightarrow C^{0,1-n/p}$ for $p>n$), and the
+$p=2$ \textbf{trace estimate} are all \emph{done} and documented in the subsections above.
+What remains:
 
 \begin{enumerate}
   \item \textbf{Poincar\'e--Wirtinger (mean-zero) inequality} $\|u-(u)_U\|_p\le C\|Du\|_p$, which
@@ -2598,10 +2635,9 @@ tightness), and \textbf{Morrey's inequality} ($W^{1,p}\hookrightarrow C^{0,1-n/p
     $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$ on a bounded extension domain $U$ via a Sobolev
     extension operator.
   \item \textbf{Trace theorem} $u\mapsto u|_{\partial\Omega}$, $W^{1,p}(\Omega)\to L^p(\partial\Omega)$.
-    The key estimate $\int_{\partial\Omega}|u|^p\,d\mu_H\le C\,\|u\|_{W^{1,p}(\Omega)}^p$ is a direct
-    application of the Chapter~6 \texttt{divergence\_theorem} to $|u|^p$ times a vector field
-    transverse to $\partial\Omega$, so the theorem is now \emph{unblocked}; what remains to build is
-    the trace operator itself and the $C^1$-density passage.
+    The $p=2$ boundary estimate is \emph{done} (\texttt{trace\_estimate\_sq}; see the trace-estimate
+    subsection).  What remains: the general-$p$ estimate (via the $(\varepsilon^2+u^2)^{p/2}$
+    smoothing), the trace operator itself, and the $C^1$-density passage.
 \end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════════════
