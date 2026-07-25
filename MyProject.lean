@@ -14,3 +14,4 @@ import MyProject.Sobolev.FrechetKolmogorov
 import MyProject.Sobolev.RellichKondrachov
 import MyProject.Sobolev.Morrey
 import MyProject.Sobolev.Trace
+import MyProject.Sobolev.Extension
