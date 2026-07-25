@@ -2635,14 +2635,23 @@ uniformly over $C^1$ functions $u$.  The supporting linear structure is also bui
 functions form a submodule (\texttt{contDiffSubmodule}), embed into the graph space
 $L^p(\Omega)\times L^p(\Omega;\mathbb{R}^n{\to_L}\mathbb{R})$ by $u\mapsto(u,Du)$
 (\texttt{traceEmbed}), and restrict to the boundary $u\mapsto u|_{\partial\Omega}$
-(\texttt{traceRestrict}), both as $\mathbb{R}$-linear maps.  Bundling these into the
-\emph{continuous linear operator} $T$ (factoring the trace through the range of the embedding by the
-bound) is mathematically routine but currently runs into a Lean \emph{elaboration-performance} wall:
-the definitional unfolding of maps into $L^p(\mathtt{ENNReal.ofReal}\,p)$ across the function-space
-quotient makes \texttt{whnf}/\texttt{isDefEq} explode (multi-minute compiles / heartbeat timeouts), so
-the final bundled \texttt{ContinuousLinearMap} is deferred pending a lighter encoding.  The other
-outstanding piece is the extension of $T$ from $C^1$ to all of $W^{1,p}(\Omega)$ by density, which for
-a general domain needs a Sobolev extension operator (the future-work item below).
+(\texttt{traceRestrict}), both as $\mathbb{R}$-linear maps.  These bundle into the genuine
+\emph{bounded linear operator}
+\[
+  \texttt{traceCLM}\colon\ \widehat{\operatorname{range}(\texttt{traceEmbed})}\ \to_L\ L^p(\partial\Omega),
+\]
+factoring the trace through the range of the embedding by the kernel inclusion
+\texttt{traceEmbed\_ker\_le} (a $C^1$ function that is $0$ in $L^p(\Omega)$ is $0$ on
+$\overline\Omega\supseteq\partial\Omega$, via \texttt{Measure.eqOn\_of\_ae\_eq} and
+\texttt{Set.EqOn.closure}), then \texttt{Submodule.liftQ} / \texttt{quotKerEquivRange} /
+\texttt{mkContinuous}.  Getting this to \emph{compile} was the one real obstacle: unfolding maps into
+$L^p(\mathtt{ENNReal.ofReal}\,p)$ across the function-space quotient made \texttt{whnf}/\texttt{isDefEq}
+explode (a $>\!12$-minute, non-converging compile).  The fix is to carry the Sobolev exponent as an
+\emph{opaque} $q:\mathbb{R}_{\ge0}^\infty$ (with \texttt{Fact}\,$(1\le q)$, $q\ne\top$,
+$q.\mathtt{toReal}=p$) rather than $\mathtt{ENNReal.ofReal}\,p$, so the definitional-equality checker
+never tries to reduce the exponent --- cutting the compile to $\sim\!4.6$ minutes.  The one remaining
+piece of the \emph{full} trace theorem is extending $T$ from $C^1$ to all of $W^{1,p}(\Omega)$ by
+density, which for a general domain needs a Sobolev extension operator (the future-work item below).
 
 \subsection{Future work}
 
@@ -2652,7 +2661,8 @@ with no smoothness or compact-support hypothesis, via $C^\infty_c$ density --- s
 subsection) and Poincar\'e inequality, the Rellich--Kondrachov compactness theorem (both directions:
 sufficiency, and the full whole-space Fréchet--Kolmogorov converse --- equicontinuity \emph{and}
 tightness), \textbf{Morrey's inequality} ($W^{1,p}\hookrightarrow C^{0,1-n/p}$ for $p>n$), and the
-\textbf{trace estimate} for all $p\ge1$ are all \emph{done} and documented in the subsections above.
+\textbf{trace estimate} for all $p\ge1$ (together with the bounded trace \emph{operator}
+\texttt{traceCLM}) are all \emph{done} and documented in the subsections above.
 What remains:
 
 \begin{enumerate}
@@ -2661,12 +2671,10 @@ What remains:
   \item \textbf{Bounded-domain Rellich--Kondrachov}: transfer the compact-$K$ statement to
     $W^{1,p}(U)\hookrightarrow\hookrightarrow L^p(U)$ on a bounded extension domain $U$ via a Sobolev
     extension operator.
-  \item \textbf{Trace operator.}  The boundary estimate is \emph{done} for all $p\ge 1$, and it is
-    recast in operator form (\texttt{trace\_lp\_bound}) with the linear scaffolding built
-    (\texttt{traceEmbed}, \texttt{traceRestrict}); see the trace-estimate subsection.  Two pieces
-    remain: bundling these into the continuous linear operator $T$ (routine, currently deferred behind
-    a Lean elaboration-performance wall with the $L^p(\mathtt{ofReal}\,p)$ encoding), and extending $T$
-    from $C^1$ to all of $W^{1,p}(\Omega)$ by density --- which for a general domain requires a Sobolev
+  \item \textbf{Trace theorem --- density extension.}  The boundary estimate is \emph{done} for all
+    $p\ge 1$, and the bounded trace \emph{operator} \texttt{traceCLM} is now built (on the range of the
+    $u\mapsto(u,Du)$ embedding; see the trace-estimate subsection).  What remains is to extend it from
+    $C^1$ to all of $W^{1,p}(\Omega)$ by density --- which for a general domain requires a Sobolev
     extension operator (next item).
 \end{enumerate}
 
