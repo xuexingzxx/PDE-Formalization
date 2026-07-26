@@ -81,4 +81,35 @@ theorem refll_measurePreserving (i : Fin n) :
     MeasurePreserving (refll i) (volume : Measure ℝⁿ) volume :=
   (refll i).measurePreserving
 
+/-- The reflection negates `eᵢ` and fixes `eⱼ` for `j ≠ i`. -/
+theorem refll_single (i j : Fin n) :
+    refll i (EuclideanSpace.single j (1 : ℝ))
+      = (if j = i then (-1 : ℝ) else 1) • EuclideanSpace.single j (1 : ℝ) := by
+  simp only [refll_apply, reflLin, LinearMap.coe_mk, AddHom.coe_mk]
+  rcases eq_or_ne j i with rfl | hji
+  · rw [if_pos rfl,
+      show (EuclideanSpace.single j (1 : ℝ)) j = 1 from by simp [PiLp.single_apply]]
+    module
+  · rw [if_neg hji, one_smul,
+      show (EuclideanSpace.single j (1 : ℝ)) i = 0 from by
+        simp [PiLp.single_apply, Ne.symm hji]]
+    module
+
+/-- The `i`-th coordinate of the reflection is the negation. -/
+@[simp] theorem refll_apply_self (i : Fin n) (x : ℝⁿ) : (refll i x) i = - x i :=
+  reflLin_apply_self i x
+
+/-- The reflection is an involution. -/
+theorem refll_involutive (i : Fin n) : Function.Involutive (refll i) := reflLin_involutive i
+
+/-- The reflection swaps the two open half-spaces: `refll i '' {xᵢ > 0} = {xᵢ < 0}`. -/
+theorem refll_image_upper (i : Fin n) :
+    refll i '' {x : ℝⁿ | 0 < x i} = {x : ℝⁿ | x i < 0} := by
+  ext y
+  simp only [Set.mem_image, Set.mem_setOf_eq]
+  constructor
+  · rintro ⟨x, hx, rfl⟩; rw [refll_apply_self]; linarith
+  · intro hy
+    exact ⟨refll i y, by rw [refll_apply_self]; linarith, refll_involutive i y⟩
+
 end Sobolev
