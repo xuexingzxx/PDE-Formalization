@@ -2676,7 +2676,50 @@ What remains:
     $u\mapsto(u,Du)$ embedding; see the trace-estimate subsection).  What remains is to extend it from
     $C^1$ to all of $W^{1,p}(\Omega)$ by density --- which for a general domain requires a Sobolev
     extension operator (next item).
+  \item \textbf{Sobolev extension operator} $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$
+    (§5.4), under construction in \texttt{Sobolev/\allowbreak Extension.\allowbreak lean}; see the
+    subsection below.
 \end{enumerate}
+
+\subsection{The extension operator (§5.4) --- in progress}
+
+The extension theorem builds a bounded linear $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ by
+locally flattening the boundary and \emph{reflecting} across it.  We build it bottom-up in
+\texttt{Sobolev/\allowbreak Extension.\allowbreak lean}.
+
+\textbf{Reflection engine.}  \texttt{refll}~$i$ is the reflection $x\mapsto x-2x_i e_i$ across
+$\{x_i=0\}$, packaged as a \texttt{LinearIsometryEquiv} so that smoothness, involutivity, measure-
+and norm-preservation, and the half-space swap $\{x_i>0\}\leftrightarrow\{x_i<0\}$
+(\texttt{refll\_image\_upper}) are all one-liners.
+
+\textbf{Change of variables for weak derivatives} (\texttt{isWeakDerivInDir\_comp\_refll}).  If $v$ is
+the weak $e_j$-derivative of $u$ on the open upper half $\{x_i>0\}$, then $u\circ\texttt{refll}\,i$ has
+the sign-adjusted reflected weak $e_j$-derivative on the lower half $\{x_i<0\}$, with sign $-1$ when
+$j=i$ and $+1$ otherwise.  Proof: the measure-preserving substitution $x=\texttt{refll}\,i\,y$
+(\texttt{MeasurePreserving.integral\_comp}) turns the lower-half integration-by-parts identity into the
+upper-half one, and the chain rule $\partial_j(\varphi\circ\texttt{refll}\,i)=\pm(\partial_j\varphi)
+\circ\texttt{refll}\,i$ (from \texttt{refll\_single}) transports the test function.
+
+\textbf{Gluing across the interface.}  The even reflection is only $C^0$ (not $C^1$) across
+$\{x_i=0\}$, so one must show its one-sided weak derivatives assemble into a single weak derivative on
+all of $\mathbb{R}^n$.  The tool is a smooth one-sided cutoff $\chi_m$ (\texttt{cutoffPos}/
+\texttt{cutoffNeg}, built from \texttt{Real.smoothTransition}) that is $0$ near the boundary and $1$
+away from it; $\chi_m\varphi$ is then a test function supported strictly inside a half-space, and one
+lets $m\to\infty$.  This is done so far for \textbf{tangential} directions
+(\texttt{isWeakDerivInDir\_glue\_tangential}, $j\ne i$): because $\chi_m$ varies only in the normal
+coordinate, $\partial_j\chi_m=0$, so \emph{no boundary term arises} and the two half-space identities
+stitch together directly by dominated convergence --- the interface hyperplane $\{x_i=0\}$ being
+Lebesgue-null (\texttt{volume\_hyperplane\_eq\_zero}, via \texttt{Measure.addHaar\_submodule}).  Note
+the tangential glue needs \emph{only} continuity of $w$, not matching of the one-sided derivatives:
+a jump in $w$ contributes to $\partial_i$, never to a tangential $\partial_j$.
+
+\textbf{What remains.}  (i) The \emph{normal} direction $j=i$, where $\partial_i\chi_m\ne0$ produces a
+boundary-layer term $\int w\,\varphi\,\partial_i\chi_m\to\pm\int_{\{x_i=0\}}w\varphi$ that cancels
+between the two sides precisely because $w$ is continuous across the interface; making this rigorous
+needs a Fubini integral in the $x_i$-marginal, for which Mathlib has no ready coarea/slicing lemma.
+(ii) Assembling tangential $+$ normal into ``the even reflection of a $C^1$-up-to-boundary function is
+$W^{1,p}$ with the reflected gradient and a norm bound''.  (iii) Chart-flattening and a
+partition-of-unity gluing into the global operator $E$.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 6: Surface Measure and the General Divergence Theorem}
