@@ -708,4 +708,216 @@ theorem boundary_tendsto_zero (i : Fin n) {F : ℝⁿ → ℝ}
   simpa using key
 
 
+
+/-- **Normal gluing of one-sided weak derivatives.** If `w` is continuous with the reflection-
+Lipschitz bound `|w·φ − (w·φ)∘refll| ≤ L·|xᵢ|` on every test function `φ`, and has weak
+`eᵢ`-derivative `gp` on `{xᵢ > 0}` and `gm` on `{xᵢ < 0}` in the **normal** direction, then `w` has
+weak `eᵢ`-derivative on all of `ℝⁿ`, the piecewise glue. The boundary term from `∂ᵢ` of the cutoff
+tends to `0` (`boundary_reformulation` + `boundary_tendsto_zero`); the rest mirrors the tangential
+glue. -/
+theorem isWeakDerivInDir_glue_normal (i : Fin n) {w gp gm : ℝⁿ → ℝ}
+    (hwc : Continuous w) (hgp : LocallyIntegrable gp volume) (hgm : LocallyIntegrable gm volume)
+    (hp : IsWeakDerivInDir {x : ℝⁿ | 0 < x i} (EuclideanSpace.single i (1 : ℝ)) w gp)
+    (hm : IsWeakDerivInDir {x : ℝⁿ | x i < 0} (EuclideanSpace.single i (1 : ℝ)) w gm)
+    (hLip : ∀ φ : ℝⁿ → ℝ, IsTestFunction Set.univ φ →
+      ∃ L : ℝ, 0 ≤ L ∧ ∀ x, |w x * φ x - w (refll i x) * φ (refll i x)| ≤ L * |x i|) :
+    IsWeakDerivInDir Set.univ (EuclideanSpace.single i (1 : ℝ)) w
+      (fun x => if 0 < x i then gp x else gm x) := by
+  intro φ hφ
+  -- Product rule (normal): keep the `∂ᵢχ` term.
+  have hdP : ∀ m x, fderiv ℝ (fun y => cutoffPos i m y * φ y) x (EuclideanSpace.single i (1 : ℝ))
+      = fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x
+        + cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)) := by
+    intro m x
+    have hf := ((cutoffPos_contDiff i m).differentiable (by norm_num) x).hasFDerivAt
+    have hg := (hφ.differentiable x).hasFDerivAt
+    have hmul : fderiv ℝ (fun y => cutoffPos i m y * φ y) x
+        = cutoffPos i m x • fderiv ℝ φ x + φ x • fderiv ℝ (cutoffPos i m) x := (hf.mul hg).fderiv
+    rw [hmul, ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply,
+      ContinuousLinearMap.smul_apply, smul_eq_mul, smul_eq_mul]; ring
+  have hdN : ∀ m x, fderiv ℝ (fun y => cutoffNeg i m y * φ y) x (EuclideanSpace.single i (1 : ℝ))
+      = fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x
+        + cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)) := by
+    intro m x
+    have hf := ((cutoffNeg_contDiff i m).differentiable (by norm_num) x).hasFDerivAt
+    have hg := (hφ.differentiable x).hasFDerivAt
+    have hmul : fderiv ℝ (fun y => cutoffNeg i m y * φ y) x
+        = cutoffNeg i m x • fderiv ℝ φ x + φ x • fderiv ℝ (cutoffNeg i m) x := (hf.mul hg).fderiv
+    rw [hmul, ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply,
+      ContinuousLinearMap.smul_apply, smul_eq_mul, smul_eq_mul]; ring
+  -- Continuity / integrability helpers.
+  have hdcP : ∀ m, Continuous
+      (fun x => fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))) :=
+    fun m => continuous_cutoffPos_fderiv_normal i m
+  have hdcN : ∀ m, Continuous
+      (fun x => fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ))) := fun m => by
+    simp only [cutoffNeg_fderiv_normal]; exact (hdcP m).comp (contDiff_refll i).continuous |>.neg
+  have hSPint : ∀ m, Integrable (fun x => w x
+      * (cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))) volume := fun m =>
+    (hwc.mul ((cutoffPos_contDiff i m).continuous.mul
+      (hφ.continuous_dirDeriv _))).integrable_of_hasCompactSupport
+      ((hφ.hasCompactSupport_dirDeriv _).mul_left.mul_left)
+  have hSNint : ∀ m, Integrable (fun x => w x
+      * (cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))) volume := fun m =>
+    (hwc.mul ((cutoffNeg_contDiff i m).continuous.mul
+      (hφ.continuous_dirDeriv _))).integrable_of_hasCompactSupport
+      ((hφ.hasCompactSupport_dirDeriv _).mul_left.mul_left)
+  have hBPint : ∀ m, Integrable (fun x => w x
+      * (fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x)) volume := fun m =>
+    (hwc.mul ((hdcP m).mul hφ.continuous)).integrable_of_hasCompactSupport
+      (hφ.hasCompactSupport.mul_left.mul_left)
+  have hBNint : ∀ m, Integrable (fun x => w x
+      * (fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x)) volume := fun m =>
+    (hwc.mul ((hdcN m).mul hφ.continuous)).integrable_of_hasCompactSupport
+      (hφ.hasCompactSupport.mul_left.mul_left)
+  -- One-sided integration-by-parts, split into boundary + tangential parts.
+  have hP : ∀ m, (∫ x, w x * (fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x))
+      + ∫ x, w x * (cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))
+      = -∫ x, gp x * (cutoffPos i m x * φ x) := by
+    intro m
+    have key := hp (fun y => cutoffPos i m y * φ y) (isTestFunction_cutoffPos_mul i m hφ)
+    simp only [] at key
+    rw [← key, ← integral_add (hBPint m) (hSPint m)]
+    exact integral_congr_ae (Filter.Eventually.of_forall (fun x => by simp only [hdP m x]; ring))
+  have hN : ∀ m, (∫ x, w x * (fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x))
+      + ∫ x, w x * (cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))
+      = -∫ x, gm x * (cutoffNeg i m x * φ x) := by
+    intro m
+    have key := hm (fun y => cutoffNeg i m y * φ y) (isTestFunction_cutoffNeg_mul i m hφ)
+    simp only [] at key
+    rw [← key, ← integral_add (hBNint m) (hSNint m)]
+    exact integral_congr_ae (Filter.Eventually.of_forall (fun x => by simp only [hdN m x]; ring))
+  -- The boundary term tends to `0`.
+  have hFc : Continuous (fun x => w x * φ x) := hwc.mul hφ.continuous
+  have hFcs : HasCompactSupport (fun x => w x * φ x) := hφ.hasCompactSupport.mul_left
+  obtain ⟨L, hL0, hLb⟩ := hLip φ hφ
+  have hbdry : Tendsto (fun m =>
+      (∫ x, w x * (fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x))
+      + ∫ x, w x * (fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x)) atTop
+      (nhds 0) := by
+    have hrefl : ∀ m,
+        (∫ x, w x * (fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x))
+        + ∫ x, w x * (fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x)
+        = ∫ x, (w x * φ x - w (refll i x) * φ (refll i x))
+            * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) := by
+      intro m
+      rw [← boundary_reformulation i m hFc hFcs, ← integral_add (hBPint m) (hBNint m)]
+      exact integral_congr_ae (Filter.Eventually.of_forall (fun x => by ring))
+    simp_rw [hrefl]
+    exact boundary_tendsto_zero i hFc hFcs hL0 hLb
+  -- The tangential part limit (identical to the tangential glue), and the RHS limits.
+  have hwd_int :
+      Integrable (fun x => w x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ))) volume :=
+    (hwc.mul (hφ.continuous_dirDeriv _)).integrable_of_hasCompactSupport
+      ((hφ.hasCompactSupport_dirDeriv _).mul_left)
+  have hLHS : Tendsto (fun m =>
+      (∫ x, w x * (cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ))))
+      + ∫ x, w x * (cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))) atTop
+      (nhds (∫ x, w x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))) := by
+    have hmerge : ∀ m,
+        (∫ x, w x * (cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ))))
+        + ∫ x, w x * (cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))
+        = ∫ x, (w x * (cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))
+            + w x * (cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))) := fun m =>
+      (integral_add (hSPint m) (hSNint m)).symm
+    simp_rw [hmerge]
+    refine tendsto_integral_of_dominated_convergence
+      (fun x => 2 * |w x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ))|)
+      (fun m => ((hSPint m).add (hSNint m)).aestronglyMeasurable) (hwd_int.abs.const_mul 2)
+      (fun m => Filter.Eventually.of_forall (fun x => ?_)) ?_
+    · rw [show w x * (cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))
+            + w x * (cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))
+          = (cutoffPos i m x + cutoffNeg i m x)
+            * (w x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ))) by ring,
+        Real.norm_eq_abs, abs_mul,
+        abs_of_nonneg (add_nonneg (cutoffPos_nonneg i m x) (cutoffNeg_nonneg i m x))]
+      refine mul_le_mul_of_nonneg_right ?_ (abs_nonneg _)
+      have := cutoffPos_le_one i m x; have := cutoffNeg_le_one i m x; linarith
+    · filter_upwards [ae_coord_ne_zero i] with x hx0
+      have hs : Tendsto (fun m => cutoffPos i m x + cutoffNeg i m x) atTop (nhds 1) := by
+        rcases lt_or_gt_of_ne hx0 with hlt | hgt
+        · have h0 : ∀ m, cutoffPos i m x = 0 := fun m => cutoffPos_eq_zero i m hlt.le
+          simpa [h0] using cutoffNeg_tendsto_one i hlt
+        · have h0 : ∀ m, cutoffNeg i m x = 0 := fun m => cutoffNeg_eq_zero i m hgt.le
+          simpa [h0] using cutoffPos_tendsto_one i hgt
+      have hlim := (hs.mul_const (fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))).const_mul (w x)
+      rw [one_mul] at hlim
+      exact hlim.congr (fun m => by ring)
+  have hmsP : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsN : MeasurableSet {x : ℝⁿ | x i < 0} :=
+    measurableSet_lt (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have hgpφ_int : Integrable (fun x => gp x * φ x) volume := integrable_mul_testFunction hgp hφ
+  have hgnφ_int : Integrable (fun x => gm x * φ x) volume := integrable_mul_testFunction hgm hφ
+  have hBP : Tendsto (fun m => ∫ x, gp x * (cutoffPos i m x * φ x)) atTop
+      (nhds (∫ x, if 0 < x i then gp x * φ x else 0)) := by
+    refine tendsto_integral_of_dominated_convergence (fun x => |gp x * φ x|)
+      (fun m => hgp.aestronglyMeasurable.mul
+        ((cutoffPos_contDiff i m).continuous.aestronglyMeasurable.mul
+          hφ.continuous.aestronglyMeasurable))
+      hgpφ_int.abs (fun m => Filter.Eventually.of_forall (fun x => ?_))
+      (Filter.Eventually.of_forall (fun x => ?_))
+    · rw [Real.norm_eq_abs,
+        show gp x * (cutoffPos i m x * φ x) = cutoffPos i m x * (gp x * φ x) by ring,
+        abs_mul, abs_of_nonneg (cutoffPos_nonneg i m x)]
+      exact mul_le_of_le_one_left (abs_nonneg _) (cutoffPos_le_one i m x)
+    · by_cases hgt : 0 < x i
+      · rw [if_pos hgt]
+        have hlim := ((cutoffPos_tendsto_one i hgt).mul_const (φ x)).const_mul (gp x)
+        rw [one_mul] at hlim; exact hlim
+      · have h0 : ∀ m, cutoffPos i m x = 0 := fun m => cutoffPos_eq_zero i m (not_lt.1 hgt)
+        simp only [h0, mul_zero, zero_mul, if_neg hgt]; exact tendsto_const_nhds
+  have hBN : Tendsto (fun m => ∫ x, gm x * (cutoffNeg i m x * φ x)) atTop
+      (nhds (∫ x, if x i < 0 then gm x * φ x else 0)) := by
+    refine tendsto_integral_of_dominated_convergence (fun x => |gm x * φ x|)
+      (fun m => hgm.aestronglyMeasurable.mul
+        ((cutoffNeg_contDiff i m).continuous.aestronglyMeasurable.mul
+          hφ.continuous.aestronglyMeasurable))
+      hgnφ_int.abs (fun m => Filter.Eventually.of_forall (fun x => ?_))
+      (Filter.Eventually.of_forall (fun x => ?_))
+    · rw [Real.norm_eq_abs,
+        show gm x * (cutoffNeg i m x * φ x) = cutoffNeg i m x * (gm x * φ x) by ring,
+        abs_mul, abs_of_nonneg (cutoffNeg_nonneg i m x)]
+      exact mul_le_of_le_one_left (abs_nonneg _) (cutoffNeg_le_one i m x)
+    · by_cases hlt : x i < 0
+      · rw [if_pos hlt]
+        have hlim := ((cutoffNeg_tendsto_one i hlt).mul_const (φ x)).const_mul (gm x)
+        rw [one_mul] at hlim; exact hlim
+      · have h0 : ∀ m, cutoffNeg i m x = 0 := fun m => cutoffNeg_eq_zero i m (not_lt.1 hlt)
+        simp only [h0, mul_zero, zero_mul, if_neg hlt]; exact tendsto_const_nhds
+  -- Assemble: `(boundary) + (tangential) = -(RHS)`; take limits and use uniqueness.
+  have hAeqB : ∀ m,
+      ((∫ x, w x * (fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x))
+        + ∫ x, w x * (fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)) * φ x))
+      + ((∫ x, w x * (cutoffPos i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ))))
+        + ∫ x, w x * (cutoffNeg i m x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ))))
+      = -((∫ x, gp x * (cutoffPos i m x * φ x)) + ∫ x, gm x * (cutoffNeg i m x * φ x)) := by
+    intro m
+    have ep := hP m; have en := hN m
+    linarith [ep, en]
+  have hsum_lim : Tendsto (fun m =>
+      -((∫ x, gp x * (cutoffPos i m x * φ x)) + ∫ x, gm x * (cutoffNeg i m x * φ x))) atTop
+      (nhds (0 + ∫ x, w x * fderiv ℝ φ x (EuclideanSpace.single i (1 : ℝ)))) := by
+    simp_rw [← hAeqB]
+    exact hbdry.add hLHS
+  rw [zero_add] at hsum_lim
+  have hunique := tendsto_nhds_unique hsum_lim (hBP.add hBN).neg
+  have hBPlim_int : Integrable (fun x => if 0 < x i then gp x * φ x else 0) volume := by
+    refine (hgpφ_int.indicator hmsP).congr (Filter.Eventually.of_forall (fun x => ?_))
+    simp only [Set.indicator_apply, Set.mem_setOf_eq]
+  have hBNlim_int : Integrable (fun x => if x i < 0 then gm x * φ x else 0) volume := by
+    refine (hgnφ_int.indicator hmsN).congr (Filter.Eventually.of_forall (fun x => ?_))
+    simp only [Set.indicator_apply, Set.mem_setOf_eq]
+  have hcomb : (∫ x, (if 0 < x i then gp x * φ x else 0))
+      + (∫ x, (if x i < 0 then gm x * φ x else 0))
+      = ∫ x, (if 0 < x i then gp x else gm x) * φ x := by
+    rw [← integral_add hBPlim_int hBNlim_int]
+    refine integral_congr_ae ((ae_coord_ne_zero i).mono (fun x hx0 => ?_))
+    dsimp only
+    rcases lt_or_gt_of_ne hx0 with hlt | hgt
+    · rw [if_neg (not_lt.2 hlt.le), if_pos hlt, if_neg (not_lt.2 hlt.le), zero_add]
+    · rw [if_pos hgt, if_neg (not_lt.2 hgt.le), if_pos hgt, add_zero]
+  rw [hunique, ← hcomb]
+
+
 end Sobolev
