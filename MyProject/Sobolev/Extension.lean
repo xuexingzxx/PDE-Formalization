@@ -920,4 +920,40 @@ theorem isWeakDerivInDir_glue_normal (i : Fin n) {w gp gm : ℝⁿ → ℝ}
   rw [hunique, ← hcomb]
 
 
+
+/-- The reflection fixes points on the boundary hyperplane. -/
+theorem refll_fixes (i : Fin n) {x : ℝⁿ} (hx : x i = 0) : refll i x = x := by
+  ext k
+  rcases eq_or_ne k i with rfl | hk
+  · simp [hx]
+  · rw [refll_apply]; exact reflLin_apply_of_ne i x hk
+
+/-- The **even reflection** of `u` across `{xᵢ = 0}`: `u` on the upper half, `u ∘ refll` below. -/
+noncomputable def evenRefl (i : Fin n) (u : ℝⁿ → ℝ) (x : ℝⁿ) : ℝ :=
+  if 0 ≤ x i then u x else u (refll i x)
+
+theorem evenRefl_apply_upper (i : Fin n) (u : ℝⁿ → ℝ) {x : ℝⁿ} (hx : 0 ≤ x i) :
+    evenRefl i u x = u x := if_pos hx
+
+theorem evenRefl_apply_lower (i : Fin n) (u : ℝⁿ → ℝ) {x : ℝⁿ} (hx : x i < 0) :
+    evenRefl i u x = u (refll i x) := if_neg (not_le.2 hx)
+
+/-- The even reflection is invariant under the reflection (it is even). -/
+theorem evenRefl_even (i : Fin n) (u : ℝⁿ → ℝ) (x : ℝⁿ) :
+    evenRefl i u (refll i x) = evenRefl i u x := by
+  rcases lt_trichotomy (x i) 0 with h | h | h
+  · rw [evenRefl_apply_upper i u (show 0 ≤ (refll i x) i by rw [refll_apply_self]; linarith),
+      evenRefl_apply_lower i u h]
+  · rw [refll_fixes i h]
+  · rw [evenRefl_apply_lower i u (show (refll i x) i < 0 by rw [refll_apply_self]; linarith),
+      evenRefl_apply_upper i u h.le, show refll i (refll i x) = x from refll_involutive i x]
+
+/-- The even reflection of a continuous function is continuous. -/
+theorem continuous_evenRefl (i : Fin n) {u : ℝⁿ → ℝ} (hu : Continuous u) :
+    Continuous (evenRefl i u) :=
+  Continuous.if_le hu (hu.comp (contDiff_refll i).continuous) continuous_const
+    (EuclideanSpace.proj i).continuous
+    (fun x hx => by rw [refll_fixes i hx.symm])
+
+
 end Sobolev
