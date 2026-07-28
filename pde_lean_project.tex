@@ -2734,11 +2734,22 @@ level}.  Assembling ``$(\text{boundary})+(\text{tangential})=-(\text{RHS})$'' an
 the normal weak-derivative identity.  Thus weak differentiation is now handled across the flattened
 boundary in \emph{every} direction.
 
-\textbf{What remains.}  (i) Assembling tangential $+$ normal into ``the even reflection of a
-$C^1$-up-to-boundary function is $W^{1,p}$ with the reflected gradient and a norm bound'' --- which
-discharges the reflection-Lipschitz hypothesis of \texttt{isWeakDerivInDir\_glue\_normal} from local
-Lipschitzness of the $C^1$ datum.  (ii) Chart-flattening and a partition-of-unity gluing into the
-global operator $E$.
+\textbf{The half-space reflection extension.}  Assembling the tangential and normal glue with the
+classical derivative on the upper half (\texttt{isWeakDerivInDir\_of\_contDiff}) and the reflection
+change-of-variables on the lower half (\texttt{isWeakDerivInDir\_comp\_refll}) gives
+\texttt{isWeakDerivInDir\_evenRefl}: the even reflection $Eu$ of a $C^1$ function has, in every
+direction, the reflected weak gradient.  The reflection-Lipschitz hypothesis of the normal glue is
+discharged (\texttt{evenRefl\_reflLipschitz}) from the evenness of $Eu$ and a $C^1$ mean-value bound.
+Adding the $L^p$ estimate --- $Eu$ and its reflected gradient each split as
+$\mathbf 1_{\{x_i\ge0\}}\!\cdot(\text{datum})+\mathbf 1_{\{x_i<0\}}\!\cdot(\text{datum}\circ\texttt{refll})$,
+both $L^p$ since \texttt{refll} preserves Lebesgue measure --- yields \texttt{memW1p\_evenRefl}: a
+$C^1$ Sobolev function on a half-space extends across the flattened boundary to a genuine
+$W^{1,p}(\mathbb{R}^n)$ function.  This completes the \emph{local} reflection-extension model.
+
+\textbf{What remains.}  Chart-flattening a bounded $C^1$ domain and a partition-of-unity gluing of
+these local reflection extensions into the global bounded operator $E\colon W^{1,p}(\Omega)\to
+W^{1,p}(\mathbb{R}^n)$ --- the one substantial piece still ahead, requiring boundary-chart
+infrastructure the project does not yet have.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 6: Surface Measure and the General Divergence Theorem}
