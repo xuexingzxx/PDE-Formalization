@@ -524,4 +524,188 @@ theorem isWeakDerivInDir_glue_tangential (i j : Fin n) (hji : j ≠ i) {w gp gm 
   rw [hunique, ← hcomb]
 
 
+
+theorem deriv_smoothTransition_eq_zero_of_neg {s : ℝ} (hs : s < 0) :
+    deriv Real.smoothTransition s = 0 := by
+  have h : Real.smoothTransition =ᶠ[nhds s] (fun _ => 0) := by
+    filter_upwards [Iio_mem_nhds hs] with t ht using Real.smoothTransition.zero_of_nonpos ht.le
+  rw [h.deriv_eq]; simp
+
+theorem deriv_smoothTransition_eq_zero_of_gt_one {s : ℝ} (hs : 1 < s) :
+    deriv Real.smoothTransition s = 0 := by
+  have h : Real.smoothTransition =ᶠ[nhds s] (fun _ => 1) := by
+    filter_upwards [Ioi_mem_nhds hs] with t ht using Real.smoothTransition.one_of_one_le ht.le
+  rw [h.deriv_eq]; simp
+
+/-- `|s+1|·|sT'(s)|` is bounded: `sT'` is continuous with support in `[0,1]`. -/
+theorem exists_smoothTransition_deriv_bound :
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ s, |s + 1| * |deriv Real.smoothTransition s| ≤ B := by
+  have hcont : Continuous (fun s => (s + 1) * deriv Real.smoothTransition s) :=
+    (continuous_id.add continuous_const).mul
+      ((Real.smoothTransition.contDiff (n := (⊤ : ℕ∞))).continuous_deriv (by norm_num))
+  obtain ⟨C, hC⟩ := (isCompact_Icc (a := (0 : ℝ)) (b := 1)).exists_bound_of_continuousOn
+    hcont.continuousOn
+  refine ⟨max C 0, le_max_right _ _, fun s => ?_⟩
+  by_cases hs : s ∈ Set.Icc (0 : ℝ) 1
+  · calc |s + 1| * |deriv Real.smoothTransition s|
+        = ‖(s + 1) * deriv Real.smoothTransition s‖ := by rw [Real.norm_eq_abs, abs_mul]
+      _ ≤ C := hC s hs
+      _ ≤ max C 0 := le_max_left _ _
+  · rw [Set.mem_Icc, not_and_or, not_le, not_le] at hs
+    rcases hs with h | h
+    · rw [deriv_smoothTransition_eq_zero_of_neg h, abs_zero, mul_zero]; exact le_max_right _ _
+    · rw [deriv_smoothTransition_eq_zero_of_gt_one h, abs_zero, mul_zero]; exact le_max_right _ _
+
+/-- Closed form of the **normal** directional derivative of `cutoffPos`. -/
+theorem cutoffPos_fderiv_normal (i : Fin n) (m : ℕ) (x : ℝⁿ) :
+    fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))
+      = (m + 1 : ℝ) * deriv Real.smoothTransition ((m + 1 : ℝ) * x i - 1) := by
+  have hg' : HasFDerivAt (fun y : ℝⁿ => (m + 1 : ℝ) * y i - 1)
+      ((m + 1 : ℝ) • (EuclideanSpace.proj i : ℝⁿ →L[ℝ] ℝ)) x :=
+    (((EuclideanSpace.proj i : ℝⁿ →L[ℝ] ℝ).hasFDerivAt).const_mul (m + 1 : ℝ)).sub_const 1
+  have hst : HasDerivAt Real.smoothTransition
+      (deriv Real.smoothTransition ((m + 1 : ℝ) * x i - 1)) ((m + 1 : ℝ) * x i - 1) :=
+    ((Real.smoothTransition.contDiff (n := (⊤ : ℕ∞))).differentiable
+      (by norm_num)).differentiableAt.hasDerivAt
+  have hcomp : HasFDerivAt (cutoffPos i m)
+      (deriv Real.smoothTransition ((m + 1 : ℝ) * x i - 1)
+        • ((m + 1 : ℝ) • (EuclideanSpace.proj i : ℝⁿ →L[ℝ] ℝ))) x :=
+    hst.comp_hasFDerivAt x hg'
+  have hpe : ((m + 1 : ℝ) • (EuclideanSpace.proj i : ℝⁿ →L[ℝ] ℝ))
+      (EuclideanSpace.single i (1 : ℝ)) = (m + 1 : ℝ) := by
+    rw [ContinuousLinearMap.smul_apply]
+    change (m + 1 : ℝ) • ((EuclideanSpace.single i (1 : ℝ)) i) = (m + 1 : ℝ)
+    rw [PiLp.single_apply, if_pos rfl, smul_eq_mul, mul_one]
+  rw [hcomp.fderiv, ContinuousLinearMap.smul_apply, hpe, smul_eq_mul]; ring
+
+/-- Reflection symmetry of the **normal** cutoff derivative: `∂ᵢχ⁻ = -(∂ᵢχ⁺)∘refll`. -/
+theorem cutoffNeg_fderiv_normal (i : Fin n) (m : ℕ) (x : ℝⁿ) :
+    fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ))
+      = - fderiv ℝ (cutoffPos i m) (refll i x) (EuclideanSpace.single i (1 : ℝ)) := by
+  have hcomp : HasFDerivAt (cutoffNeg i m)
+      ((fderiv ℝ (cutoffPos i m) (refll i x)).comp
+        ((refll i).toContinuousLinearEquiv : ℝⁿ →L[ℝ] ℝⁿ)) x :=
+    ((cutoffPos_contDiff i m).differentiable (by norm_num) (refll i x)).hasFDerivAt.comp x
+      (refll i).toContinuousLinearEquiv.hasFDerivAt
+  rw [hcomp.fderiv, ContinuousLinearMap.comp_apply]
+  change fderiv ℝ (cutoffPos i m) (refll i x) (refll i (EuclideanSpace.single i (1 : ℝ))) = _
+  rw [refll_single, if_pos rfl, neg_one_smul, map_neg]
+
+/-- Continuity of the normal cutoff derivative (as a function of the base point). -/
+theorem continuous_cutoffPos_fderiv_normal (i : Fin n) (m : ℕ) :
+    Continuous (fun x => fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))) :=
+  ((cutoffPos_contDiff i m).continuous_fderiv (by norm_num)).clm_apply continuous_const
+
+/-- **Reflection-symmetry reformulation of the boundary term.** Combining `∂ᵢχ⁺` and `∂ᵢχ⁻` via the
+reflection symmetry and the measure-preserving substitution `x = refll i y` collapses the boundary
+term into a single integral against `∂ᵢχ⁺` of the reflection-difference `F - F∘refll`. -/
+theorem boundary_reformulation (i : Fin n) (m : ℕ) {F : ℝⁿ → ℝ}
+    (hFc : Continuous F) (hFs : HasCompactSupport F) :
+    ∫ x, F x * (fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))
+        + fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)))
+      = ∫ x, (F x - F (refll i x))
+          * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) := by
+  have hdc : Continuous (fun x => fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))) :=
+    continuous_cutoffPos_fderiv_normal i m
+  have hdcN : Continuous
+      (fun x => fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ))) := by
+    simp only [cutoffNeg_fderiv_normal]
+    exact (hdc.comp (contDiff_refll i).continuous).neg
+  have hint1 : Integrable (fun x => F x
+      * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))) volume :=
+    (hFc.mul hdc).integrable_of_hasCompactSupport hFs.mul_right
+  have hint2 : Integrable (fun x => F x
+      * fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ))) volume :=
+    (hFc.mul hdcN).integrable_of_hasCompactSupport hFs.mul_right
+  have hintR : Integrable (fun x => F (refll i x)
+      * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))) volume :=
+    ((hFc.comp (contDiff_refll i).continuous).mul hdc).integrable_of_hasCompactSupport
+      ((hFs.comp_homeomorph (refll i).toHomeomorph).mul_right)
+  have hsub : ∫ x, F x * fderiv ℝ (cutoffPos i m) (refll i x) (EuclideanSpace.single i (1 : ℝ))
+      = ∫ x, F (refll i x) * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) := by
+    have key := (refll_measurePreserving i).integral_comp (refll_measurableEmbedding i)
+      (fun y => F (refll i y) * fderiv ℝ (cutoffPos i m) y (EuclideanSpace.single i (1 : ℝ)))
+    have hinv : ∀ y, refll i (refll i y) = y := refll_involutive i
+    simp only [hinv] at key
+    exact key
+  have e1 : ∫ x, F x * (fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))
+        + fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)))
+      = (∫ x, F x * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)))
+        + ∫ x, F x * fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ)) := by
+    rw [← integral_add hint1 hint2]
+    exact integral_congr_ae (Filter.Eventually.of_forall (fun x => by ring))
+  have e2 : ∫ x, F x * fderiv ℝ (cutoffNeg i m) x (EuclideanSpace.single i (1 : ℝ))
+      = -∫ x, F (refll i x) * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ)) := by
+    rw [← hsub, ← integral_neg]
+    exact integral_congr_ae (Filter.Eventually.of_forall
+      (fun x => by simp only [cutoffNeg_fderiv_normal]; ring))
+  rw [e1, e2, ← sub_eq_add_neg, ← integral_sub hint1 hintR]
+  exact integral_congr_ae (Filter.Eventually.of_forall (fun x => by ring))
+
+/-- **The normal boundary term vanishes in the limit.** For `F` continuous with compact support and
+Lipschitz-in-`xᵢ` difference bound `|F x - F(refll x)| ≤ L·|xᵢ|`, the boundary-layer integral
+`∫ (F - F∘refll)·∂ᵢχ⁺_m → 0`.  The `(m+1)` blow-up of `∂ᵢχ⁺_m` is compensated by the
+`|xᵢ| ≲ 1/(m+1)` smallness of `F - F∘refll` on the cutoff's support, so a single `m`-independent
+dominating function `(L·B)·1_K` works and dominated convergence applies directly (no CoV). -/
+theorem boundary_tendsto_zero (i : Fin n) {F : ℝⁿ → ℝ}
+    (hFc : Continuous F) (hFs : HasCompactSupport F)
+    {L : ℝ} (hL0 : 0 ≤ L) (hL : ∀ x, |F x - F (refll i x)| ≤ L * |x i|) :
+    Tendsto (fun m => ∫ x, (F x - F (refll i x))
+        * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))) atTop (nhds 0) := by
+  obtain ⟨B, hB0, hB⟩ := exists_smoothTransition_deriv_bound
+  have hcs : HasCompactSupport (fun x => F x - F (refll i x)) :=
+    hFs.sub (hFs.comp_homeomorph (refll i).toHomeomorph)
+  set K := tsupport (fun x => F x - F (refll i x)) with hKdef
+  have hKc : IsCompact K := hcs
+  have hKm : MeasurableSet K := hKc.isClosed.measurableSet
+  have hdiffc : Continuous (fun x => F x - F (refll i x)) :=
+    hFc.sub (hFc.comp (contDiff_refll i).continuous)
+  have key : Tendsto (fun m => ∫ x, (F x - F (refll i x))
+      * fderiv ℝ (cutoffPos i m) x (EuclideanSpace.single i (1 : ℝ))) atTop
+      (nhds (∫ (_ : ℝⁿ), (0 : ℝ))) := by
+    refine tendsto_integral_of_dominated_convergence (K.indicator (fun _ => L * B))
+      (fun m => (hdiffc.mul (continuous_cutoffPos_fderiv_normal i m)).aestronglyMeasurable)
+      ((integrable_indicator_iff hKm).2 (integrableOn_const hKc.measure_lt_top.ne))
+      (fun m => Filter.Eventually.of_forall (fun x => ?_)) ?_
+    · by_cases hxK : x ∈ K
+      · rw [Set.indicator_of_mem hxK, cutoffPos_fderiv_normal, Real.norm_eq_abs, abs_mul,
+          abs_mul, abs_of_pos (show (0 : ℝ) < (m : ℝ) + 1 by positivity)]
+        calc |F x - F (refll i x)| * ((m + 1 : ℝ)
+              * |deriv Real.smoothTransition ((m + 1 : ℝ) * x i - 1)|)
+            ≤ (L * |x i|) * ((m + 1 : ℝ)
+              * |deriv Real.smoothTransition ((m + 1 : ℝ) * x i - 1)|) := by
+              gcongr; exact hL x
+          _ = L * (|(m + 1 : ℝ) * x i|
+              * |deriv Real.smoothTransition ((m + 1 : ℝ) * x i - 1)|) := by
+              rw [abs_mul, abs_of_pos (show (0 : ℝ) < (m : ℝ) + 1 by positivity)]; ring
+          _ ≤ L * B := by
+              refine mul_le_mul_of_nonneg_left ?_ hL0
+              have hb := hB ((m + 1 : ℝ) * x i - 1)
+              have he : (m + 1 : ℝ) * x i - 1 + 1 = (m + 1 : ℝ) * x i := by ring
+              rwa [he] at hb
+      · rw [Set.indicator_of_notMem hxK,
+          show F x - F (refll i x) = 0 from by_contra fun hne => hxK (subset_tsupport _ hne),
+          zero_mul, norm_zero]
+    · filter_upwards [ae_coord_ne_zero i] with x hx0
+      apply tendsto_const_nhds.congr'
+      rw [Filter.EventuallyEq, eventually_atTop]
+      have hz : ∀ᶠ m : ℕ in atTop,
+          deriv Real.smoothTransition (((m : ℝ) + 1) * x i - 1) = 0 := by
+        rcases lt_or_gt_of_ne hx0 with hlt | hgt
+        · refine Filter.Eventually.of_forall (fun m => deriv_smoothTransition_eq_zero_of_neg ?_)
+          have hm0 : (0 : ℝ) ≤ (m : ℝ) := Nat.cast_nonneg m
+          nlinarith [hm0, hlt]
+        · rw [eventually_atTop]
+          obtain ⟨M, hM⟩ := exists_nat_ge (2 / x i)
+          refine ⟨M, fun m hm => deriv_smoothTransition_eq_zero_of_gt_one ?_⟩
+          have hmM : (2 / x i) ≤ (m : ℝ) := hM.trans (by exact_mod_cast hm)
+          have hlt2 : (2 : ℝ) < ((m : ℝ) + 1) * x i := by
+            have := (div_le_iff₀ hgt).1 hmM; nlinarith [this]
+          linarith
+      obtain ⟨M, hM⟩ := eventually_atTop.1 hz
+      refine ⟨M, fun m hm => ?_⟩
+      simp only [cutoffPos_fderiv_normal, hM m hm, mul_zero]
+  simpa using key
+
+
 end Sobolev
