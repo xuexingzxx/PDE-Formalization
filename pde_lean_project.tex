@@ -2713,13 +2713,32 @@ Lebesgue-null (\texttt{volume\_hyperplane\_eq\_zero}, via \texttt{Measure.addHaa
 the tangential glue needs \emph{only} continuity of $w$, not matching of the one-sided derivatives:
 a jump in $w$ contributes to $\partial_i$, never to a tangential $\partial_j$.
 
-\textbf{What remains.}  (i) The \emph{normal} direction $j=i$, where $\partial_i\chi_m\ne0$ produces a
-boundary-layer term $\int w\,\varphi\,\partial_i\chi_m\to\pm\int_{\{x_i=0\}}w\varphi$ that cancels
-between the two sides precisely because $w$ is continuous across the interface; making this rigorous
-needs a Fubini integral in the $x_i$-marginal, for which Mathlib has no ready coarea/slicing lemma.
-(ii) Assembling tangential $+$ normal into ``the even reflection of a $C^1$-up-to-boundary function is
-$W^{1,p}$ with the reflected gradient and a norm bound''.  (iii) Chart-flattening and a
-partition-of-unity gluing into the global operator $E$.
+The \textbf{normal} direction $j=i$ (\texttt{isWeakDerivInDir\_glue\_normal}) is the harder case:
+now $\partial_i\chi_m\ne0$, so each one-sided integration-by-parts identity carries an extra boundary
+term $\int w\,(\partial_i\chi_m)\,\varphi$.  The naive estimate fails --- $\partial_i\chi_m$ blows up
+like $(m{+}1)$ near the interface --- and one initially expects to need a Fubini integral in the
+$x_i$-marginal (Mathlib has no ready coarea/slicing lemma).  The \emph{key simplification} that
+avoids all of that: combining the $\chi^+$ and $\chi^-$ boundary integrals through the reflection
+symmetry $\partial_i\chi^-_m=-(\partial_i\chi^+_m)\circ\texttt{refll}$ and the measure-preserving
+substitution $x=\texttt{refll}\,y$ collapses them (\texttt{boundary\_reformulation}) into a single
+integral $\int (F-F\circ\texttt{refll})\,\partial_i\chi^+_m$ with $F=w\varphi$.  This is now
+\emph{directly} amenable to dominated convergence (\texttt{boundary\_tendsto\_zero}), with no change of
+variables: on $\operatorname{supp}(\partial_i\chi^+_m)$ one has $(m{+}1)x_i\in[1,2]$, so
+$(m{+}1)\lvert x_i\rvert\le2$, and the Lipschitz-in-$x_i$ difference bound
+$\lvert F(x)-F(\texttt{refll}\,x)\rvert\le L\lvert x_i\rvert$ makes the integrand
+$\le L\lvert s{+}1\rvert\,\lvert\Phi'(s)\rvert\le L\!\cdot\!B$ ($s=(m{+}1)x_i-1$) --- an
+\emph{$m$-independent} dominator $(L\!\cdot\!B)\mathbf 1_K$.  The $(m{+}1)$ blow-up is killed by the
+$\lvert x_i\rvert\lesssim1/(m{+}1)$ smallness of $F-F\circ\texttt{refll}$ \emph{at the integrand
+level}.  Assembling ``$(\text{boundary})+(\text{tangential})=-(\text{RHS})$'' and passing to the limit
+(boundary $\to0$, tangential $\to\int w\,\partial_i\varphi$, RHS $\to\int(\text{glue})\varphi$) yields
+the normal weak-derivative identity.  Thus weak differentiation is now handled across the flattened
+boundary in \emph{every} direction.
+
+\textbf{What remains.}  (i) Assembling tangential $+$ normal into ``the even reflection of a
+$C^1$-up-to-boundary function is $W^{1,p}$ with the reflected gradient and a norm bound'' --- which
+discharges the reflection-Lipschitz hypothesis of \texttt{isWeakDerivInDir\_glue\_normal} from local
+Lipschitzness of the $C^1$ datum.  (ii) Chart-flattening and a partition-of-unity gluing into the
+global operator $E$.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 6: Surface Measure and the General Divergence Theorem}
