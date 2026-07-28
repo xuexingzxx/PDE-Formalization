@@ -11,7 +11,7 @@ are all available for the reflection-extension estimate that follows.
 -/
 
 open MeasureTheory Filter
-open scoped RealInnerProductSpace ContDiff Topology
+open scoped RealInnerProductSpace ContDiff Topology ENNReal
 
 namespace Sobolev
 
@@ -1044,6 +1044,62 @@ theorem isWeakDerivInDir_evenRefl (i j : Fin n) {u : ℝⁿ → ℝ} (hu : ContD
     exact isWeakDerivInDir_glue_normal j hcont hgp_loc hgm_loc hEu_p hEu_m
       (fun ψ hψ => evenRefl_reflLipschitz j hu.continuous hψ)
   · exact isWeakDerivInDir_glue_tangential i j hji hcont hgp_loc hgm_loc hEu_p hEu_m
+
+
+
+/-- **The even reflection lands in `W^{1,p}(ℝⁿ)` with the reflected weak gradient.** Given a `C¹`
+function `u` whose value and each partial derivative are `p`-integrable, its even reflection
+`evenRefl i u` is in `W^{1,p}(ℝⁿ)`. The weak gradient is `isWeakDerivInDir_evenRefl`; the `Lᵖ`
+memberships follow by splitting into the two half-spaces, using that `refll` preserves Lebesgue
+measure (so `∫|evenRefl|ᵖ = 2∫_{xᵢ>0}|u|ᵖ`, and likewise for the reflected gradient). -/
+theorem memW1p_evenRefl (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hu : ContDiff ℝ 1 u)
+    (hmem : MemLp u p volume)
+    (hmemD : ∀ j, MemLp (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) p volume) :
+    MemW1p Set.univ p (evenRefl i u) := by
+  have hmsGe : MeasurableSet {x : ℝⁿ | 0 ≤ x i} :=
+    measurableSet_le measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsLt : MeasurableSet {x : ℝⁿ | x i < 0} :=
+    measurableSet_lt (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsLe : MeasurableSet {x : ℝⁿ | x i ≤ 0} :=
+    measurableSet_le (EuclideanSpace.proj i).continuous.measurable measurable_const
+  -- `evenRefl i u ∈ Lᵖ`.
+  have hmemE : MemLp (evenRefl i u) p volume := by
+    have hmemR : MemLp (fun x => u (refll i x)) p volume :=
+      hmem.comp_measurePreserving (refll_measurePreserving i)
+    have heq : evenRefl i u = fun x => {x : ℝⁿ | 0 ≤ x i}.indicator u x
+        + {x : ℝⁿ | x i < 0}.indicator (fun y => u (refll i y)) x := by
+      funext x
+      simp only [Set.indicator_apply, Set.mem_setOf_eq]
+      by_cases hx : 0 ≤ x i
+      · rw [evenRefl_apply_upper i u hx, if_pos hx, if_neg (not_lt.2 hx), add_zero]
+      · rw [evenRefl_apply_lower i u (not_le.1 hx), if_neg hx, if_pos (not_le.1 hx), zero_add]
+    rw [heq]; exact (hmem.indicator hmsGe).add (hmemR.indicator hmsLt)
+  refine ⟨by rw [Measure.restrict_univ]; exact hmemE, fun j => ?_⟩
+  refine ⟨fun x => if 0 < x i then fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))
+      else (if j = i then (-1 : ℝ) else 1)
+        * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ)),
+      isWeakDerivInDir_evenRefl i j hu, ?_⟩
+  rw [Measure.restrict_univ]
+  have hmemDR : MemLp (fun x => (if j = i then (-1 : ℝ) else 1)
+      * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) p volume :=
+    ((hmemD j).comp_measurePreserving (refll_measurePreserving i)).const_mul _
+  have heqv : (fun x => if 0 < x i then fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))
+      else (if j = i then (-1 : ℝ) else 1)
+        * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ)))
+      = fun x => {x : ℝⁿ | 0 < x i}.indicator
+          (fun y => fderiv ℝ u y (EuclideanSpace.single j (1 : ℝ))) x
+        + {x : ℝⁿ | x i ≤ 0}.indicator
+          (fun y => (if j = i then (-1 : ℝ) else 1)
+            * fderiv ℝ u (refll i y) (EuclideanSpace.single j (1 : ℝ))) x := by
+    funext x
+    simp only [Set.indicator_apply, Set.mem_setOf_eq]
+    by_cases hx : 0 < x i
+    · rw [if_pos hx, if_pos hx, if_neg (not_le.2 hx), add_zero]
+    · rw [if_neg hx, if_neg hx, if_pos (not_lt.1 hx), zero_add]
+  rw [heqv]
+  exact ((hmemD j).indicator hmsGt).add (hmemDR.indicator hmsLe)
 
 
 end Sobolev
