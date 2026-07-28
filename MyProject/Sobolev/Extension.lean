@@ -956,4 +956,94 @@ theorem continuous_evenRefl (i : Fin n) {u : ℝⁿ → ℝ} (hu : Continuous u)
     (fun x hx => by rw [refll_fixes i hx.symm])
 
 
+
+theorem norm_sub_refll (i : Fin n) (x : ℝⁿ) : ‖x - refll i x‖ = 2 * |x i| := by
+  have hxr : x - refll i x = (2 * x i) • EuclideanSpace.single i (1 : ℝ) := by
+    rw [refll_apply]
+    simp only [reflLin, LinearMap.coe_mk, AddHom.coe_mk]
+    abel
+  rw [hxr, norm_smul, PiLp.norm_single, Real.norm_eq_abs, norm_one, mul_one, abs_mul]
+  norm_num
+
+/-- The reflection-Lipschitz bound on `(evenRefl i u)·φ` needed by `isWeakDerivInDir_glue_normal`:
+since the even reflection is `refll`-invariant, the difference is `evenRefl·(φ − φ∘refll)`, and `φ`
+smooth gives `|φ − φ∘refll| ≤ C·2|xᵢ|`. -/
+theorem evenRefl_reflLipschitz (i : Fin n) {u : ℝⁿ → ℝ} (hu : Continuous u)
+    {φ : ℝⁿ → ℝ} (hφ : IsTestFunction Set.univ φ) :
+    ∃ L : ℝ, 0 ≤ L ∧ ∀ x, |evenRefl i u x * φ x - evenRefl i u (refll i x) * φ (refll i x)|
+      ≤ L * |x i| := by
+  have hcont : Continuous (evenRefl i u) := continuous_evenRefl i hu
+  obtain ⟨Cf, hCf'⟩ : ∃ C : ℝ, ∀ x, ‖‖fderiv ℝ φ x‖‖ ≤ C :=
+    (hφ.contDiff.continuous_fderiv (by norm_num)).norm.bounded_above_of_compact_support
+      (hφ.hasCompactSupport.fderiv ℝ).norm
+  have hCf : ∀ x, ‖fderiv ℝ φ x‖ ≤ Cf := fun x => by rw [← norm_norm]; exact hCf' x
+  have hCf0 : 0 ≤ Cf := (norm_nonneg _).trans (hCf 0)
+  have hφdiff : ∀ x, |φ x - φ (refll i x)| ≤ Cf * (2 * |x i|) := by
+    intro x
+    have h := Convex.norm_image_sub_le_of_norm_fderiv_le (fun z _ => hφ.differentiable z)
+      (fun z _ => hCf z) convex_univ (Set.mem_univ x) (Set.mem_univ (refll i x))
+    rwa [Real.norm_eq_abs, abs_sub_comm, norm_sub_rev, norm_sub_refll] at h
+  obtain ⟨M, hM⟩ := IsCompact.exists_bound_of_continuousOn
+    (hφ.hasCompactSupport.sub (hφ.hasCompactSupport.comp_homeomorph (refll i).toHomeomorph))
+    hcont.continuousOn
+  refine ⟨2 * max M 0 * Cf,
+    mul_nonneg (mul_nonneg (by norm_num) (le_max_right _ _)) hCf0, fun x => ?_⟩
+  rw [evenRefl_even i u x,
+    show evenRefl i u x * φ x - evenRefl i u x * φ (refll i x)
+      = evenRefl i u x * (φ x - φ (refll i x)) from by ring, abs_mul]
+  by_cases hxs : x ∈ tsupport (fun x => φ x - φ (refll i x))
+  · have hev : |evenRefl i u x| ≤ max M 0 := by
+      rw [← Real.norm_eq_abs]; exact (hM x hxs).trans (le_max_left _ _)
+    calc |evenRefl i u x| * |φ x - φ (refll i x)|
+        ≤ (max M 0) * (Cf * (2 * |x i|)) :=
+          mul_le_mul hev (hφdiff x) (abs_nonneg _) (le_max_right _ _)
+      _ = 2 * max M 0 * Cf * |x i| := by ring
+  · rw [image_eq_zero_of_notMem_tsupport hxs, abs_zero, mul_zero]
+    exact mul_nonneg (mul_nonneg (mul_nonneg (by norm_num) (le_max_right _ _)) hCf0) (abs_nonneg _)
+
+/-- **The even reflection of a `C¹` function has the reflected weak gradient.** For `u ∈ C¹`, the
+even reflection `evenRefl i u` is weakly differentiable in every direction `eⱼ` across `{xᵢ = 0}`,
+with derivative the even reflection of `∂ⱼu` for tangential `j` and its odd reflection for `j = i`.
+Assembled from the classical derivative on the upper half, the reflection change-of-variables on the
+lower half, and the tangential / normal gluing theorems. -/
+theorem isWeakDerivInDir_evenRefl (i j : Fin n) {u : ℝⁿ → ℝ} (hu : ContDiff ℝ 1 u) :
+    IsWeakDerivInDir Set.univ (EuclideanSpace.single j (1 : ℝ)) (evenRefl i u)
+      (fun x => if 0 < x i then fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))
+        else (if j = i then (-1 : ℝ) else 1)
+          * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) := by
+  have hcont : Continuous (evenRefl i u) := continuous_evenRefl i hu.continuous
+  have hmsP : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsN : MeasurableSet {x : ℝⁿ | x i < 0} :=
+    measurableSet_lt (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have hu_wd : IsWeakDerivInDir Set.univ (EuclideanSpace.single j (1 : ℝ)) u
+      (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) :=
+    isWeakDerivInDir_of_contDiff _ _ hu
+  have hgp_loc : LocallyIntegrable
+      (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) volume :=
+    ((hu.continuous_fderiv (by norm_num)).clm_apply continuous_const).locallyIntegrable
+  have hgm_loc : LocallyIntegrable (fun x => (if j = i then (-1 : ℝ) else 1)
+      * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) volume :=
+    (continuous_const.mul
+      (((hu.continuous_fderiv (by norm_num)).clm_apply continuous_const).comp
+        (contDiff_refll i).continuous)).locallyIntegrable
+  have hEu_p : IsWeakDerivInDir {x : ℝⁿ | 0 < x i} (EuclideanSpace.single j (1 : ℝ)) (evenRefl i u)
+      (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) := by
+    refine (hu_wd.mono (Set.subset_univ _)).congr_ae_restrict hmsP ?_ Filter.EventuallyEq.rfl
+    exact (ae_restrict_iff' hmsP).2 (Filter.Eventually.of_forall
+      (fun x hx => (evenRefl_apply_upper i u (le_of_lt hx)).symm))
+  have hEu_m : IsWeakDerivInDir {x : ℝⁿ | x i < 0} (EuclideanSpace.single j (1 : ℝ)) (evenRefl i u)
+      (fun x => (if j = i then (-1 : ℝ) else 1)
+        * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) := by
+    have hcomp := isWeakDerivInDir_comp_refll i j (hu_wd.mono (Set.subset_univ _))
+    refine hcomp.congr_ae_restrict hmsN ?_ Filter.EventuallyEq.rfl
+    exact (ae_restrict_iff' hmsN).2 (Filter.Eventually.of_forall
+      (fun x hx => (evenRefl_apply_lower i u hx).symm))
+  rcases eq_or_ne j i with hji | hji
+  · subst hji
+    exact isWeakDerivInDir_glue_normal j hcont hgp_loc hgm_loc hEu_p hEu_m
+      (fun ψ hψ => evenRefl_reflLipschitz j hu.continuous hψ)
+  · exact isWeakDerivInDir_glue_tangential i j hji hcont hgp_loc hgm_loc hEu_p hEu_m
+
+
 end Sobolev
