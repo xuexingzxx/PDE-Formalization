@@ -418,6 +418,35 @@ theorem MemW1p.mono {U V : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hV
     obtain ⟨v, hv, hvLp⟩ := h.exists_weakDeriv i
     exact ⟨v, hv.mono hVU, hvLp.mono_measure (Measure.restrict_mono hVU le_rfl)⟩
 
+/-- **`W^{1,p}(U)` is closed under addition** (its weak gradient is additive). -/
+theorem MemW1p.add {U : Set ℝⁿ} (hU : MeasurableSet U) {p : ℝ≥0∞} [Fact (1 ≤ p)] {u v : ℝⁿ → ℝ}
+    (hu : MemW1p U p u) (hv : MemW1p U p v) : MemW1p U p (fun x => u x + v x) where
+  memLp := hu.memLp.add hv.memLp
+  exists_weakDeriv i := by
+    obtain ⟨wu, hwu, hwuLp⟩ := hu.exists_weakDeriv i
+    obtain ⟨wv, hwv, hwvLp⟩ := hv.exists_weakDeriv i
+    exact ⟨fun x => wu x + wv x,
+      IsWeakDerivInDir.add_restrict hU (hu.memLp.locallyIntegrable Fact.out)
+        (hv.memLp.locallyIntegrable Fact.out) (hwuLp.locallyIntegrable Fact.out)
+        (hwvLp.locallyIntegrable Fact.out) hwu hwv,
+      hwuLp.add hwvLp⟩
+
+/-- **`W^{1,p}(U)` is closed under scalar multiplication.** -/
+theorem MemW1p.const_smul {U : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hu : MemW1p U p u) (c : ℝ) :
+    MemW1p U p (fun x => c * u x) where
+  memLp := hu.memLp.const_mul c
+  exists_weakDeriv i := by
+    obtain ⟨w, hw, hwLp⟩ := hu.exists_weakDeriv i
+    exact ⟨fun x => c * w x, IsWeakDerivInDir.const_smul c hw, hwLp.const_mul c⟩
+
+/-- **`W^{1,p}(U)` is closed under negation.** -/
+theorem MemW1p.neg {U : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hu : MemW1p U p u) :
+    MemW1p U p (fun x => -u x) where
+  memLp := hu.memLp.neg
+  exists_weakDeriv i := by
+    obtain ⟨w, hw, hwLp⟩ := hu.exists_weakDeriv i
+    exact ⟨fun x => -w x, hw.neg, hwLp.neg⟩
+
 /-! ### Closedness of the weak derivative under limits (towards completeness) -/
 
 open Filter
