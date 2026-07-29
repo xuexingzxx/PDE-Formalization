@@ -1146,4 +1146,62 @@ theorem eLpNorm_evenRefl_le (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (h
     _ = 2 * eLpNorm u p volume := by rw [hcomp, two_mul]
 
 
+
+/-- Abstract `Lᵖ` bound for a normal-glue-shaped function `x ↦ if 0 < xᵢ then g x else B x`, when
+the lower branch `B` has the same `Lᵖ` norm as `g`.  Stated over abstract `g, B` so the elaborator
+never unfolds `eLpNorm` on the concrete reflected-derivative terms of the application. -/
+theorem eLpNorm_normalGlue_le (i : Fin n) {p : ℝ≥0∞} (hp : 1 ≤ p) {g B : ℝⁿ → ℝ}
+    (hg : AEStronglyMeasurable g volume) (hB : AEStronglyMeasurable B volume)
+    (hBg : eLpNorm B p volume = eLpNorm g p volume) :
+    eLpNorm (fun x => if 0 < x i then g x else B x) p volume ≤ 2 * eLpNorm g p volume := by
+  have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsLe : MeasurableSet {x : ℝⁿ | x i ≤ 0} :=
+    measurableSet_le (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have heqv : (fun x => if 0 < x i then g x else B x)
+      = fun x => {x : ℝⁿ | 0 < x i}.indicator g x + {x : ℝⁿ | x i ≤ 0}.indicator B x := by
+    funext x
+    simp only [Set.indicator_apply, Set.mem_setOf_eq]
+    by_cases hx : 0 < x i
+    · rw [if_pos hx, if_pos hx, if_neg (not_le.2 hx), add_zero]
+    · rw [if_neg hx, if_neg hx, if_pos (not_lt.1 hx), zero_add]
+  rw [heqv]
+  calc eLpNorm (fun x => {x : ℝⁿ | 0 < x i}.indicator g x
+          + {x : ℝⁿ | x i ≤ 0}.indicator B x) p volume
+      ≤ eLpNorm ({x : ℝⁿ | 0 < x i}.indicator g) p volume
+        + eLpNorm ({x : ℝⁿ | x i ≤ 0}.indicator B) p volume :=
+        eLpNorm_add_le (hg.indicator hmsGt) (hB.indicator hmsLe) hp
+    _ ≤ eLpNorm g p volume + eLpNorm B p volume :=
+        add_le_add (eLpNorm_indicator_le g) (eLpNorm_indicator_le B)
+    _ = 2 * eLpNorm g p volume := by rw [hBg, two_mul]
+
+/-- **Lᵖ operator bound for the even reflection's weak gradient.** The reflected `eⱼ`-derivative of
+`evenRefl i u` (from `isWeakDerivInDir_evenRefl`) has `Lᵖ` norm at most `2‖∂ⱼu‖_p`.  The reflected
+lower branch is rewritten into composition form `(·) ∘ refll` *before* any `eLpNorm` step, so
+`refll` never leaks into an `eLpNorm` defeq check (which otherwise diverges). -/
+theorem eLpNorm_evenRefl_grad_le (i j : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp : 1 ≤ p)
+    (hg : AEStronglyMeasurable
+      (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) volume) :
+    eLpNorm (fun x => if 0 < x i then fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))
+        else (if j = i then (-1 : ℝ) else 1)
+          * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) p volume
+      ≤ 2 * eLpNorm (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) p volume := by
+  have hB : AEStronglyMeasurable (fun x => (if j = i then (-1 : ℝ) else 1)
+      * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) volume :=
+    (hg.comp_measurePreserving (refll_measurePreserving i)).const_mul _
+  have hBnorm : eLpNorm (fun x => (if j = i then (-1 : ℝ) else 1)
+        * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) p volume
+      = eLpNorm (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) p volume := by
+    have hfun : (fun x => (if j = i then (-1 : ℝ) else 1)
+          * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ)))
+        = (fun y => (if j = i then (-1 : ℝ) else 1)
+          * fderiv ℝ u y (EuclideanSpace.single j (1 : ℝ))) ∘ refll i := rfl
+    rw [hfun, eLpNorm_comp_measurePreserving (hg.const_mul _) (refll_measurePreserving i)]
+    split_ifs with h
+    · simp only [neg_one_mul]
+      exact eLpNorm_neg (fun y => fderiv ℝ u y (EuclideanSpace.single j (1 : ℝ))) p volume
+    · simp only [one_mul]
+  exact eLpNorm_normalGlue_le i hp hg hB hBnorm
+
+
 end Sobolev
