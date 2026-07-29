@@ -2744,7 +2744,16 @@ Adding the $L^p$ estimate --- $Eu$ and its reflected gradient each split as
 $\mathbf 1_{\{x_i\ge0\}}\!\cdot(\text{datum})+\mathbf 1_{\{x_i<0\}}\!\cdot(\text{datum}\circ\texttt{refll})$,
 both $L^p$ since \texttt{refll} preserves Lebesgue measure --- yields \texttt{memW1p\_evenRefl}: a
 $C^1$ Sobolev function on a half-space extends across the flattened boundary to a genuine
-$W^{1,p}(\mathbb{R}^n)$ function.  This completes the \emph{local} reflection-extension model.
+$W^{1,p}(\mathbb{R}^n)$ function.  The extension is moreover \emph{linear}
+(\texttt{evenRefl\_add}/\texttt{\_smul}) and \emph{bounded by $2$} in each seminorm ---
+\texttt{eLpNorm\_evenRefl\_le} for the function and \texttt{eLpNorm\_evenRefl\_grad\_le} for every
+reflected gradient component (triangle inequality $+$ indicator bound $+$ \texttt{refll}-invariance of
+the $L^p$ norm).  A subtlety in the gradient bound: naively feeding $\texttt{eLpNorm}$ a term
+containing $\texttt{fderiv}\,u\,(\texttt{refll}\,i\,\cdot)$ makes \texttt{isDefEq} diverge (it unfolds
+$\texttt{eLpNorm}$ and then \texttt{refll} without bound); rewriting the reflected branch into
+composition form $(\cdot)\circ\texttt{refll}\,i$ by a function-level \texttt{rfl} \emph{before} the
+norm step keeps every $\texttt{eLpNorm}$ match syntactic and avoids it.  This completes the
+\emph{local} reflection-extension model as a bounded linear operator.
 
 \textbf{What remains.}  Chart-flattening a bounded $C^1$ domain and a partition-of-unity gluing of
 these local reflection extensions into the global bounded operator $E\colon W^{1,p}(\Omega)\to
