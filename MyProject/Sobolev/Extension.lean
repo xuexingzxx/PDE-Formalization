@@ -1102,4 +1102,48 @@ theorem memW1p_evenRefl (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hu : 
   exact ((hmemD j).indicator hmsGt).add (hmemDR.indicator hmsLe)
 
 
+
+/-- The even reflection is additive. -/
+theorem evenRefl_add (i : Fin n) (u v : ℝⁿ → ℝ) :
+    evenRefl i (fun x => u x + v x) = fun x => evenRefl i u x + evenRefl i v x := by
+  funext x; simp only [evenRefl]; split_ifs <;> rfl
+
+/-- The even reflection is homogeneous. -/
+theorem evenRefl_smul (i : Fin n) (c : ℝ) (u : ℝⁿ → ℝ) :
+    evenRefl i (fun x => c * u x) = fun x => c * evenRefl i u x := by
+  funext x; simp only [evenRefl]; split_ifs <;> rfl
+
+/-- **Lᵖ operator bound for the even reflection.** `‖evenRefl i u‖_p ≤ 2‖u‖_p`, so the reflection
+extension is a bounded operator on `Lᵖ` (`1 ≤ p`). Proof: `evenRefl` splits as the sum of `u` and
+`u ∘ refll` restricted to the two half-spaces; the triangle inequality, the indicator bound, and the
+`refll`-invariance of the `Lᵖ` norm give the factor `2`. -/
+theorem eLpNorm_evenRefl_le (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp : 1 ≤ p)
+    (hu : AEStronglyMeasurable u volume) :
+    eLpNorm (evenRefl i u) p volume ≤ 2 * eLpNorm u p volume := by
+  have hmsGe : MeasurableSet {x : ℝⁿ | 0 ≤ x i} :=
+    measurableSet_le measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsLt : MeasurableSet {x : ℝⁿ | x i < 0} :=
+    measurableSet_lt (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have heq : evenRefl i u = fun x => {x : ℝⁿ | 0 ≤ x i}.indicator u x
+      + {x : ℝⁿ | x i < 0}.indicator (fun y => u (refll i y)) x := by
+    funext x
+    simp only [Set.indicator_apply, Set.mem_setOf_eq]
+    by_cases hx : 0 ≤ x i
+    · rw [evenRefl_apply_upper i u hx, if_pos hx, if_neg (not_lt.2 hx), add_zero]
+    · rw [evenRefl_apply_lower i u (not_le.1 hx), if_neg hx, if_pos (not_le.1 hx), zero_add]
+  have hAr : AEStronglyMeasurable (fun y => u (refll i y)) volume :=
+    hu.comp_measurePreserving (refll_measurePreserving i)
+  have hcomp : eLpNorm (fun y => u (refll i y)) p volume = eLpNorm u p volume :=
+    eLpNorm_comp_measurePreserving hu (refll_measurePreserving i)
+  rw [heq]
+  calc eLpNorm (fun x => {x : ℝⁿ | 0 ≤ x i}.indicator u x
+        + {x : ℝⁿ | x i < 0}.indicator (fun y => u (refll i y)) x) p volume
+      ≤ eLpNorm ({x : ℝⁿ | 0 ≤ x i}.indicator u) p volume
+        + eLpNorm ({x : ℝⁿ | x i < 0}.indicator (fun y => u (refll i y))) p volume :=
+        eLpNorm_add_le (hu.indicator hmsGe) (hAr.indicator hmsLt) hp
+    _ ≤ eLpNorm u p volume + eLpNorm (fun y => u (refll i y)) p volume :=
+        add_le_add (eLpNorm_indicator_le u) (eLpNorm_indicator_le _)
+    _ = 2 * eLpNorm u p volume := by rw [hcomp, two_mul]
+
+
 end Sobolev
