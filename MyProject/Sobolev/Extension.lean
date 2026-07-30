@@ -1276,4 +1276,47 @@ theorem MemW1p.comp_refll (i : Fin n) {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hu 
       exact (hmvj.comp_measurePreserving (refll_measurePreserving i)).const_mul _
 
 
+
+/-- **Translation invariance of the weak derivative.** If `v` is the weak `e`-derivative of `u`,
+then `v(· + t)` is the weak `e`-derivative of `u(· + t)`.  The affine analogue of
+`isWeakDerivInDir_comp_linear`: translation is measure-preserving and its derivative is the
+identity, so the direction is unchanged.  A building block for `Lᵖ`/`W^{1,p}` translation-continuity
+(the boundary-density argument for the half-space extension). -/
+theorem isWeakDerivInDir_comp_translate (t : ℝⁿ) (e : ℝⁿ) {u v : ℝⁿ → ℝ}
+    (h : IsWeakDerivInDir Set.univ e u v) :
+    IsWeakDerivInDir Set.univ e (fun x => u (x + t)) (fun x => v (x + t)) := by
+  intro φ hφ
+  simp only []
+  have hmp : MeasurePreserving (fun x : ℝⁿ => x + t) volume volume :=
+    measurePreserving_add_right volume t
+  have hme : MeasurableEmbedding (fun x : ℝⁿ => x + t) :=
+    (Homeomorph.addRight t).measurableEmbedding
+  -- `ψ = φ(· - t)` is a test function.
+  have hψ : IsTestFunction Set.univ (fun z => φ (z - t)) :=
+    ⟨hφ.contDiff.comp ((contDiff_id).sub contDiff_const),
+      hφ.hasCompactSupport.comp_homeomorph (Homeomorph.subRight t), Set.subset_univ _⟩
+  -- Chain rule: `∂_e φ` at `y - t` equals `∂_e ψ` at `y` (translation derivative is the identity).
+  have hpt : ∀ y, fderiv ℝ φ (y - t) e = fderiv ℝ (fun z => φ (z - t)) y e := by
+    intro y
+    have hcomp : HasFDerivAt (fun z => φ (z - t)) (fderiv ℝ φ (y - t)) y := by
+      have := (hφ.differentiable (y - t)).hasFDerivAt.comp y
+        ((hasFDerivAt_id y).sub_const t)
+      simpa using this
+    rw [hcomp.fderiv]
+  -- Change variables `x = y - t` on both sides via measure-preservation of translation.
+  have hcovL : ∫ x, u (x + t) * fderiv ℝ φ x e = ∫ y, u y * fderiv ℝ φ (y - t) e := by
+    have key := hmp.integral_comp hme (fun y => u y * fderiv ℝ φ (y - t) e)
+    simp only [add_sub_cancel_right] at key
+    exact key
+  have hcovR : ∫ x, v (x + t) * φ x = ∫ y, v y * φ (y - t) := by
+    have key := hmp.integral_comp hme (fun y => v y * φ (y - t))
+    simp only [add_sub_cancel_right] at key
+    exact key
+  rw [hcovL,
+    show (∫ y, u y * fderiv ℝ φ (y - t) e)
+      = ∫ y, u y * fderiv ℝ (fun z => φ (z - t)) y e from
+      integral_congr_ae (Filter.Eventually.of_forall (fun y => by simp only [hpt y])),
+    h _ hψ, ← hcovR]
+
+
 end Sobolev
