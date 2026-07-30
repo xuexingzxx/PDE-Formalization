@@ -191,6 +191,52 @@ theorem IsWeakDerivInDir.neg {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ
   have he := h φ hφ
   simp only [neg_mul, integral_neg, he, neg_neg]
 
+/-- The weak derivative is homogeneous in the **direction**: a weak `e`-derivative scales to a weak
+`(c • e)`-derivative. -/
+theorem IsWeakDerivInDir.dir_smul {U : Set ℝⁿ} (c : ℝ) {e : ℝⁿ} {u v : ℝⁿ → ℝ}
+    (h : IsWeakDerivInDir U e u v) : IsWeakDerivInDir U (c • e) u (fun x => c * v x) := by
+  intro φ hφ
+  simp only []
+  have key := h φ hφ
+  have hLHS : (∫ x, u x * fderiv ℝ φ x (c • e)) = c * ∫ x, u x * fderiv ℝ φ x e := by
+    rw [← integral_const_mul]
+    refine integral_congr_ae (Filter.Eventually.of_forall (fun x => ?_))
+    simp only [map_smul, smul_eq_mul]; ring
+  have hRHS : (∫ x, c * v x * φ x) = c * ∫ x, v x * φ x := by
+    rw [← integral_const_mul]
+    exact integral_congr_ae (Filter.Eventually.of_forall (fun x => by ring))
+  rw [hLHS, hRHS, key, mul_neg]
+
+/-- The weak derivative is additive in the **direction**: weak `e`- and `e'`-derivatives of the same
+`u` add to a weak `(e + e')`-derivative. -/
+theorem IsWeakDerivInDir.dir_add_restrict {U : Set ℝⁿ} (hU : MeasurableSet U) {e e' : ℝⁿ}
+    {u v v' : ℝⁿ → ℝ} (hu : LocallyIntegrable u (volume.restrict U))
+    (hv : LocallyIntegrable v (volume.restrict U)) (hv' : LocallyIntegrable v' (volume.restrict U))
+    (h : IsWeakDerivInDir U e u v) (h' : IsWeakDerivInDir U e' u v') :
+    IsWeakDerivInDir U (e + e') u (fun x => v x + v' x) := by
+  intro φ hφ
+  simp only []
+  have ke := h φ hφ
+  have ke' := h' φ hφ
+  have hsplit_lhs : ∫ x, u x * fderiv ℝ φ x (e + e')
+      = (∫ x, u x * fderiv ℝ φ x e) + ∫ x, u x * fderiv ℝ φ x e' := by
+    have hpt : ∀ x, u x * fderiv ℝ φ x (e + e')
+        = u x * fderiv ℝ φ x e + u x * fderiv ℝ φ x e' := fun x => by rw [map_add]; ring
+    simp_rw [hpt]
+    exact integral_add
+      (integrable_mul_of_locallyIntegrable_restrict hU hu (hφ.continuous_dirDeriv e)
+        (hφ.hasCompactSupport_dirDeriv e) fun x hx => hφ.dirDeriv_eq_zero_of_notMem e hx)
+      (integrable_mul_of_locallyIntegrable_restrict hU hu (hφ.continuous_dirDeriv e')
+        (hφ.hasCompactSupport_dirDeriv e') fun x hx => hφ.dirDeriv_eq_zero_of_notMem e' hx)
+  have hsplit_rhs : ∫ x, (v x + v' x) * φ x = (∫ x, v x * φ x) + ∫ x, v' x * φ x := by
+    simp_rw [add_mul]
+    exact integral_add
+      (integrable_mul_of_locallyIntegrable_restrict hU hv hφ.continuous hφ.hasCompactSupport
+        fun x hx => hφ.eq_zero_of_notMem hx)
+      (integrable_mul_of_locallyIntegrable_restrict hU hv' hφ.continuous hφ.hasCompactSupport
+        fun x hx => hφ.eq_zero_of_notMem hx)
+  rw [hsplit_lhs, hsplit_rhs, ke, ke', neg_add]
+
 /-- The weak derivative is subtractive: if `v₁, v₂` are weak `e`-derivatives of `u₁, u₂`, then
 `v₁ - v₂` is a weak `e`-derivative of `u₁ - u₂`. -/
 theorem IsWeakDerivInDir.sub {U : Set ℝⁿ} {e : ℝⁿ} {u₁ u₂ v₁ v₂ : ℝⁿ → ℝ}
