@@ -1204,4 +1204,51 @@ theorem eLpNorm_evenRefl_grad_le (i j : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0
   exact eLpNorm_normalGlue_le i hp hg hB hBnorm
 
 
+
+/-- **Linear change of variables for weak derivatives.** For a linear isometry `L` of `ℝⁿ`, if `v`
+is the weak `(L e)`-derivative of `u`, then `v ∘ L` is the weak `e`-derivative of `u ∘ L`.  This
+generalizes `isWeakDerivInDir_comp_refll` (the reflection case) to an arbitrary linear isometry: the
+substitution `x = L⁻¹ y`, which preserves Lebesgue measure, together with the chain rule
+`∂_e(φ ∘ L⁻¹) = ∂_{L e}φ ∘ L⁻¹`, transports the weak-derivative identity through `L`. -/
+theorem isWeakDerivInDir_comp_linear (L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) (e : ℝⁿ) {u v : ℝⁿ → ℝ}
+    (h : IsWeakDerivInDir Set.univ (L e) u v) :
+    IsWeakDerivInDir Set.univ e (fun x => u (L x)) (fun x => v (L x)) := by
+  intro φ hφ
+  simp only []
+  have hLmp : MeasurePreserving (L : ℝⁿ → ℝⁿ) volume volume := L.measurePreserving
+  have hLme : MeasurableEmbedding (L : ℝⁿ → ℝⁿ) := L.toHomeomorph.measurableEmbedding
+  have hinvsymm : ∀ x, L.symm (L x) = x := L.symm_apply_apply
+  -- `ψ = φ ∘ L.symm` is a test function.
+  have hψ : IsTestFunction Set.univ (fun z => φ (L.symm z)) :=
+    ⟨hφ.contDiff.comp L.symm.toContinuousLinearEquiv.contDiff,
+      hφ.hasCompactSupport.comp_homeomorph L.symm.toHomeomorph, Set.subset_univ _⟩
+  -- Chain rule: `∂_e φ` at `L.symm y` equals `∂_{L e}ψ` at `y`.
+  have hpt : ∀ y, fderiv ℝ φ (L.symm y) e
+      = fderiv ℝ (fun z => φ (L.symm z)) y (L e) := by
+    intro y
+    have hcomp : HasFDerivAt (fun z => φ (L.symm z))
+        ((fderiv ℝ φ (L.symm y)).comp
+          (L.symm.toContinuousLinearEquiv : ℝⁿ →L[ℝ] ℝⁿ)) y :=
+      (hφ.differentiable (L.symm y)).hasFDerivAt.comp y
+        L.symm.toContinuousLinearEquiv.hasFDerivAt
+    rw [hcomp.fderiv, ContinuousLinearMap.comp_apply]
+    change fderiv ℝ φ (L.symm y) e = fderiv ℝ φ (L.symm y) (L.symm (L e))
+    rw [hinvsymm e]
+  -- Change variables `x = L.symm y` on both sides via measure-preservation of `L`.
+  have hcovL : ∫ x, u (L x) * fderiv ℝ φ x e
+      = ∫ y, u y * fderiv ℝ φ (L.symm y) e := by
+    have key := hLmp.integral_comp hLme (fun y => u y * fderiv ℝ φ (L.symm y) e)
+    simp only [hinvsymm] at key
+    exact key
+  have hcovR : ∫ x, v (L x) * φ x = ∫ y, v y * φ (L.symm y) := by
+    have key := hLmp.integral_comp hLme (fun y => v y * φ (L.symm y))
+    simp only [hinvsymm] at key
+    exact key
+  rw [hcovL,
+    show (∫ y, u y * fderiv ℝ φ (L.symm y) e)
+      = ∫ y, u y * fderiv ℝ (fun z => φ (L.symm z)) y (L e) from
+      integral_congr_ae (Filter.Eventually.of_forall (fun y => by simp only [hpt y])),
+    h _ hψ, ← hcovR]
+
+
 end Sobolev
