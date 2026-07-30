@@ -1251,4 +1251,29 @@ theorem isWeakDerivInDir_comp_linear (L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) (e : ℝ
     h _ hψ, ← hcovR]
 
 
+
+/-- **`W^{1,p}(ℝⁿ)` is invariant under a coordinate reflection.** If `u ∈ W^{1,p}(ℝⁿ)` then so is
+`u ∘ refll i`.  Assembled from the linear change of variables `isWeakDerivInDir_comp_linear`, the
+direction-scaling `IsWeakDerivInDir.dir_smul` (since `refll` sends `eⱼ ↦ ±eⱼ`), and the
+`refll`-invariance of the `Lᵖ` norm. -/
+theorem MemW1p.comp_refll (i : Fin n) {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hu : MemW1p Set.univ p u) :
+    MemW1p Set.univ p (fun x => u (refll i x)) := by
+  have hmu : MemLp u p volume := by
+    rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hu.memLp
+  refine ⟨?_, fun j => ?_⟩
+  · rw [Measure.restrict_univ]
+    exact hmu.comp_measurePreserving (refll_measurePreserving i)
+  · obtain ⟨vⱼ, hvⱼ, hvⱼLp⟩ := hu.exists_weakDeriv j
+    have hmvj : MemLp vⱼ p volume := by
+      rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hvⱼLp
+    have hd : IsWeakDerivInDir Set.univ (refll i (EuclideanSpace.single j (1 : ℝ))) u
+        (fun x => (if j = i then (-1 : ℝ) else 1) * vⱼ x) := by
+      rw [refll_single]
+      exact hvⱼ.dir_smul (if j = i then (-1 : ℝ) else 1)
+    refine ⟨fun x => (if j = i then (-1 : ℝ) else 1) * vⱼ (refll i x), ?_, ?_⟩
+    · exact isWeakDerivInDir_comp_linear (refll i) (EuclideanSpace.single j (1 : ℝ)) hd
+    · rw [Measure.restrict_univ]
+      exact (hmvj.comp_measurePreserving (refll_measurePreserving i)).const_mul _
+
+
 end Sobolev
