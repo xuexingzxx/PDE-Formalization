@@ -447,6 +447,32 @@ theorem MemW1p.neg {U : Set ℝⁿ} {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hu : 
     obtain ⟨w, hw, hwLp⟩ := hu.exists_weakDeriv i
     exact ⟨fun x => -w x, hw.neg, hwLp.neg⟩
 
+/-- **Localization**: multiplying a `W^{1,p}(ℝⁿ)` function by a smooth compactly-supported cutoff
+stays in `W^{1,p}(ℝⁿ)`.  The weak gradient is the Leibniz rule `∂(ζu) = ζ ∂u + (∂ζ) u`
+(`IsWeakDerivInDir.mul_smooth`); both terms are `Lᵖ` because a smooth compactly-supported function
+and its derivative are bounded (`L∞`) and `L∞ · Lᵖ ⊆ Lᵖ`.  The building block for partition-of-unity
+gluing (e.g. in the Sobolev extension operator). -/
+theorem MemW1p.mul_cutoff {p : ℝ≥0∞} [Fact (1 ≤ p)] {u ζ : ℝⁿ → ℝ}
+    (hu : MemW1p Set.univ p u) (hζ : ContDiff ℝ ∞ ζ) (hζs : HasCompactSupport ζ) :
+    MemW1p Set.univ p (fun x => ζ x * u x) where
+  memLp := hu.memLp.mul (hζ.continuous.memLp_top_of_hasCompactSupport hζs _)
+  exists_weakDeriv i := by
+    obtain ⟨w, hw, hwLp⟩ := hu.exists_weakDeriv i
+    have huloc : LocallyIntegrable u volume := by
+      have h := hu.memLp.locallyIntegrable (Fact.out (p := (1 : ℝ≥0∞) ≤ p))
+      rwa [Measure.restrict_univ] at h
+    have hwloc : LocallyIntegrable w volume := by
+      have h := hwLp.locallyIntegrable (Fact.out (p := (1 : ℝ≥0∞) ≤ p))
+      rwa [Measure.restrict_univ] at h
+    have hdζc : Continuous (fun x => fderiv ℝ ζ x (EuclideanSpace.single i (1 : ℝ))) :=
+      (hζ.continuous_fderiv (by norm_num)).clm_apply continuous_const
+    have hdζs : HasCompactSupport (fun x => fderiv ℝ ζ x (EuclideanSpace.single i (1 : ℝ))) :=
+      hζs.fderiv_apply (𝕜 := ℝ) (EuclideanSpace.single i (1 : ℝ))
+    refine ⟨fun x => ζ x * w x + fderiv ℝ ζ x (EuclideanSpace.single i (1 : ℝ)) * u x,
+      IsWeakDerivInDir.mul_smooth huloc hwloc hζ hw, ?_⟩
+    exact (hwLp.mul (hζ.continuous.memLp_top_of_hasCompactSupport hζs _)).add
+      (hu.memLp.mul (hdζc.memLp_top_of_hasCompactSupport hdζs _))
+
 /-! ### Closedness of the weak derivative under limits (towards completeness) -/
 
 open Filter
