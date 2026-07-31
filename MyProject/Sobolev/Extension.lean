@@ -1,4 +1,5 @@
 import MyProject.Sobolev.Basic
+import MyProject.Sobolev.Mollification
 
 /-!
 # Sobolev extension operator (Evans §5.4) — foundations
@@ -1317,6 +1318,42 @@ theorem isWeakDerivInDir_comp_translate (t : ℝⁿ) (e : ℝⁿ) {u v : ℝⁿ 
       = ∫ y, u y * fderiv ℝ (fun z => φ (z - t)) y e from
       integral_congr_ae (Filter.Eventually.of_forall (fun y => by simp only [hpt y])),
     h _ hψ, ← hcovR]
+
+
+
+
+/-- **`W^{1,p}(ℝⁿ)` is invariant under translation.** -/
+theorem MemW1p.comp_translate (t : ℝⁿ) {p : ℝ≥0∞} {u : ℝⁿ → ℝ} (hu : MemW1p Set.univ p u) :
+    MemW1p Set.univ p (fun x => u (x + t)) := by
+  have hmu : MemLp u p volume := by
+    rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hu.memLp
+  refine ⟨?_, fun j => ?_⟩
+  · rw [Measure.restrict_univ]
+    exact hmu.comp_measurePreserving (measurePreserving_add_right volume t)
+  · obtain ⟨vⱼ, hvⱼ, hvⱼLp⟩ := hu.exists_weakDeriv j
+    have hmvj : MemLp vⱼ p volume := by
+      rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hvⱼLp
+    refine ⟨fun x => vⱼ (x + t),
+      isWeakDerivInDir_comp_translate t (EuclideanSpace.single j (1 : ℝ)) hvⱼ, ?_⟩
+    rw [Measure.restrict_univ]
+    exact hmvj.comp_measurePreserving (measurePreserving_add_right volume t)
+
+/-- **Translation is continuous in `W^{1,p}`** (`1 ≤ p < ∞`): as `t → 0`, both `u(· + t) → u` and
+each weak derivative `vⱼ(· + t) → vⱼ` in `Lᵖ`, so the total `W^{1,p}`-seminorm error → `0`.  The
+engine of the boundary-density argument for the half-space extension; it bundles the `Lᵖ`
+translation-continuity `tendsto_eLpNorm_translate_sub` over `u` and all `n` derivatives. -/
+theorem tendsto_eLpNorm_translate_memW1p {u : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hp : p ≠ ⊤) (hu : MemLp u p volume) (hv : ∀ j, MemLp (v j) p volume) :
+    Tendsto (fun t : ℝⁿ => eLpNorm (fun x => u (x + t) - u x) p volume
+        + ∑ j, eLpNorm (fun x => v j (x + t) - v j x) p volume) (𝓝 0) (𝓝 0) := by
+  have hfunc : Tendsto (fun t : ℝⁿ => eLpNorm (fun x => u (x + t) - u x) p volume) (𝓝 0) (𝓝 0) :=
+    tendsto_eLpNorm_translate_sub hp hu
+  have hsum : Tendsto (fun t : ℝⁿ => ∑ j, eLpNorm (fun x => v j (x + t) - v j x) p volume)
+      (𝓝 0) (𝓝 0) := by
+    have := tendsto_finset_sum (Finset.univ : Finset (Fin n))
+      (fun j _ => tendsto_eLpNorm_translate_sub hp (hv j))
+    simpa using this
+  simpa using hfunc.add hsum
 
 
 end Sobolev
