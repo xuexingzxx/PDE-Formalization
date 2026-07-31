@@ -1134,4 +1134,26 @@ theorem exists_eLpNorm_le_eLpNorm_fderiv_of_forall_isWeakDerivInDir
   exact exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto hp hn hpn hp' hu.aestronglyMeasurable hV
     hC1 hwcs hUconv hVconv
 
+
+/-- **Meyers–Serrin density in `W^{1,p}(ℝⁿ)`** (`1 ≤ p < ∞`): smooth, compactly supported functions
+are dense.  For `u ∈ W^{1,p}(ℝⁿ)` and `ε > 0` there is `w ∈ C^∞_c` with `‖u − w‖_p ≤ ε` and, in each
+coordinate direction, `w`'s (smooth) weak derivative within `ε` of a weak derivative `vⱼ` of `u`.
+Packaging of `exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir` at the `MemW1p` level. -/
+theorem MemW1p.exists_contDiff_hasCompactSupport_approx {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    {u : ℝⁿ → ℝ} (hu : MemW1p Set.univ p u) {ε : ℝ≥0∞} (hε : 0 < ε) :
+    ∃ (w : ℝⁿ → ℝ) (v w' : Fin n → ℝⁿ → ℝ), ContDiff ℝ ∞ w ∧ HasCompactSupport w ∧
+      eLpNorm (u - w) p volume ≤ ε ∧
+      (∀ j, IsWeakDerivInDir Set.univ (EuclideanSpace.single j (1 : ℝ)) u (v j)) ∧
+      (∀ j, IsWeakDerivInDir Set.univ (EuclideanSpace.single j (1 : ℝ)) w (w' j)
+        ∧ eLpNorm (v j - w' j) p volume ≤ ε) := by
+  choose v hv hvLp using hu.exists_weakDeriv
+  have hmu : MemLp u p volume := by
+    rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hu.memLp
+  have hmv : ∀ j, MemLp (v j) p volume := fun j => by
+    rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hvLp j
+  obtain ⟨w, w', hwcd, hwcs, hwu, hwi⟩ :=
+    exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir hp hmu hmv
+      (fun j => EuclideanSpace.single j (1 : ℝ)) hv hε
+  exact ⟨w, v, w', hwcd, hwcs, hwu, hv, fun j => ⟨(hwi j).2.1, (hwi j).2.2⟩⟩
+
 end Sobolev
