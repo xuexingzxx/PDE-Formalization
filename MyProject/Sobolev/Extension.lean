@@ -1355,5 +1355,75 @@ theorem tendsto_eLpNorm_translate_memW1p {u : ℝⁿ → ℝ} {v : Fin n → ℝ
     simpa using this
   simpa using hfunc.add hsum
 
+/-- **Restricted `Lᵖ` translation-continuity toward the boundary.** For `u ∈ Lᵖ({xᵢ > 0})`, shifting
+into the interior along `+eᵢ` converges in `Lᵖ({xᵢ > 0})`: `‖u(· + s·eᵢ) − u‖_{Lᵖ({xᵢ>0})} → 0` as
+`s ↓ 0`.  Proved by extending `u` by `0` to `ℝⁿ` (`= S.indicator u ∈ Lᵖ(ℝⁿ)`), applying the
+whole-space translation-continuity, and squeezing (the restricted norm is `≤` the whole-space one,
+and on `{xᵢ>0}` the shift `s > 0` keeps the argument inside `{xᵢ>0}` where the extension equals `u`).
+The boundary-density engine for the half-space extension. -/
+theorem tendsto_eLpNorm_translate_sub_restrict_pos (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hp : p ≠ ⊤) (hu : MemLp u p (volume.restrict {x : ℝⁿ | 0 < x i})) :
+    Tendsto (fun s : ℝ => eLpNorm (fun x => u (x + s • EuclideanSpace.single i (1 : ℝ)) - u x) p
+      (volume.restrict {x : ℝⁿ | 0 < x i})) (𝓝[>] 0) (𝓝 0) := by
+  have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  set S : Set ℝⁿ := {x : ℝⁿ | 0 < x i} with hS
+  have hũ : MemLp (S.indicator u) p volume := (memLp_indicator_iff_restrict hmsGt).2 hu
+  -- coordinate fact: for `x i > 0` and `s > 0`, `(x + s • eᵢ) ∈ S`.
+  have hmem : ∀ {x : ℝⁿ} {s : ℝ}, 0 < x i → 0 < s → x + s • EuclideanSpace.single i (1 : ℝ) ∈ S := by
+    intro x s hx hs
+    have hcoord : (x + s • EuclideanSpace.single i (1 : ℝ)) i = x i + s := by
+      simp [PiLp.add_apply, PiLp.smul_apply]
+    simp only [hS, Set.mem_setOf_eq, hcoord]
+    linarith
+  -- whole-space translation-continuity for the extension, composed with `s ↦ s • eᵢ`.
+  have hwhole : Tendsto (fun s : ℝ => eLpNorm
+      (fun x => S.indicator u (x + s • EuclideanSpace.single i (1 : ℝ)) - S.indicator u x) p volume)
+      (𝓝 0) (𝓝 0) := by
+    have h2 : Tendsto (fun s : ℝ => s • EuclideanSpace.single i (1 : ℝ)) (𝓝 0) (𝓝 0) := by
+      have hc : Continuous (fun s : ℝ => s • EuclideanSpace.single i (1 : ℝ)) :=
+        continuous_id.smul continuous_const
+      simpa only [zero_smul] using hc.tendsto 0
+    exact (tendsto_eLpNorm_translate_sub hp hũ).comp h2
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds
+    (hwhole.mono_left nhdsWithin_le_nhds)
+    (Filter.Eventually.of_forall (fun s => zero_le _)) ?_
+  filter_upwards [self_mem_nhdsWithin] with s (hs : (0 : ℝ) < s)
+  have hcongr : eLpNorm (fun x => u (x + s • EuclideanSpace.single i (1 : ℝ)) - u x) p
+        (volume.restrict S)
+      = eLpNorm (fun x => S.indicator u (x + s • EuclideanSpace.single i (1 : ℝ))
+        - S.indicator u x) p (volume.restrict S) := by
+    refine eLpNorm_congr_ae ((ae_restrict_iff' hmsGt).2 (Filter.Eventually.of_forall
+      (fun x (hx : 0 < x i) => ?_)))
+    show u (x + s • EuclideanSpace.single i (1 : ℝ)) - u x
+        = S.indicator u (x + s • EuclideanSpace.single i (1 : ℝ)) - S.indicator u x
+    rw [Set.indicator_of_mem (hmem hx hs), Set.indicator_of_mem (show x ∈ S from hx)]
+  rw [hcongr]
+  exact eLpNorm_mono_measure _ Measure.restrict_le_self
+
+/-- **Restricted `W^{1,p}` translation-continuity toward the boundary.**  Packaging
+`tendsto_eLpNorm_translate_sub_restrict_pos` over the function together with each of its weak-gradient
+components: as the inward shift `s ↓ 0`, the full `W^{1,p}({xᵢ>0})` translation increment
+`‖u(·+s·eᵢ)−u‖ + ∑ⱼ‖vⱼ(·+s·eᵢ)−vⱼ‖` tends to `0`.  This is the translation half of the
+mollification-up-to-the-boundary density for the half-space, mirroring the whole-space
+`tendsto_eLpNorm_translate_memW1p`. -/
+theorem tendsto_eLpNorm_translate_restrict_memW1p (i : Fin n) {u : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ}
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    (hu : MemLp u p (volume.restrict {x : ℝⁿ | 0 < x i}))
+    (hv : ∀ j, MemLp (v j) p (volume.restrict {x : ℝⁿ | 0 < x i})) :
+    Tendsto (fun s : ℝ =>
+        eLpNorm (fun x => u (x + s • EuclideanSpace.single i (1 : ℝ)) - u x) p
+          (volume.restrict {x : ℝⁿ | 0 < x i})
+        + ∑ j, eLpNorm (fun x => v j (x + s • EuclideanSpace.single i (1 : ℝ)) - v j x) p
+          (volume.restrict {x : ℝⁿ | 0 < x i})) (𝓝[>] 0) (𝓝 0) := by
+  have hfunc := tendsto_eLpNorm_translate_sub_restrict_pos i hp hu
+  have hsum : Tendsto (fun s : ℝ => ∑ j, eLpNorm
+      (fun x => v j (x + s • EuclideanSpace.single i (1 : ℝ)) - v j x) p
+      (volume.restrict {x : ℝⁿ | 0 < x i})) (𝓝[>] 0) (𝓝 0) := by
+    have := tendsto_finset_sum (Finset.univ : Finset (Fin n))
+      (fun j _ => tendsto_eLpNorm_translate_sub_restrict_pos i hp (hv j))
+    simpa using this
+  simpa using hfunc.add hsum
+
 
 end Sobolev

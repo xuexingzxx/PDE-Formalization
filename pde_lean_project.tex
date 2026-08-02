@@ -2755,9 +2755,27 @@ composition form $(\cdot)\circ\texttt{refll}\,i$ by a function-level \texttt{rfl
 norm step keeps every $\texttt{eLpNorm}$ match syntactic and avoids it.  This completes the
 \emph{local} reflection-extension model as a bounded linear operator.
 
-\textbf{What remains.}  Chart-flattening a bounded $C^1$ domain and a partition-of-unity gluing of
+\textbf{Toward the half-space operator: boundary density.}  The reflection extension is defined on
+the $C^1$ core; to promote it to all of $W^{1,p}(\{x_i>0\})$ one needs the $C^1$ functions dense in
+$W^{1,p}$ \emph{up to the boundary} (mollification of an inward-translated copy), whose translation
+half is now proved.  \texttt{tendsto\_eLpNorm\_translate\_sub\_restrict\_pos}: for $u\in
+L^p(\{x_i>0\})$, the inward shift satisfies $\|u(\cdot+s\,e_i)-u\|_{L^p(\{x_i>0\})}\to0$ as $s\downarrow0$.
+It reduces to the whole-space translation-continuity by extending $u$ by zero
+($\tilde u=\mathbf1_{\{x_i>0\}}u\in L^p(\mathbb R^n)$, via \texttt{memLp\_indicator\_iff\_restrict})
+and squeezing: on $\{x_i>0\}$ a shift $s>0$ keeps the argument inside $\{x_i>0\}$, where
+$\tilde u=u$, so the restricted increment agrees with the whole-space one, and
+$\|\cdot\|_{L^p(\text{restrict})}\le\|\cdot\|_{L^p(\mathbb R^n)}$ (\texttt{eLpNorm\_mono\_measure}).
+Summing over the function and its $n$ weak-gradient components gives the full $W^{1,p}$ increment
+\texttt{tendsto\_eLpNorm\_translate\_restrict\_memW1p} $\to0$, the translation half of the boundary
+density (the mollification half --- convolving the inward-translated copy with a mollifier of radius
+$<s$, so every sample point stays in $\{x_i>0\}$ --- remains).
+
+\textbf{What remains.}  For the half-space operator: the mollification half of the boundary density,
+then extending $E$ from the $C^1$ core to all of $W^{1,p}(\{x_i>0\})$ by density and the
+$\le 2$ bound (via the closedness lemma \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}).  For the
+general-domain operator: chart-flattening a bounded $C^1$ domain and a partition-of-unity gluing of
 these local reflection extensions into the global bounded operator $E\colon W^{1,p}(\Omega)\to
-W^{1,p}(\mathbb{R}^n)$ --- the one substantial piece still ahead, requiring boundary-chart
+W^{1,p}(\mathbb{R}^n)$ --- the substantial piece still ahead, requiring boundary-chart
 infrastructure the project does not yet have.
 
 % ══════════════════════════════════════════════════════════════════════════════
