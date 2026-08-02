@@ -12,7 +12,7 @@ are all available for the reflection-extension estimate that follows.
 -/
 
 open MeasureTheory Filter
-open scoped RealInnerProductSpace ContDiff Topology ENNReal
+open scoped RealInnerProductSpace ContDiff Topology ENNReal Convolution
 
 namespace Sobolev
 
@@ -1424,6 +1424,22 @@ theorem tendsto_eLpNorm_translate_restrict_memW1p (i : Fin n) {u : ℝⁿ → �
       (fun j _ => tendsto_eLpNorm_translate_sub_restrict_pos i hp (hv j))
     simpa using this
   simpa using hfunc.add hsum
+
+/-- **Restricted `Lᵖ` mollification error.**  For `u ∈ Lᵖ(ℝⁿ)` and any set `S`, the mollification
+error measured on `S` vanishes: `‖ρ_η ⋆ u − u‖_{Lᵖ(S)} → 0` as the mollifier radius `→ 0`.  Immediate
+from the whole-space error `tendsto_eLpNorm_convolution_sub` by the monotonicity of `eLpNorm` under
+`volume.restrict S ≤ volume`.  This supplies the `Lᵖ` half of the mollification-up-to-the-boundary
+density on `S = {xᵢ>0}`. -/
+theorem tendsto_eLpNorm_convolution_sub_restrict {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    (hu : MemLp u p volume) (S : Set ℝⁿ) {ι : Type*} {l : Filter ι}
+    {φ : ι → ContDiffBump (0 : ℝⁿ)} (hφ : Tendsto (fun i => (φ i).rOut) l (𝓝 0)) :
+    Tendsto (fun i => eLpNorm
+      (fun x => ((φ i).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) p
+        (volume.restrict S)) l (𝓝 0) :=
+  tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds
+    (tendsto_eLpNorm_convolution_sub hp hu hφ)
+    (Filter.Eventually.of_forall fun _ => zero_le _)
+    (Filter.Eventually.of_forall fun _ => eLpNorm_mono_measure _ Measure.restrict_le_self)
 
 
 end Sobolev
