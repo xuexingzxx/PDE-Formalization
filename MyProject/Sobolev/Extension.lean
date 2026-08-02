@@ -1441,5 +1441,47 @@ theorem tendsto_eLpNorm_convolution_sub_restrict {u : ℝⁿ → ℝ} {p : ℝ�
     (Filter.Eventually.of_forall fun _ => zero_le _)
     (Filter.Eventually.of_forall fun _ => eLpNorm_mono_measure _ Measure.restrict_le_self)
 
+/-- **Localized commutation identity: the derivative passes through the convolution onto a
+weak derivative valid only on an open set `U`.**  The whole-space `convolution_deriv_eq` needs
+`IsWeakDerivInDir univ e u v`; but the reflected mollifier `z ↦ η(x−z)` used to prove it is a test
+function supported in `x − supp η`, so the identity `(∂ₑη) ⋆ u = η ⋆ v` at the point `x` needs only
+that this support sits inside the set where `u` genuinely has its weak derivative.  This is the tool
+that lets the mollification of an *inward-shifted* half-space function sample only the interior
+`{xᵢ>0}` — the gradient half of the boundary density.  Proof is the whole-space one with the single
+change `subset_univ _ ↦ hUsupp`. -/
+lemma convolution_deriv_eq_of_subset {η : ℝⁿ → ℝ} (hη : ContDiff ℝ ∞ η)
+    (hηsupp : HasCompactSupport η) {U : Set ℝⁿ} {u v : ℝⁿ → ℝ} (e : ℝⁿ)
+    (hweak : IsWeakDerivInDir U e u v) (x : ℝⁿ) (hUsupp : tsupport (fun z => η (x - z)) ⊆ U) :
+    ((fun z => fderiv ℝ η z e) ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x
+      = (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] v) x := by
+  set φ : ℝⁿ → ℝ := fun z => η (x - z) with hφdef
+  have hφ_cd : ContDiff ℝ ∞ φ := hη.comp (contDiff_const.sub contDiff_id)
+  have hφ_cs : HasCompactSupport φ := hηsupp.comp_homeomorph (Homeomorph.subLeft x)
+  have hφ_test : IsTestFunction U φ := ⟨hφ_cd, hφ_cs, hUsupp⟩
+  have hchain : ∀ z, fderiv ℝ φ z e = - fderiv ℝ η (x - z) e := by
+    intro z
+    have hg : HasFDerivAt (fun z : ℝⁿ => x - z) (-ContinuousLinearMap.id ℝ ℝⁿ) z :=
+      (hasFDerivAt_id z).const_sub x
+    have hηd : HasFDerivAt η (fderiv ℝ η (x - z)) (x - z) :=
+      (hη.differentiable (by simp)).differentiableAt.hasFDerivAt
+    have hcomp : HasFDerivAt φ ((fderiv ℝ η (x - z)).comp (-ContinuousLinearMap.id ℝ ℝⁿ)) z :=
+      hηd.comp z hg
+    rw [hcomp.fderiv]
+    simp
+  rw [convolution_eq_swap, convolution_eq_swap]
+  simp only [ContinuousLinearMap.lsmul_apply, smul_eq_mul]
+  have hw := hweak φ hφ_test
+  calc ∫ t, fderiv ℝ η (x - t) e * u t ∂volume
+      = ∫ t, u t * fderiv ℝ η (x - t) e ∂volume :=
+        integral_congr_ae (Filter.Eventually.of_forall fun t => mul_comm _ _)
+    _ = -∫ t, u t * fderiv ℝ φ t e ∂volume := by
+        simp_rw [hchain, mul_neg, integral_neg, neg_neg]
+    _ = - -∫ t, v t * φ t ∂volume := by rw [hw]
+    _ = ∫ t, η (x - t) * v t ∂volume := by
+        rw [neg_neg]
+        refine integral_congr_ae (Filter.Eventually.of_forall fun t => ?_)
+        change v t * φ t = η (x - t) * v t
+        simp only [hφdef]; ring
+
 
 end Sobolev
