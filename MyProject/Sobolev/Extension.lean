@@ -1483,5 +1483,34 @@ lemma convolution_deriv_eq_of_subset {η : ℝⁿ → ℝ} (hη : ContDiff ℝ �
         change v t * φ t = η (x - t) * v t
         simp only [hφdef]; ring
 
+/-- **The weak-derivative relation depends only on the values on `U`.**  A test function for `U` is
+supported inside `U`, so the defining identity `∫ u·∂ₑφ = −∫ v·φ` only samples `u, v` on `U`.  Hence
+if `u', v'` agree with `u, v` throughout `U`, they inherit the same weak derivative on `U`.  This lets
+the zero-extension `ũ = 1_{xᵢ>0}·u` carry `u`'s weak derivative on the open half-space `{xᵢ>0}`. -/
+lemma IsWeakDerivInDir.congr_eqOn {U : Set ℝⁿ} {e : ℝⁿ} {u v u' v' : ℝⁿ → ℝ}
+    (h : IsWeakDerivInDir U e u v) (hu : Set.EqOn u' u U) (hv : Set.EqOn v' v U) :
+    IsWeakDerivInDir U e u' v' := by
+  intro φ hφ
+  -- outside `tsupport φ ⊆ U` both `φ` and `∂ₑφ` vanish
+  have hfd0 : ∀ x, x ∉ tsupport φ → fderiv ℝ φ x e = 0 := by
+    intro x hx
+    have hev : φ =ᶠ[𝓝 x] (fun _ => 0) := notMem_tsupport_iff_eventuallyEq.mp hx
+    simp [hev.fderiv_eq]
+  have hφ0 : ∀ x, x ∉ tsupport φ → φ x = 0 :=
+    fun x hx => (notMem_tsupport_iff_eventuallyEq.mp hx).eq_of_nhds
+  have hL : ∫ x, u' x * fderiv ℝ φ x e = ∫ x, u x * fderiv ℝ φ x e := by
+    refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+    show u' x * fderiv ℝ φ x e = u x * fderiv ℝ φ x e
+    by_cases hx : x ∈ tsupport φ
+    · rw [hu (hφ.2.2 hx)]
+    · rw [hfd0 x hx, mul_zero, mul_zero]
+  have hR : ∫ x, v' x * φ x = ∫ x, v x * φ x := by
+    refine integral_congr_ae (Filter.Eventually.of_forall fun x => ?_)
+    show v' x * φ x = v x * φ x
+    by_cases hx : x ∈ tsupport φ
+    · rw [hv (hφ.2.2 hx)]
+    · rw [hφ0 x hx, mul_zero, mul_zero]
+  rw [hL, hR]; exact h φ hφ
+
 
 end Sobolev
