@@ -1146,6 +1146,31 @@ theorem eLpNorm_evenRefl_le (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (h
         add_le_add (eLpNorm_indicator_le u) (eLpNorm_indicator_le _)
     _ = 2 * eLpNorm u p volume := by rw [hcomp, two_mul]
 
+/-- **Restricted `Lᵖ` bound for the even reflection.**  Since `evenRefl i u` reads `u` only on
+`{xᵢ≥0}`, one has `evenRefl i u = evenRefl i (1_{xᵢ≥0}·u)`, so the whole-space bound applied to the
+zero-extension gives `‖evenRefl i u‖_{Lᵖ(ℝⁿ)} ≤ 2‖u‖_{Lᵖ(\{xᵢ≥0\})}` — the norm measured only on the
+upper half-space.  This is the form the bounded-extension-by-density argument needs (the `{xᵢ<0}`
+values of an approximant never enter). -/
+theorem eLpNorm_evenRefl_le_restrict (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp : 1 ≤ p)
+    (hu : AEStronglyMeasurable u volume) :
+    eLpNorm (evenRefl i u) p volume ≤ 2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
+  have hmsGe : MeasurableSet {x : ℝⁿ | 0 ≤ x i} :=
+    measurableSet_le measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hind : evenRefl i u = evenRefl i ({x : ℝⁿ | 0 ≤ x i}.indicator u) := by
+    funext x
+    by_cases hx : 0 ≤ x i
+    · rw [evenRefl_apply_upper i u hx, evenRefl_apply_upper i _ hx,
+        Set.indicator_of_mem (show x ∈ {x : ℝⁿ | 0 ≤ x i} from hx)]
+    · rw [evenRefl_apply_lower i u (not_le.1 hx), evenRefl_apply_lower i _ (not_le.1 hx),
+        Set.indicator_of_mem (show refll i x ∈ {x : ℝⁿ | 0 ≤ x i} by
+          simp only [Set.mem_setOf_eq, refll_apply_self]; linarith [not_le.1 hx])]
+  rw [hind]
+  calc eLpNorm (evenRefl i ({x : ℝⁿ | 0 ≤ x i}.indicator u)) p volume
+      ≤ 2 * eLpNorm ({x : ℝⁿ | 0 ≤ x i}.indicator u) p volume :=
+        eLpNorm_evenRefl_le i hp (hu.indicator hmsGe)
+    _ = 2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
+        rw [eLpNorm_indicator_eq_eLpNorm_restrict hmsGe]
+
 
 
 /-- Abstract `Lᵖ` bound for a normal-glue-shaped function `x ↦ if 0 < xᵢ then g x else B x`, when
@@ -1761,6 +1786,85 @@ theorem exists_seq_contDiff_tendsto_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {
           Set.indicator {x : ℝⁿ | 0 < x i} u) (y + sq k • EuclideanSpace.single i (1 : ℝ))) x
           (EuclideanSpace.single j (1 : ℝ)) - v j x
     rw [fderiv_mollify_shift_apply_of_pos i j (hweak j) huLI (ψ k) (hrs k) hx]
+
+/-- **Restricted `Lᵖ` bound for a normal-glue-shaped function.**  Companion of
+`eLpNorm_normalGlue_le` with the right-hand side measured only on the upper half-space `{xᵢ≥0}`,
+provided the lower branch `B` (on `{xᵢ≤0}`) is dominated there by `g` on `{xᵢ≥0}`.  The `{xᵢ<0}`
+values of `g` never enter — exactly what the bounded-extension-by-density argument requires. -/
+theorem eLpNorm_normalGlue_le_restrict (i : Fin n) {p : ℝ≥0∞} (hp : 1 ≤ p) {g B : ℝⁿ → ℝ}
+    (hg : AEStronglyMeasurable g volume) (hB : AEStronglyMeasurable B volume)
+    (hBg : eLpNorm B p (volume.restrict {x : ℝⁿ | x i ≤ 0})
+      ≤ eLpNorm g p (volume.restrict {x : ℝⁿ | 0 ≤ x i})) :
+    eLpNorm (fun x => if 0 < x i then g x else B x) p volume
+      ≤ 2 * eLpNorm g p (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
+  have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsLe : MeasurableSet {x : ℝⁿ | x i ≤ 0} :=
+    measurableSet_le (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have heqv : (fun x => if 0 < x i then g x else B x)
+      = fun x => {x : ℝⁿ | 0 < x i}.indicator g x + {x : ℝⁿ | x i ≤ 0}.indicator B x := by
+    funext x
+    simp only [Set.indicator_apply, Set.mem_setOf_eq]
+    by_cases hx : 0 < x i
+    · rw [if_pos hx, if_pos hx, if_neg (not_le.2 hx), add_zero]
+    · rw [if_neg hx, if_neg hx, if_pos (not_lt.1 hx), zero_add]
+  rw [heqv]
+  calc eLpNorm (fun x => {x : ℝⁿ | 0 < x i}.indicator g x
+          + {x : ℝⁿ | x i ≤ 0}.indicator B x) p volume
+      ≤ eLpNorm ({x : ℝⁿ | 0 < x i}.indicator g) p volume
+        + eLpNorm ({x : ℝⁿ | x i ≤ 0}.indicator B) p volume :=
+        eLpNorm_add_le (hg.indicator hmsGt) (hB.indicator hmsLe) hp
+    _ = eLpNorm g p (volume.restrict {x : ℝⁿ | 0 < x i})
+        + eLpNorm B p (volume.restrict {x : ℝⁿ | x i ≤ 0}) := by
+        rw [eLpNorm_indicator_eq_eLpNorm_restrict hmsGt,
+          eLpNorm_indicator_eq_eLpNorm_restrict hmsLe]
+    _ ≤ eLpNorm g p (volume.restrict {x : ℝⁿ | 0 ≤ x i})
+        + eLpNorm g p (volume.restrict {x : ℝⁿ | 0 ≤ x i}) :=
+        add_le_add (eLpNorm_mono_measure g
+          (Measure.restrict_mono (Set.setOf_subset_setOf.2 (fun _ hx => hx.le)) le_rfl)) hBg
+    _ = 2 * eLpNorm g p (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := (two_mul _).symm
+
+/-- **Restricted `Lᵖ` bound for the even reflection's weak gradient.**  As `eLpNorm_evenRefl_grad_le`
+but measuring `∂ⱼu` only on `{xᵢ≥0}`: the reflected `eⱼ`-derivative of `evenRefl i u` has `Lᵖ` norm
+`≤ 2‖∂ⱼu‖_{Lᵖ(\{xᵢ≥0\})}`.  The lower branch `(±1)·∂ⱼu∘refll` on `{xᵢ≤0}` is pushed to `∂ⱼu` on
+`{xᵢ≥0}` by the measure-preserving `refll : \{xᵢ≤0\}→\{xᵢ≥0\}`. -/
+theorem eLpNorm_evenRefl_grad_le_restrict (i j : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hp : 1 ≤ p)
+    (hg : AEStronglyMeasurable
+      (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) volume) :
+    eLpNorm (fun x => if 0 < x i then fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))
+        else (if j = i then (-1 : ℝ) else 1)
+          * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) p volume
+      ≤ 2 * eLpNorm (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) p
+        (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
+  have hmsGe : MeasurableSet {x : ℝⁿ | 0 ≤ x i} :=
+    measurableSet_le measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hB : AEStronglyMeasurable (fun x => (if j = i then (-1 : ℝ) else 1)
+      * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) volume :=
+    (hg.comp_measurePreserving (refll_measurePreserving i)).const_mul _
+  have hpre : refll i ⁻¹' {x : ℝⁿ | 0 ≤ x i} = {x : ℝⁿ | x i ≤ 0} := by
+    ext x; simp only [Set.mem_preimage, Set.mem_setOf_eq, refll_apply_self]; constructor <;> intro h <;>
+      linarith
+  have hmp : MeasurePreserving (refll i) (volume.restrict {x : ℝⁿ | x i ≤ 0})
+      (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
+    have h := (refll_measurePreserving i).restrict_preimage hmsGe
+    rwa [hpre] at h
+  have hBg : eLpNorm (fun x => (if j = i then (-1 : ℝ) else 1)
+        * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) p
+        (volume.restrict {x : ℝⁿ | x i ≤ 0})
+      ≤ eLpNorm (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) p
+        (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
+    have hfun : (fun x => (if j = i then (-1 : ℝ) else 1)
+          * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ)))
+        = (fun y => (if j = i then (-1 : ℝ) else 1)
+          * fderiv ℝ u y (EuclideanSpace.single j (1 : ℝ))) ∘ refll i := rfl
+    rw [hfun, eLpNorm_comp_measurePreserving
+      ((hg.mono_measure Measure.restrict_le_self).const_mul _) hmp]
+    split_ifs with h
+    · simp only [neg_one_mul]
+      exact le_of_eq (eLpNorm_neg (fun y => fderiv ℝ u y (EuclideanSpace.single j (1 : ℝ))) p
+        (volume.restrict {x : ℝⁿ | 0 ≤ x i}))
+    · simp only [one_mul, le_refl]
+  exact eLpNorm_normalGlue_le_restrict i hp hg hB hBg
 
 
 end Sobolev
