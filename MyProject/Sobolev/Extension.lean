@@ -2055,6 +2055,37 @@ theorem exists_memLp_tendsto_of_cauchySeq_toLp {F : ℕ → ℝⁿ → ℝ} {p :
   rw [← Lp.toLp_coeFn L (Lp.memLp L)] at hL
   exact (Lp.tendsto_Lp_iff_tendsto_eLpNorm'' F hF (⇑L) (Lp.memLp L)).mp hL
 
+/-- The even reflection is subtractive (a consequence of linearity). -/
+theorem evenRefl_sub (i : Fin n) (u v : ℝⁿ → ℝ) :
+    evenRefl i (fun x => u x - v x) = fun x => evenRefl i u x - evenRefl i v x := by
+  funext x; simp only [evenRefl]; split_ifs <;> rfl
+
+/-- **Cauchy transfer through a dominated sequence.**  If `(w_k).toLp` is Cauchy in `Lᵖ(s)` and the
+`Lᵖ`-increments of `E_k` are dominated by twice those of `w_k`, then `(E_k).toLp` is Cauchy in
+`Lᵖ(ℝⁿ)`.  Applied with `E_k = evenRefl(w_k)` (and its reflected gradients), whose increments are
+`≤ 2×` the upper-half increments of `w_k` by the restricted `≤2` bounds. -/
+theorem cauchySeq_toLp_of_le {E w : ℕ → ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] {s : Set ℝⁿ}
+    (hE : ∀ k, MemLp (E k) p volume) (hw : ∀ k, MemLp (w k) p (volume.restrict s))
+    (hwCauchy : CauchySeq (fun k => (hw k).toLp (w k)))
+    (hbound : ∀ m k, eLpNorm (E m - E k) p volume
+      ≤ 2 * eLpNorm (w m - w k) p (volume.restrict s)) :
+    CauchySeq (fun k => (hE k).toLp (E k)) := by
+  rw [EMetric.cauchySeq_iff]
+  intro ε hε
+  obtain ⟨N, hN⟩ := EMetric.cauchySeq_iff.mp hwCauchy (ε / 2) (ENNReal.div_pos hε.ne' (by simp))
+  refine ⟨N, fun m hm k hk => ?_⟩
+  have hlt : 2 * edist ((hw m).toLp (w m)) ((hw k).toLp (w k)) < ε := by
+    rw [mul_comm]
+    calc edist ((hw m).toLp (w m)) ((hw k).toLp (w k)) * 2
+        < ε / 2 * 2 := ENNReal.mul_lt_mul_left (by simp) (by simp) (hN m hm k hk)
+      _ = ε := ENNReal.div_mul_cancel (by simp) (by simp)
+  calc edist ((hE m).toLp (E m)) ((hE k).toLp (E k))
+      = eLpNorm (E m - E k) p volume := Lp.edist_toLp_toLp (E m) (E k) (hE m) (hE k)
+    _ ≤ 2 * eLpNorm (w m - w k) p (volume.restrict s) := hbound m k
+    _ = 2 * edist ((hw m).toLp (w m)) ((hw k).toLp (w k)) := by
+        rw [Lp.edist_toLp_toLp (w m) (w k) (hw m) (hw k)]
+    _ < ε := hlt
+
 
 
 end Sobolev
