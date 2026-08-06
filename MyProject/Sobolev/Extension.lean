@@ -1657,5 +1657,53 @@ theorem tendsto_eLpNorm_mollify_shift_sub_restrict (i : Fin n) {u : ℝⁿ → �
   exact eLpNorm_add_le ((haesm_g k (s k)).sub (haesm_ũ (s k)))
     ((haesm_ũ (s k)).sub haesm_u) hp1
 
+/-- **Gradient identity for the mollified inward-shift.**  On the interior `{xᵢ>0}`, the classical
+directional derivative of `y ↦ (ρ ⋆ ũ)(y + t·eᵢ)` (with `ũ = 1_{xᵢ>0}·u`) equals `(ρ ⋆ ṽⱼ)(·+t·eᵢ)`
+with `ṽⱼ = 1_{xᵢ>0}·vⱼ` the zero-extension of the weak derivative.  Chains the chain rule,
+`fderiv_convolution_apply` (`∂ⱼ(ρ⋆ũ) = (∂ⱼρ)⋆ũ`), and `convolution_deriv_eq_of_subset`
+(`(∂ⱼρ)⋆ũ = ρ⋆ṽⱼ` since the inward shift `t > ψ.rOut` keeps the kernel support inside `{xᵢ>0}`, where
+`ũ`, `ṽⱼ` carry `u`'s weak derivative by `congr_eqOn`).  This makes the gradient-part of the density
+a corollary of the function-part applied to `vⱼ`. -/
+lemma fderiv_mollify_shift_apply_of_pos (i j : Fin n) {u vj : ℝⁿ → ℝ}
+    (hweak : IsWeakDerivInDir {x : ℝⁿ | 0 < x i} (EuclideanSpace.single j (1 : ℝ)) u vj)
+    (huLI : LocallyIntegrable (Set.indicator {x : ℝⁿ | 0 < x i} u) volume)
+    (ψ : ContDiffBump (0 : ℝⁿ)) {t : ℝ} (ht : ψ.rOut < t) {x : ℝⁿ} (hx : 0 < x i) :
+    fderiv ℝ (fun y => (ψ.normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+        Set.indicator {x : ℝⁿ | 0 < x i} u) (y + t • EuclideanSpace.single i (1 : ℝ)))
+        x (EuclideanSpace.single j (1 : ℝ))
+      = (ψ.normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+          Set.indicator {x : ℝⁿ | 0 < x i} vj) (x + t • EuclideanSpace.single i (1 : ℝ)) := by
+  set S : Set ℝⁿ := {x : ℝⁿ | 0 < x i} with hS
+  set ρ : ℝⁿ → ℝ := ψ.normed volume with hρdef
+  set c : ℝⁿ := t • EuclideanSpace.single i (1 : ℝ) with hcdef
+  have hρcd : ContDiff ℝ ∞ ρ := ψ.contDiff_normed
+  have hρsupp : HasCompactSupport ρ := ψ.hasCompactSupport_normed
+  have hgcd : ContDiff ℝ ∞ (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] S.indicator u) :=
+    hρsupp.contDiff_convolution_left _ hρcd huLI
+  have hchain : fderiv ℝ (fun y => (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] S.indicator u) (y + c))
+        x (EuclideanSpace.single j (1 : ℝ))
+      = fderiv ℝ (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] S.indicator u) (x + c)
+        (EuclideanSpace.single j (1 : ℝ)) := by
+    have h1 : HasFDerivAt (fun y : ℝⁿ => y + c) (ContinuousLinearMap.id ℝ ℝⁿ) x := by
+      simpa using (hasFDerivAt_id x).add_const c
+    have h2 : HasFDerivAt (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] S.indicator u)
+        (fderiv ℝ (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] S.indicator u) (x + c)) (x + c) :=
+      (hgcd.differentiable (by simp)).differentiableAt.hasFDerivAt
+    have hcomp : HasFDerivAt
+        (fun y => (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] S.indicator u) (y + c))
+        (fderiv ℝ (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] S.indicator u) (x + c)) x := by
+      simpa [Function.comp_def] using h2.comp x h1
+    rw [hcomp.fderiv]
+  rw [hchain, fderiv_convolution_apply hρcd hρsupp huLI]
+  refine convolution_deriv_eq_of_subset (U := S) hρcd hρsupp (EuclideanSpace.single j (1 : ℝ))
+    ?_ (x + c) ?_
+  · exact hweak.congr_eqOn (fun y hy => Set.indicator_of_mem hy u)
+      (fun y hy => Set.indicator_of_mem hy vj)
+  · refine tsupport_comp_sub_subset_pos (r := ψ.rOut) ?_ ?_
+    · rw [hρdef, tsupport, ψ.support_normed_eq]
+      exact closure_minimal Metric.ball_subset_closedBall Metric.isClosed_closedBall
+    · have hc : (x + c) i = x i + t := by rw [hcdef]; simp [PiLp.add_apply, PiLp.smul_apply]
+      rw [hc]; linarith
+
 
 end Sobolev
