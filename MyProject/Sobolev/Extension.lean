@@ -2086,6 +2086,22 @@ theorem cauchySeq_toLp_of_le {E w : ℕ → ℝⁿ → ℝ} {p : ℝ≥0∞} [Fa
         rw [Lp.edist_toLp_toLp (w m) (w k) (hw m) (hw k)]
     _ < ε := hlt
 
+/-- **Dominated `Lᵖ` limit.**  If a control sequence `c_k → cl` in `Lᵖ(s)` and the `Lᵖ(ℝⁿ)`
+increments of `E_k` are dominated by `2×` those of `c_k`, then `E_k` converges in `Lᵖ(ℝⁿ)` to some
+`G ∈ Lᵖ`.  Packages the Cauchy transfer and the completeness extraction; applied once to the
+reflected approximants (`c = w`, `E = evenRefl w`) and once per coordinate to their gradients. -/
+theorem exists_memLp_tendsto_of_dominated {c E : ℕ → ℝⁿ → ℝ} {cl : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    {s : Set ℝⁿ} (hc : ∀ k, MemLp (c k) p (volume.restrict s))
+    (hcl : MemLp cl p (volume.restrict s)) (hE : ∀ k, MemLp (E k) p volume)
+    (hconv : Tendsto (fun k => eLpNorm (fun x => c k x - cl x) p (volume.restrict s)) atTop (𝓝 0))
+    (hbound : ∀ m k, eLpNorm (E m - E k) p volume ≤ 2 * eLpNorm (c m - c k) p (volume.restrict s)) :
+    ∃ G : ℝⁿ → ℝ, MemLp G p volume ∧
+      Tendsto (fun k => eLpNorm (fun x => E k x - G x) p volume) atTop (𝓝 0) := by
+  have hcCauchy : CauchySeq (fun k => (hc k).toLp (c k)) :=
+    ((Lp.tendsto_Lp_iff_tendsto_eLpNorm'' c hc cl hcl).mpr hconv).cauchySeq
+  exact exists_memLp_tendsto_of_cauchySeq_toLp hE
+    (cauchySeq_toLp_of_le hE hc hcCauchy hbound)
+
 
 
 end Sobolev
