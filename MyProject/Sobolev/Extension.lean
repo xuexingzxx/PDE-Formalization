@@ -1512,5 +1512,29 @@ lemma IsWeakDerivInDir.congr_eqOn {U : Set ℝⁿ} {e : ℝⁿ} {u v u' v' : ℝ
     · rw [hφ0 x hx, mul_zero, mul_zero]
   rw [hL, hR]; exact h φ hφ
 
+/-- **Directional derivative of a smooth-left convolution, in scalar form.**  For `ρ` smooth with
+compact support and `u` locally integrable, the classical directional derivative of `ρ ⋆ u`
+distributes onto `ρ`: `∂ₑ(ρ ⋆ u) = (∂ₑρ) ⋆ u`.  This is Mathlib's
+`HasCompactSupport.hasFDerivAt_convolution_left` (which yields the total derivative in the
+`precompL` bundled form) evaluated at `e` and pushed through the Bochner integral
+(`ContinuousLinearMap.integral_apply` + `precompL_apply`).  It converts the classical gradient of the
+mollification into the left-handed scalar convolution `(∂ₑρ)⋆u` that `convolution_deriv_eq_of_subset`
+consumes. -/
+lemma fderiv_convolution_apply {ρ u : ℝⁿ → ℝ} (hρ : ContDiff ℝ ∞ ρ)
+    (hρsupp : HasCompactSupport ρ) (hu : LocallyIntegrable u volume) (x e : ℝⁿ) :
+    fderiv ℝ (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x e
+      = ((fun z => fderiv ℝ ρ z e) ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x := by
+  set L : ℝ →L[ℝ] ℝ →L[ℝ] ℝ := ContinuousLinearMap.lsmul ℝ ℝ with hLdef
+  have hρ1 : ContDiff ℝ 1 ρ := hρ.of_le (by simp)
+  have hfd : HasFDerivAt (ρ ⋆[L, volume] u)
+      ((fderiv ℝ ρ ⋆[L.precompL ℝⁿ, volume] u) x) x :=
+    hρsupp.hasFDerivAt_convolution_left L hρ1 hu x
+  have hex : ConvolutionExistsAt (fderiv ℝ ρ) u x (L.precompL ℝⁿ) volume :=
+    (hρsupp.fderiv ℝ).convolutionExists_left (L.precompL ℝⁿ)
+      (hρ1.continuous_fderiv one_ne_zero) hu x
+  rw [hfd.fderiv, convolution_def, ContinuousLinearMap.integral_apply hex]
+  simp only [ContinuousLinearMap.precompL_apply]
+  rw [convolution_def]
+
 
 end Sobolev
