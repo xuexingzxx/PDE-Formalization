@@ -1804,6 +1804,72 @@ lemma fderiv_mollify_shift_apply_of_pos (i j : Fin n) {u vj : ℝⁿ → ℝ}
     · have hc : (x + c) i = x i + t := by rw [hcdef]; simp [PiLp.add_apply, PiLp.smul_apply]
       rw [hc]; linarith
 
+/-- **`Lᵖ`-membership of a mollification.**  For a mollifier `η` (smooth, compact support, nonneg,
+`∫η = 1`) and `f ∈ Lᵖ(ℝⁿ)`, the convolution `η ⋆ f` lies in `Lᵖ`.  Mathlib has no convolution Young
+inequality, so this is obtained by triangle inequality from the project's own convolution-error bound:
+`MemLp(η⋆f) = MemLp((η⋆f − f) + f)`, and `η⋆f − f ∈ Lᵖ` because `eLpNorm_convolution_sub_rpow_le`
+bounds its `p`-th power by `∫η(y)·‖f(·−y)−f‖ₚ^p ≤ (2‖f‖ₚ)^p < ∞`. -/
+theorem memLp_convolution {η : ℝⁿ → ℝ} (hη_cd : ContDiff ℝ ∞ η) (hη_supp : HasCompactSupport η)
+    (hη_nonneg : ∀ y, 0 ≤ η y) (hη_int : ∫ y, η y = 1) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hp : p ≠ ⊤) (hu : MemLp u p volume) :
+    MemLp (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) p volume := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hP0 : 0 < p.toReal := by
+    have h0 : (0 : ℝ) < (1 : ℝ≥0∞).toReal := by simp
+    exact h0.trans_le (ENNReal.toReal_mono hp hp1)
+  have hη_cont : Continuous η := hη_cd.continuous
+  have hu_li : LocallyIntegrable u volume := hu.locallyIntegrable hp1
+  have hcont : Continuous (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) :=
+    hη_supp.continuous_convolution_left _ hη_cont hu_li
+  have hw_meas : AEMeasurable (fun y => ENNReal.ofReal (η y)) volume :=
+    (ENNReal.measurable_ofReal.comp hη_cont.measurable).aemeasurable
+  have hw1 : ∫⁻ y, ENNReal.ofReal (η y) ∂volume = 1 := by
+    rw [← ofReal_integral_eq_lintegral_ofReal (hη_cont.integrable_of_hasCompactSupport hη_supp)
+      (Filter.Eventually.of_forall hη_nonneg), hη_int, ENNReal.ofReal_one]
+  have hCle : ∀ y : ℝⁿ, eLpNorm (fun x => u (x - y) - u x) p volume ≤ 2 * eLpNorm u p volume := by
+    intro y
+    have hmp : MeasurePreserving (fun x : ℝⁿ => x - y) volume volume :=
+      measurePreserving_sub_right volume y
+    have h1 : eLpNorm (fun x => u (x - y)) p volume = eLpNorm u p volume :=
+      eLpNorm_comp_measurePreserving hu.aestronglyMeasurable hmp
+    calc eLpNorm (fun x => u (x - y) - u x) p volume
+        ≤ eLpNorm (fun x => u (x - y)) p volume + eLpNorm u p volume :=
+          eLpNorm_sub_le (hu.aestronglyMeasurable.comp_measurePreserving hmp)
+            hu.aestronglyMeasurable hp1
+      _ = 2 * eLpNorm u p volume := by rw [h1, two_mul]
+  have hCfin : (2 * eLpNorm u p volume) ^ p.toReal ≠ ⊤ :=
+    (ENNReal.rpow_lt_top_of_nonneg hP0.le
+      (ENNReal.mul_lt_top (by norm_num) hu.2).ne).ne
+  have hfin : eLpNorm (fun x => (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) p volume
+      < ⊤ := by
+    have hkey := eLpNorm_convolution_sub_rpow_le hη_cont hη_supp hη_nonneg hη_int hp hu
+    have hRHS : ∫⁻ y, ENNReal.ofReal (η y)
+          * (eLpNorm (fun x => u (x - y) - u x) p volume) ^ p.toReal ∂volume
+        ≤ (2 * eLpNorm u p volume) ^ p.toReal := by
+      calc ∫⁻ y, ENNReal.ofReal (η y)
+            * (eLpNorm (fun x => u (x - y) - u x) p volume) ^ p.toReal ∂volume
+          ≤ ∫⁻ _y, ENNReal.ofReal (η _y) * (2 * eLpNorm u p volume) ^ p.toReal ∂volume := by
+            refine lintegral_mono fun y => ?_
+            gcongr
+            exact hCle y
+        _ = (2 * eLpNorm u p volume) ^ p.toReal * ∫⁻ y, ENNReal.ofReal (η y) ∂volume := by
+            simp_rw [mul_comm (ENNReal.ofReal _)]
+            rw [lintegral_const_mul'' _ hw_meas]
+        _ = (2 * eLpNorm u p volume) ^ p.toReal := by rw [hw1, mul_one]
+    have hlt : (eLpNorm (fun x => (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) p volume)
+        ^ p.toReal < ⊤ := lt_of_le_of_lt (hkey.trans hRHS) hCfin.lt_top
+    by_contra htop
+    rw [not_lt, top_le_iff] at htop
+    rw [htop, ENNReal.top_rpow_of_pos hP0] at hlt
+    exact lt_irrefl _ hlt
+  have hsub : MemLp (fun x => (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) p volume :=
+    ⟨hcont.aestronglyMeasurable.sub hu.aestronglyMeasurable, hfin⟩
+  have heq : (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u)
+      = fun x => ((η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) + u x := by
+    funext x; ring
+  rw [heq]
+  exact hsub.add hu
+
 /-- **Boundary density for the half-space (sequence form).**  A `W^{1,p}(\{xᵢ>0\})` function `u` with
 weak derivatives `v` is approximated in `W^{1,p}(\{xᵢ>0\})` by a sequence of `C^∞` functions
 `wₖ = (ρ_k ⋆ ũ)(·+sₖ·eᵢ)` (mollified inward-shifts, `ũ = 1_{xᵢ>0}·u`): both `‖u−wₖ‖_{Lᵖ} → 0` and,
@@ -1819,14 +1885,19 @@ theorem exists_seq_contDiff_tendsto_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {
     ∃ w : ℕ → ℝⁿ → ℝ, (∀ k, ContDiff ℝ ∞ (w k)) ∧
       Tendsto (fun k => eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i}))
         atTop (𝓝 0) ∧
-      ∀ j, Tendsto (fun k => eLpNorm
+      (∀ j, Tendsto (fun k => eLpNorm
           (fun x => fderiv ℝ (w k) x (EuclideanSpace.single j (1 : ℝ)) - v j x) p
-          (volume.restrict {x : ℝⁿ | 0 < x i})) atTop (𝓝 0) := by
+          (volume.restrict {x : ℝⁿ | 0 < x i})) atTop (𝓝 0)) ∧
+      (∀ k, MemLp (w k) p (volume.restrict {x : ℝⁿ | 0 < x i})) ∧
+      (∀ j k, MemLp (fun x => fderiv ℝ (w k) x (EuclideanSpace.single j (1 : ℝ))) p
+        (volume.restrict {x : ℝⁿ | 0 < x i})) := by
   have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
   have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
     measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hũLp : MemLp (Set.indicator {x : ℝⁿ | 0 < x i} u) p volume :=
+    (memLp_indicator_iff_restrict hmsGt).2 hu
   have huLI : LocallyIntegrable (Set.indicator {x : ℝⁿ | 0 < x i} u) volume :=
-    ((memLp_indicator_iff_restrict hmsGt).2 hu).locallyIntegrable hp1
+    hũLp.locallyIntegrable hp1
   have htend : ∀ c : ℝ, Tendsto (fun k : ℕ => 1 / ((k : ℝ) + c)) atTop (𝓝 0) := by
     intro c
     have h1 : Tendsto (fun k : ℕ => (k : ℝ) + c) atTop atTop :=
@@ -1844,7 +1915,7 @@ theorem exists_seq_contDiff_tendsto_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {
     exact one_div_lt_one_div_of_lt (by positivity) (by linarith)
   refine ⟨fun k x => ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
       Set.indicator {x : ℝⁿ | 0 < x i} u) (x + sq k • EuclideanSpace.single i (1 : ℝ)),
-    ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_⟩
   · intro k
     exact ((ψ k).hasCompactSupport_normed.contDiff_convolution_left (ContinuousLinearMap.lsmul ℝ ℝ)
       (ψ k).contDiff_normed huLI).comp (contDiff_id.add contDiff_const)
@@ -1860,6 +1931,36 @@ theorem exists_seq_contDiff_tendsto_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {
           Set.indicator {x : ℝⁿ | 0 < x i} u) (y + sq k • EuclideanSpace.single i (1 : ℝ))) x
           (EuclideanSpace.single j (1 : ℝ)) - v j x
     rw [fderiv_mollify_shift_apply_of_pos i j (hweak j) huLI (ψ k) (hrs k) hx]
+  · -- `MemLp (w k)` on `{xᵢ>0}`
+    intro k
+    have hconv : MemLp ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+        Set.indicator {x : ℝⁿ | 0 < x i} u) p volume :=
+      memLp_convolution (ψ k).contDiff_normed (ψ k).hasCompactSupport_normed
+        (ψ k).nonneg_normed (ψ k).integral_normed hp hũLp
+    exact (hconv.comp_measurePreserving
+      (measurePreserving_add_right volume (sq k • EuclideanSpace.single i (1 : ℝ)))).restrict _
+  · -- `MemLp (∂ⱼ(w k))` on `{xᵢ>0}`, via the gradient identity
+    intro j k
+    have hvjLp : MemLp (Set.indicator {x : ℝⁿ | 0 < x i} (v j)) p volume :=
+      (memLp_indicator_iff_restrict hmsGt).2 (hv j)
+    have hconvv : MemLp ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+        Set.indicator {x : ℝⁿ | 0 < x i} (v j)) p volume :=
+      memLp_convolution (ψ k).contDiff_normed (ψ k).hasCompactSupport_normed
+        (ψ k).nonneg_normed (ψ k).integral_normed hp hvjLp
+    have hRHS : MemLp (fun x => ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+          Set.indicator {x : ℝⁿ | 0 < x i} (v j)) (x + sq k • EuclideanSpace.single i (1 : ℝ))) p
+        (volume.restrict {x : ℝⁿ | 0 < x i}) :=
+      (hconvv.comp_measurePreserving
+        (measurePreserving_add_right volume (sq k • EuclideanSpace.single i (1 : ℝ)))).restrict _
+    have hae : (fun x => fderiv ℝ (fun y => ((ψ k).normed volume
+            ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] Set.indicator {x : ℝⁿ | 0 < x i} u)
+            (y + sq k • EuclideanSpace.single i (1 : ℝ))) x (EuclideanSpace.single j (1 : ℝ)))
+        =ᵐ[volume.restrict {x : ℝⁿ | 0 < x i}]
+          (fun x => ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+            Set.indicator {x : ℝⁿ | 0 < x i} (v j)) (x + sq k • EuclideanSpace.single i (1 : ℝ))) := by
+      refine (ae_restrict_iff' hmsGt).2 (Filter.Eventually.of_forall (fun x (hx : 0 < x i) => ?_))
+      exact fderiv_mollify_shift_apply_of_pos i j (hweak j) huLI (ψ k) (hrs k) hx
+    exact (memLp_congr_ae hae).mpr hRHS
 
 /-- **Restricted `Lᵖ` bound for a normal-glue-shaped function.**  Companion of
 `eLpNorm_normalGlue_le` with the right-hand side measured only on the upper half-space `{xᵢ≥0}`,
@@ -1940,71 +2041,6 @@ theorem eLpNorm_evenRefl_grad_le_restrict (i j : Fin n) {u : ℝⁿ → ℝ} {p 
     · simp only [one_mul, le_refl]
   exact eLpNorm_normalGlue_le_restrict i hp hg hB hBg
 
-/-- **`Lᵖ`-membership of a mollification.**  For a mollifier `η` (smooth, compact support, nonneg,
-`∫η = 1`) and `f ∈ Lᵖ(ℝⁿ)`, the convolution `η ⋆ f` lies in `Lᵖ`.  Mathlib has no convolution Young
-inequality, so this is obtained by triangle inequality from the project's own convolution-error bound:
-`MemLp(η⋆f) = MemLp((η⋆f − f) + f)`, and `η⋆f − f ∈ Lᵖ` because `eLpNorm_convolution_sub_rpow_le`
-bounds its `p`-th power by `∫η(y)·‖f(·−y)−f‖ₚ^p ≤ (2‖f‖ₚ)^p < ∞`. -/
-theorem memLp_convolution {η : ℝⁿ → ℝ} (hη_cd : ContDiff ℝ ∞ η) (hη_supp : HasCompactSupport η)
-    (hη_nonneg : ∀ y, 0 ≤ η y) (hη_int : ∫ y, η y = 1) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
-    (hp : p ≠ ⊤) (hu : MemLp u p volume) :
-    MemLp (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) p volume := by
-  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
-  have hP0 : 0 < p.toReal := by
-    have h0 : (0 : ℝ) < (1 : ℝ≥0∞).toReal := by simp
-    exact h0.trans_le (ENNReal.toReal_mono hp hp1)
-  have hη_cont : Continuous η := hη_cd.continuous
-  have hu_li : LocallyIntegrable u volume := hu.locallyIntegrable hp1
-  have hcont : Continuous (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) :=
-    hη_supp.continuous_convolution_left _ hη_cont hu_li
-  have hw_meas : AEMeasurable (fun y => ENNReal.ofReal (η y)) volume :=
-    (ENNReal.measurable_ofReal.comp hη_cont.measurable).aemeasurable
-  have hw1 : ∫⁻ y, ENNReal.ofReal (η y) ∂volume = 1 := by
-    rw [← ofReal_integral_eq_lintegral_ofReal (hη_cont.integrable_of_hasCompactSupport hη_supp)
-      (Filter.Eventually.of_forall hη_nonneg), hη_int, ENNReal.ofReal_one]
-  have hCle : ∀ y : ℝⁿ, eLpNorm (fun x => u (x - y) - u x) p volume ≤ 2 * eLpNorm u p volume := by
-    intro y
-    have hmp : MeasurePreserving (fun x : ℝⁿ => x - y) volume volume :=
-      measurePreserving_sub_right volume y
-    have h1 : eLpNorm (fun x => u (x - y)) p volume = eLpNorm u p volume :=
-      eLpNorm_comp_measurePreserving hu.aestronglyMeasurable hmp
-    calc eLpNorm (fun x => u (x - y) - u x) p volume
-        ≤ eLpNorm (fun x => u (x - y)) p volume + eLpNorm u p volume :=
-          eLpNorm_sub_le (hu.aestronglyMeasurable.comp_measurePreserving hmp)
-            hu.aestronglyMeasurable hp1
-      _ = 2 * eLpNorm u p volume := by rw [h1, two_mul]
-  have hCfin : (2 * eLpNorm u p volume) ^ p.toReal ≠ ⊤ :=
-    (ENNReal.rpow_lt_top_of_nonneg hP0.le
-      (ENNReal.mul_lt_top (by norm_num) hu.2).ne).ne
-  have hfin : eLpNorm (fun x => (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) p volume
-      < ⊤ := by
-    have hkey := eLpNorm_convolution_sub_rpow_le hη_cont hη_supp hη_nonneg hη_int hp hu
-    have hRHS : ∫⁻ y, ENNReal.ofReal (η y)
-          * (eLpNorm (fun x => u (x - y) - u x) p volume) ^ p.toReal ∂volume
-        ≤ (2 * eLpNorm u p volume) ^ p.toReal := by
-      calc ∫⁻ y, ENNReal.ofReal (η y)
-            * (eLpNorm (fun x => u (x - y) - u x) p volume) ^ p.toReal ∂volume
-          ≤ ∫⁻ _y, ENNReal.ofReal (η _y) * (2 * eLpNorm u p volume) ^ p.toReal ∂volume := by
-            refine lintegral_mono fun y => ?_
-            gcongr
-            exact hCle y
-        _ = (2 * eLpNorm u p volume) ^ p.toReal * ∫⁻ y, ENNReal.ofReal (η y) ∂volume := by
-            simp_rw [mul_comm (ENNReal.ofReal _)]
-            rw [lintegral_const_mul'' _ hw_meas]
-        _ = (2 * eLpNorm u p volume) ^ p.toReal := by rw [hw1, mul_one]
-    have hlt : (eLpNorm (fun x => (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) p volume)
-        ^ p.toReal < ⊤ := lt_of_le_of_lt (hkey.trans hRHS) hCfin.lt_top
-    by_contra htop
-    rw [not_lt, top_le_iff] at htop
-    rw [htop, ENNReal.top_rpow_of_pos hP0] at hlt
-    exact lt_irrefl _ hlt
-  have hsub : MemLp (fun x => (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) p volume :=
-    ⟨hcont.aestronglyMeasurable.sub hu.aestronglyMeasurable, hfin⟩
-  have heq : (η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u)
-      = fun x => ((η ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] u) x - u x) + u x := by
-    funext x; ring
-  rw [heq]
-  exact hsub.add hu
 
 
 end Sobolev
