@@ -1705,5 +1705,62 @@ lemma fderiv_mollify_shift_apply_of_pos (i j : Fin n) {u vj : ℝⁿ → ℝ}
     · have hc : (x + c) i = x i + t := by rw [hcdef]; simp [PiLp.add_apply, PiLp.smul_apply]
       rw [hc]; linarith
 
+/-- **Boundary density for the half-space (sequence form).**  A `W^{1,p}(\{xᵢ>0\})` function `u` with
+weak derivatives `v` is approximated in `W^{1,p}(\{xᵢ>0\})` by a sequence of `C^∞` functions
+`wₖ = (ρ_k ⋆ ũ)(·+sₖ·eᵢ)` (mollified inward-shifts, `ũ = 1_{xᵢ>0}·u`): both `‖u−wₖ‖_{Lᵖ} → 0` and,
+for every `j`, `‖vⱼ − ∂ⱼwₖ‖_{Lᵖ} → 0`.  Assembles the function-part
+(`tendsto_eLpNorm_mollify_shift_sub_restrict`) with the gradient identity
+(`fderiv_mollify_shift_apply_of_pos`, which turns the gradient-part into the function-part applied to
+`vⱼ`), over the concrete family `rInₖ=1/(k+3)`, `rOutₖ=1/(k+2)`, `sₖ=1/(k+1)`. -/
+theorem exists_seq_contDiff_tendsto_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ}
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    (hu : MemLp u p (volume.restrict {x : ℝⁿ | 0 < x i}))
+    (hv : ∀ j, MemLp (v j) p (volume.restrict {x : ℝⁿ | 0 < x i}))
+    (hweak : ∀ j, IsWeakDerivInDir {x : ℝⁿ | 0 < x i} (EuclideanSpace.single j (1 : ℝ)) u (v j)) :
+    ∃ w : ℕ → ℝⁿ → ℝ, (∀ k, ContDiff ℝ ∞ (w k)) ∧
+      Tendsto (fun k => eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i}))
+        atTop (𝓝 0) ∧
+      ∀ j, Tendsto (fun k => eLpNorm
+          (fun x => fderiv ℝ (w k) x (EuclideanSpace.single j (1 : ℝ)) - v j x) p
+          (volume.restrict {x : ℝⁿ | 0 < x i})) atTop (𝓝 0) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have huLI : LocallyIntegrable (Set.indicator {x : ℝⁿ | 0 < x i} u) volume :=
+    ((memLp_indicator_iff_restrict hmsGt).2 hu).locallyIntegrable hp1
+  have htend : ∀ c : ℝ, Tendsto (fun k : ℕ => 1 / ((k : ℝ) + c)) atTop (𝓝 0) := by
+    intro c
+    have h1 : Tendsto (fun k : ℕ => (k : ℝ) + c) atTop atTop :=
+      tendsto_atTop_add_const_right _ c tendsto_natCast_atTop_atTop
+    simpa [one_div] using h1.inv_tendsto_atTop
+  set ψ : ℕ → ContDiffBump (0 : ℝⁿ) := fun k =>
+    { rIn := 1 / ((k : ℝ) + 3), rOut := 1 / ((k : ℝ) + 2), rIn_pos := by positivity,
+      rIn_lt_rOut := one_div_lt_one_div_of_lt (by positivity) (by linarith) } with hψ
+  set sq : ℕ → ℝ := fun k => 1 / ((k : ℝ) + 1) with hsq
+  have hφ : Tendsto (fun k => (ψ k).rOut) atTop (𝓝 0) := by simpa [hψ] using htend 2
+  have hs0 : ∀ k, 0 < sq k := fun k => by rw [hsq]; positivity
+  have hs : Tendsto sq atTop (𝓝 0) := by simpa [hsq] using htend 1
+  have hrs : ∀ k, (ψ k).rOut < sq k := fun k => by
+    show (1 : ℝ) / ((k : ℝ) + 2) < 1 / ((k : ℝ) + 1)
+    exact one_div_lt_one_div_of_lt (by positivity) (by linarith)
+  refine ⟨fun k x => ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+      Set.indicator {x : ℝⁿ | 0 < x i} u) (x + sq k • EuclideanSpace.single i (1 : ℝ)),
+    ?_, ?_, ?_⟩
+  · intro k
+    exact ((ψ k).hasCompactSupport_normed.contDiff_convolution_left (ContinuousLinearMap.lsmul ℝ ℝ)
+      (ψ k).contDiff_normed huLI).comp (contDiff_id.add contDiff_const)
+  · exact tendsto_eLpNorm_mollify_shift_sub_restrict i hp hu hφ hs0 hs
+  · intro j
+    refine (tendsto_eLpNorm_mollify_shift_sub_restrict i hp (hv j) hφ hs0 hs).congr (fun k => ?_)
+    refine eLpNorm_congr_ae ((ae_restrict_iff' hmsGt).2 (Filter.Eventually.of_forall
+      fun x (hx : 0 < x i) => ?_))
+    show ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+          Set.indicator {x : ℝⁿ | 0 < x i} (v j))
+          (x + sq k • EuclideanSpace.single i (1 : ℝ)) - v j x
+      = fderiv ℝ (fun y => ((ψ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+          Set.indicator {x : ℝⁿ | 0 < x i} u) (y + sq k • EuclideanSpace.single i (1 : ℝ))) x
+          (EuclideanSpace.single j (1 : ℝ)) - v j x
+    rw [fderiv_mollify_shift_apply_of_pos i j (hweak j) huLI (ψ k) (hrs k) hx]
+
 
 end Sobolev
