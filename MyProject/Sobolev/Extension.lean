@@ -1102,6 +1102,80 @@ theorem memW1p_evenRefl (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hu : 
   rw [heqv]
   exact ((hmemD j).indicator hmsGt).add (hmemDR.indicator hmsLe)
 
+/-- **Even reflection lands in `W^{1,p}(ℝⁿ)` from upper-half `Lᵖ` data.**  Variant of
+`memW1p_evenRefl` needing `u` and its gradient only in `Lᵖ(\{xᵢ≥0\})` (not whole-space `Lᵖ`) — since
+`evenRefl i u` reads `u` solely on the upper half-space.  This is the form the extension operator
+uses: an approximant `wₖ` is controlled in `Lᵖ` only over `\{xᵢ>0\}` (by the boundary density), so
+whole-space `Lᵖ` (which would need a convolution Young inequality) is unavailable. -/
+theorem memW1p_evenRefl_restrict (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} (hu : ContDiff ℝ 1 u)
+    (hmem : MemLp u p (volume.restrict {x : ℝⁿ | 0 ≤ x i}))
+    (hmemD : ∀ j, MemLp (fun x => fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))) p
+      (volume.restrict {x : ℝⁿ | 0 ≤ x i})) :
+    MemW1p Set.univ p (evenRefl i u) := by
+  have hmsGe : MeasurableSet {x : ℝⁿ | 0 ≤ x i} :=
+    measurableSet_le measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsLt : MeasurableSet {x : ℝⁿ | x i < 0} :=
+    measurableSet_lt (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  have hmsLe : MeasurableSet {x : ℝⁿ | x i ≤ 0} :=
+    measurableSet_le (EuclideanSpace.proj i).continuous.measurable measurable_const
+  have hsubGt : volume.restrict {x : ℝⁿ | 0 < x i} ≤ volume.restrict {x : ℝⁿ | 0 ≤ x i} :=
+    Measure.restrict_mono (Set.setOf_subset_setOf.2 (fun _ hx => hx.le)) le_rfl
+  -- measure-preserving reflections between the restricted half-spaces
+  have hpre1 : refll i ⁻¹' {x : ℝⁿ | 0 < x i} = {x : ℝⁿ | x i < 0} := by
+    ext x; simp only [Set.mem_preimage, Set.mem_setOf_eq, refll_apply_self]
+    constructor <;> intro h <;> linarith
+  have hmp1 : MeasurePreserving (refll i) (volume.restrict {x : ℝⁿ | x i < 0})
+      (volume.restrict {x : ℝⁿ | 0 < x i}) := by
+    have h := (refll_measurePreserving i).restrict_preimage hmsGt; rwa [hpre1] at h
+  have hpre2 : refll i ⁻¹' {x : ℝⁿ | 0 ≤ x i} = {x : ℝⁿ | x i ≤ 0} := by
+    ext x; simp only [Set.mem_preimage, Set.mem_setOf_eq, refll_apply_self]
+    constructor <;> intro h <;> linarith
+  have hmp2 : MeasurePreserving (refll i) (volume.restrict {x : ℝⁿ | x i ≤ 0})
+      (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
+    have h := (refll_measurePreserving i).restrict_preimage hmsGe; rwa [hpre2] at h
+  -- `evenRefl i u ∈ Lᵖ`.
+  have hmemE : MemLp (evenRefl i u) p volume := by
+    have hmemR : MemLp (fun x => u (refll i x)) p (volume.restrict {x : ℝⁿ | x i < 0}) :=
+      (hmem.mono_measure hsubGt).comp_measurePreserving hmp1
+    have heq : evenRefl i u = fun x => {x : ℝⁿ | 0 ≤ x i}.indicator u x
+        + {x : ℝⁿ | x i < 0}.indicator (fun y => u (refll i y)) x := by
+      funext x
+      simp only [Set.indicator_apply, Set.mem_setOf_eq]
+      by_cases hx : 0 ≤ x i
+      · rw [evenRefl_apply_upper i u hx, if_pos hx, if_neg (not_lt.2 hx), add_zero]
+      · rw [evenRefl_apply_lower i u (not_le.1 hx), if_neg hx, if_pos (not_le.1 hx), zero_add]
+    rw [heq]
+    exact ((memLp_indicator_iff_restrict hmsGe).2 hmem).add
+      ((memLp_indicator_iff_restrict hmsLt).2 hmemR)
+  refine ⟨by rw [Measure.restrict_univ]; exact hmemE, fun j => ?_⟩
+  refine ⟨fun x => if 0 < x i then fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))
+      else (if j = i then (-1 : ℝ) else 1)
+        * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ)),
+      isWeakDerivInDir_evenRefl i j hu, ?_⟩
+  rw [Measure.restrict_univ]
+  have hmemDR : MemLp (fun x => (if j = i then (-1 : ℝ) else 1)
+      * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ))) p
+      (volume.restrict {x : ℝⁿ | x i ≤ 0}) :=
+    ((hmemD j).comp_measurePreserving hmp2).const_mul _
+  have heqv : (fun x => if 0 < x i then fderiv ℝ u x (EuclideanSpace.single j (1 : ℝ))
+      else (if j = i then (-1 : ℝ) else 1)
+        * fderiv ℝ u (refll i x) (EuclideanSpace.single j (1 : ℝ)))
+      = fun x => {x : ℝⁿ | 0 < x i}.indicator
+          (fun y => fderiv ℝ u y (EuclideanSpace.single j (1 : ℝ))) x
+        + {x : ℝⁿ | x i ≤ 0}.indicator
+          (fun y => (if j = i then (-1 : ℝ) else 1)
+            * fderiv ℝ u (refll i y) (EuclideanSpace.single j (1 : ℝ))) x := by
+    funext x
+    simp only [Set.indicator_apply, Set.mem_setOf_eq]
+    by_cases hx : 0 < x i
+    · rw [if_pos hx, if_pos hx, if_neg (not_le.2 hx), add_zero]
+    · rw [if_neg hx, if_neg hx, if_pos (not_lt.1 hx), zero_add]
+  rw [heqv]
+  exact ((memLp_indicator_iff_restrict hmsGt).2 ((hmemD j).mono_measure hsubGt)).add
+    ((memLp_indicator_iff_restrict hmsLe).2 hmemDR)
+
 
 
 /-- The even reflection is additive. -/
