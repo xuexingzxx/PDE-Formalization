@@ -1536,5 +1536,39 @@ lemma fderiv_convolution_apply {ρ u : ℝⁿ → ℝ} (hρ : ContDiff ℝ ∞ �
   simp only [ContinuousLinearMap.precompL_apply]
   rw [convolution_def]
 
+/-- **The inward-shifted mollifier samples only the interior.**  If `ρ`'s support lies in the ball of
+radius `r` and the base point `x'` has `i`-th coordinate exceeding `r`, then the reflected bump
+`z ↦ ρ(x'−z)` (the kernel of a convolution evaluated at `x'`) is supported entirely inside the open
+half-space `{xᵢ>0}`.  This is the geometric heart of the mollification-up-to-the-boundary: after an
+inward shift `s > η` the sample point `x' = x + s·eᵢ` has `x'ᵢ ≥ s > η = r`, so the whole convolution
+kernel stays in `{xᵢ>0}` where the datum is genuinely Sobolev — the hypothesis
+`convolution_deriv_eq_of_subset` and `IsWeakDerivInDir.congr_eqOn` need. -/
+lemma tsupport_comp_sub_subset_pos {ρ : ℝⁿ → ℝ} {r : ℝ} {i : Fin n}
+    (hρ : tsupport ρ ⊆ Metric.closedBall 0 r) {x' : ℝⁿ} (hx' : r < x' i) :
+    tsupport (fun z => ρ (x' - z)) ⊆ {x : ℝⁿ | 0 < x i} := by
+  have hcoord : ∀ w : ℝⁿ, |w i| ≤ ‖w‖ := by
+    intro w
+    rw [EuclideanSpace.norm_eq]
+    have hle : ‖w i‖ ≤ Real.sqrt (∑ j, ‖w j‖ ^ 2) := by
+      rw [show ‖w i‖ = Real.sqrt (‖w i‖ ^ 2) from (Real.sqrt_sq (norm_nonneg _)).symm]
+      exact Real.sqrt_le_sqrt
+        (Finset.single_le_sum (fun j _ => sq_nonneg ‖w j‖) (Finset.mem_univ i))
+    simpa [Real.norm_eq_abs] using hle
+  have hsub : tsupport (fun z => ρ (x' - z)) ⊆ (fun z => x' - z) ⁻¹' (tsupport ρ) := by
+    apply closure_minimal
+    · intro z hz
+      have hz' : x' - z ∈ Function.support ρ := hz
+      exact subset_tsupport ρ hz'
+    · exact (isClosed_tsupport ρ).preimage (continuous_const.sub continuous_id)
+  intro z hz
+  have hball : ‖x' - z‖ ≤ r := by
+    have := hρ (hsub hz); simpa [Metric.mem_closedBall, dist_eq_norm] using this
+  have h1 : |x' i - z i| ≤ r := by
+    have h2 : (x' - z) i = x' i - z i := by simp [PiLp.sub_apply]
+    have := le_trans (hcoord (x' - z)) hball; rwa [h2] at this
+  simp only [Set.mem_setOf_eq]
+  have := abs_le.mp h1
+  linarith [this.1, this.2]
+
 
 end Sobolev
