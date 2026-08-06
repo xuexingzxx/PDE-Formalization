@@ -1570,5 +1570,92 @@ lemma tsupport_comp_sub_subset_pos {ρ : ℝⁿ → ℝ} {r : ℝ} {i : Fin n}
   have := abs_le.mp h1
   linarith [this.1, this.2]
 
+/-- **Function-part of the boundary density.**  With `ũ = 1_{xᵢ>0}·u` the zero-extension, the
+mollified inward-shift `x ↦ (ρ_k ⋆ ũ)(x + s_k·eᵢ)` converges to `u` in `Lᵖ({xᵢ>0})` as the mollifier
+radius and shift `→ 0`.  The increment telescopes as `[(ρ_k⋆ũ − ũ)(·+s_k eᵢ)]` (mollification error,
+`→0` by the whole-space error `tendsto_eLpNorm_convolution_sub` + translation-invariance of the whole
+`Lᵖ` norm) `+ [ũ(·+s_k eᵢ) − u]` (`=ᵐ u(·+s_k eᵢ)−u` on `{xᵢ>0}`, `→0` by
+`tendsto_eLpNorm_translate_sub_restrict_pos`). -/
+theorem tendsto_eLpNorm_mollify_shift_sub_restrict (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞}
+    [Fact (1 ≤ p)] (hp : p ≠ ⊤) (hu : MemLp u p (volume.restrict {x : ℝⁿ | 0 < x i}))
+    {φ : ℕ → ContDiffBump (0 : ℝⁿ)} (hφ : Tendsto (fun k => (φ k).rOut) atTop (𝓝 0))
+    {s : ℕ → ℝ} (hs0 : ∀ k, 0 < s k) (hs : Tendsto s atTop (𝓝 0)) :
+    Tendsto (fun k => eLpNorm (fun x =>
+      ((φ k).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume]
+          Set.indicator {x : ℝⁿ | 0 < x i} u) (x + s k • EuclideanSpace.single i (1 : ℝ))
+        - u x) p (volume.restrict {x : ℝⁿ | 0 < x i})) atTop (𝓝 0) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
+    measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
+  set S : Set ℝⁿ := {x : ℝⁿ | 0 < x i} with hS
+  set L : ℝ →L[ℝ] ℝ →L[ℝ] ℝ := ContinuousLinearMap.lsmul ℝ ℝ with hLdef
+  set ũ : ℝⁿ → ℝ := S.indicator u with hũdef
+  have hũLp : MemLp ũ p volume := (memLp_indicator_iff_restrict hmsGt).2 hu
+  have hũLI : LocallyIntegrable ũ volume := hũLp.locallyIntegrable hp1
+  set g : ℕ → ℝⁿ → ℝ := fun k => (φ k).normed volume ⋆[L, volume] ũ with hgdef
+  have hg_cont : ∀ k, Continuous (g k) := fun k =>
+    (φ k).hasCompactSupport_normed.continuous_convolution_left L
+      ((φ k).contDiff_normed (n := 1)).continuous hũLI
+  have hmem : ∀ {x : ℝⁿ} {t : ℝ}, 0 < x i → 0 < t →
+      x + t • EuclideanSpace.single i (1 : ℝ) ∈ S := by
+    intro x t hx ht
+    have hc : (x + t • EuclideanSpace.single i (1 : ℝ)) i = x i + t := by
+      simp [PiLp.add_apply, PiLp.smul_apply]
+    simp only [hS, Set.mem_setOf_eq, hc]; linarith
+  -- aesm helpers (w.r.t. `volume.restrict S`)
+  have haesm_g : ∀ (k : ℕ) (t : ℝ), AEStronglyMeasurable (fun x =>
+      g k (x + t • EuclideanSpace.single i (1 : ℝ))) (volume.restrict S) := fun k t =>
+    ((hg_cont k).comp (continuous_id.add continuous_const)).aestronglyMeasurable.restrict
+  have haesm_ũ : ∀ (t : ℝ), AEStronglyMeasurable (fun x =>
+      ũ (x + t • EuclideanSpace.single i (1 : ℝ))) (volume.restrict S) := fun t =>
+    (hũLp.aestronglyMeasurable.comp_quasiMeasurePreserving
+      (measurePreserving_add_right volume _).quasiMeasurePreserving).restrict
+  have haesm_u : AEStronglyMeasurable u (volume.restrict S) := hu.aestronglyMeasurable
+  set A : ℕ → ℝ≥0∞ := fun k => eLpNorm (fun x =>
+      g k (x + s k • EuclideanSpace.single i (1 : ℝ))
+        - ũ (x + s k • EuclideanSpace.single i (1 : ℝ))) p (volume.restrict S) with hAdef
+  set B : ℕ → ℝ≥0∞ := fun k => eLpNorm (fun x =>
+      ũ (x + s k • EuclideanSpace.single i (1 : ℝ)) - u x) p (volume.restrict S) with hBdef
+  have hA : Tendsto A atTop (𝓝 0) := by
+    have hconv : Tendsto (fun k => eLpNorm (fun x => g k x - ũ x) p volume) atTop (𝓝 0) :=
+      tendsto_eLpNorm_convolution_sub hp hũLp hφ
+    refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds hconv
+      (Eventually.of_forall fun k => zero_le _) (Eventually.of_forall fun k => ?_)
+    have haesm : AEStronglyMeasurable (fun x => g k x - ũ x) volume :=
+      (hg_cont k).aestronglyMeasurable.sub hũLp.aestronglyMeasurable
+    have htrans : eLpNorm (fun x => g k (x + s k • EuclideanSpace.single i (1 : ℝ))
+          - ũ (x + s k • EuclideanSpace.single i (1 : ℝ))) p volume
+        = eLpNorm (fun x => g k x - ũ x) p volume := by
+      have := eLpNorm_comp_measurePreserving (p := p) (g := fun x => g k x - ũ x)
+        haesm (measurePreserving_add_right volume (s k • EuclideanSpace.single i (1 : ℝ)))
+      simpa [Function.comp] using this
+    calc A k ≤ eLpNorm (fun x => g k (x + s k • EuclideanSpace.single i (1 : ℝ))
+              - ũ (x + s k • EuclideanSpace.single i (1 : ℝ))) p volume :=
+            eLpNorm_mono_measure _ Measure.restrict_le_self
+      _ = eLpNorm (fun x => g k x - ũ x) p volume := htrans
+  have hB : Tendsto B atTop (𝓝 0) := by
+    have hBeq : B = fun k => eLpNorm (fun x =>
+        u (x + s k • EuclideanSpace.single i (1 : ℝ)) - u x) p (volume.restrict S) := by
+      funext k
+      refine eLpNorm_congr_ae ((ae_restrict_iff' hmsGt).2 (Eventually.of_forall
+        (fun x (hx : 0 < x i) => ?_)))
+      show ũ (x + s k • EuclideanSpace.single i (1 : ℝ)) - u x
+          = u (x + s k • EuclideanSpace.single i (1 : ℝ)) - u x
+      rw [hũdef, Set.indicator_of_mem (hmem hx (hs0 k))]
+    rw [hBeq]
+    exact (tendsto_eLpNorm_translate_sub_restrict_pos i hp hu).comp
+      (tendsto_nhdsWithin_iff.mpr ⟨hs, Eventually.of_forall hs0⟩)
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds
+    (by simpa using hA.add hB) (Eventually.of_forall fun k => zero_le _)
+    (Eventually.of_forall fun k => ?_)
+  have hsplit : (fun x => g k (x + s k • EuclideanSpace.single i (1 : ℝ)) - u x)
+      = (fun x => g k (x + s k • EuclideanSpace.single i (1 : ℝ))
+            - ũ (x + s k • EuclideanSpace.single i (1 : ℝ)))
+        + (fun x => ũ (x + s k • EuclideanSpace.single i (1 : ℝ)) - u x) := by
+    funext x; simp only [Pi.add_apply]; ring
+  rw [hsplit]
+  exact eLpNorm_add_le ((haesm_g k (s k)).sub (haesm_ũ (s k)))
+    ((haesm_ũ (s k)).sub haesm_u) hp1
+
 
 end Sobolev
