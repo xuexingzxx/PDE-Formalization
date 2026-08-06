@@ -2041,6 +2041,20 @@ theorem eLpNorm_evenRefl_grad_le_restrict (i j : Fin n) {u : ℝⁿ → ℝ} {p 
     · simp only [one_mul, le_refl]
   exact eLpNorm_normalGlue_le_restrict i hp hg hB hBg
 
+/-- **Extraction of an `Lᵖ` limit from a Cauchy sequence of `Lᵖ` functions.**  If the `Lp`-classes
+`(f_k).toLp` form a Cauchy sequence, then by completeness of `Lᵖ` there is a limit function `G ∈ Lᵖ`
+with `‖f_k − G‖_p → 0`.  Used once for the reflected approximants and once per coordinate for their
+gradients in the bounded-extension-by-density argument. -/
+theorem exists_memLp_tendsto_of_cauchySeq_toLp {F : ℕ → ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hF : ∀ k, MemLp (F k) p volume)
+    (hcauchy : CauchySeq (fun k => (hF k).toLp (F k))) :
+    ∃ G : ℝⁿ → ℝ, MemLp G p volume ∧
+      Tendsto (fun k => eLpNorm (fun x => F k x - G x) p volume) atTop (𝓝 0) := by
+  obtain ⟨L, hL⟩ := cauchySeq_tendsto_of_complete hcauchy
+  refine ⟨⇑L, Lp.memLp L, ?_⟩
+  rw [← Lp.toLp_coeFn L (Lp.memLp L)] at hL
+  exact (Lp.tendsto_Lp_iff_tendsto_eLpNorm'' F hF (⇑L) (Lp.memLp L)).mp hL
+
 
 
 end Sobolev
