@@ -2770,13 +2770,32 @@ Summing over the function and its $n$ weak-gradient components gives the full $W
 density (the mollification half --- convolving the inward-translated copy with a mollifier of radius
 $<s$, so every sample point stays in $\{x_i>0\}$ --- remains).
 
-\textbf{What remains.}  For the half-space operator: the mollification half of the boundary density,
-then extending $E$ from the $C^1$ core to all of $W^{1,p}(\{x_i>0\})$ by density and the
-$\le 2$ bound (via the closedness lemma \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}).  For the
-general-domain operator: chart-flattening a bounded $C^1$ domain and a partition-of-unity gluing of
-these local reflection extensions into the global bounded operator $E\colon W^{1,p}(\Omega)\to
-W^{1,p}(\mathbb{R}^n)$ --- the substantial piece still ahead, requiring boundary-chart
-infrastructure the project does not yet have.
+\textbf{The half-space extension theorem --- complete.}  The mollification half of the boundary
+density is proved by convolving the inward-translated copy $u_s=u(\cdot+s e_i)$ with a mollifier
+$\rho_k$ of radius $<s$: every sample point stays in $\{x_i>0\}$ where $u$ is genuinely Sobolev, so
+the gradient identity $\partial_j(\rho_k\star\tilde u)(\cdot+s e_i)=(\rho_k\star\tilde v_j)(\cdot+s e_i)$
+holds on the interior (\texttt{convolution\_deriv\_eq\_of\_subset}, a localized
+$\partial_e\eta\star u=\eta\star v$ whose only test function is the reflected bump), giving an explicit
+$C^\infty$ approximating sequence $w_k\to u$ in $W^{1,p}(\{x_i>0\})$
+(\texttt{exists\_seq\_contDiff\_tendsto\_halfspace}).  Reflecting, $E_k=\texttt{evenRefl}\,w_k\in
+W^{1,p}(\mathbb R^n)$ (\texttt{memW1p\_evenRefl\_restrict}, needing only upper-half $L^p$ data, so no
+convolution Young inequality --- unavailable in Mathlib --- is required; $L^p$-membership of the
+mollifications comes by triangle inequality from the project's own convolution-error bound,
+\texttt{memLp\_convolution}).  By the restricted $\le2$ bounds
+(\texttt{eLpNorm\_evenRefl\_le\_restrict}, \texttt{\_grad\_le\_restrict}) the $E_k$ and their reflected
+gradients are Cauchy in $L^p(\mathbb R^n)$, hence converge to $U$ and $V_j$ (Banach completeness of
+$L^p$, packaged as \texttt{exists\_memLp\_tendsto\_of\_dominated} --- one call for the function, one per
+coordinate); the weak-derivative relation passes to the limit by the closedness cornerstone
+\texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}; and $U=u$ a.e.\ on $\{x_i>0\}$ because $E_k=w_k$
+there.  This is \texttt{exists\_memW1p\_extension\_halfspace}: \emph{every $u\in W^{1,p}(\{x_i>0\})$
+extends to a $U\in W^{1,p}(\mathbb R^n)$ agreeing with $u$ a.e.\ on $\{x_i>0\}$} --- the flat-boundary
+extension theorem, the local model of \S5.4, now complete and sorry-free.
+
+\textbf{What remains.}  Only the general-domain operator: chart-flattening a bounded $C^1$ domain and a
+partition-of-unity gluing of these local reflection extensions into the global bounded operator
+$E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ --- the substantial piece still ahead, requiring
+$C^1$-boundary-chart infrastructure (a flattening diffeomorphism and $W^{1,p}$-invariance under a
+nonlinear $C^1$ change of variables) the project does not yet have.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 6: Surface Measure and the General Divergence Theorem}
