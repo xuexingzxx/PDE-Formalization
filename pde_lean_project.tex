@@ -552,6 +552,18 @@ The following were initially defined but later found to be redundant:
       \texttt{Sobolev/\allowbreak RellichKondrachov.\allowbreak lean}
       (\texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous}, \texttt{rellich\_kondrachov}) \\
   Trace operator $u|_{\partial\Omega}$       & boundary value problems & \\
+  Convolution Young inequality $\|\rho\star u\|_p\le\|\rho\|_1\|u\|_p$
+    & $L^p$-membership of a mollification (extension operator)
+    & \emph{Not in Mathlib} (only the scalar \texttt{young\_inequality} is).  \emph{Worked around}:
+      \texttt{memLp\_convolution} (\texttt{Sobolev/\allowbreak Extension.\allowbreak lean}) gets
+      $\rho\star u\in L^p$ for a mollifier $\rho$ by triangle inequality from the project's own
+      convolution-error bound \texttt{eLpNorm\_convolution\_sub\_rpow\_le} \\
+  Sobolev extension operator $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$
+    & Evans §5.4; full trace theorem; bounded-domain Rellich--Kondrachov
+    & \emph{Half-space case resolved}: \texttt{exists\_memW1p\_extension\_halfspace}
+      (\texttt{Sobolev/\allowbreak Extension.\allowbreak lean}) --- even reflection $+$ boundary
+      density $+$ $L^p$-completeness.  General bounded-$C^1$-domain version remains, gated on
+      $C^1$-boundary-chart infrastructure \\
   \bottomrule
 \end{longtable}
 
@@ -2675,13 +2687,15 @@ What remains:
     $p\ge 1$, and the bounded trace \emph{operator} \texttt{traceCLM} is now built (on the range of the
     $u\mapsto(u,Du)$ embedding; see the trace-estimate subsection).  What remains is to extend it from
     $C^1$ to all of $W^{1,p}(\Omega)$ by density --- which for a general domain requires a Sobolev
-    extension operator (next item).
+    extension operator (next item; its half-space case is now done).
   \item \textbf{Sobolev extension operator} $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$
-    (§5.4), under construction in \texttt{Sobolev/\allowbreak Extension.\allowbreak lean}; see the
-    subsection below.
+    (§5.4), in \texttt{Sobolev/\allowbreak Extension.\allowbreak lean}.  The \textbf{half-space case is
+    complete} (\texttt{exists\_memW1p\_extension\_halfspace}: every $u\in W^{1,p}(\{x_i>0\})$ extends to
+    $W^{1,p}(\mathbb{R}^n)$); only the general bounded-$C^1$-domain version remains, gated on
+    boundary-chart infrastructure.  See the subsection below.
 \end{enumerate}
 
-\subsection{The extension operator (§5.4) --- in progress}
+\subsection{The extension operator (§5.4) --- half-space case complete}
 
 The extension theorem builds a bounded linear $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ by
 locally flattening the boundary and \emph{reflecting} across it.  We build it bottom-up in
