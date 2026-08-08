@@ -1213,4 +1213,121 @@ theorem IsC1Domain.exists_boundary_partition {Ω : Set ℝⁿ} (hΩ : IsC1Domain
     | some x => exact Or.inr ⟨(x : ℝⁿ), r x x.2, idx x x.2, sgn x x.2, γ x x.2, rfl,
         hr x x.2, hsgn x x.2, hγcd x x.2, hγindep x x.2, hchart x x.2⟩
 
+/-! ### The boundary-flattening shear
+
+To straighten a `C¹` boundary chart to the flat half-space we use the **shear**
+`Ψ(x) = x + γ(x)·eᵢ`, where `γ` is `C¹` and independent of coordinate `i`.  It is a `C¹`
+diffeomorphism of `ℝⁿ` (inverse `x ↦ x − γ(x)·eᵢ`) and — crucially — **measure preserving**: its
+derivative `id + (Dγ)·eᵢᵀ` is a rank-one update with `Dγ eᵢ = 0`, hence determinant `1`.  Measure
+preservation lets the flattening reuse the whole `Lᵖ` toolbox (`eLpNorm_comp_measurePreserving`,
+`MemLp.comp_measurePreserving`) unchanged, exactly as the reflection did. -/
+
+/-- Independence of coordinate `i` kills the `i`-th directional derivative of `γ`. -/
+theorem fderiv_single_eq_zero_of_indep {γ : ℝⁿ → ℝ} {i : Fin n} (hγ : ContDiff ℝ 1 γ)
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y) (x : ℝⁿ) :
+    fderiv ℝ γ x (EuclideanSpace.single i (1 : ℝ)) = 0 := by
+  have hdiff : HasFDerivAt γ (fderiv ℝ γ x) x :=
+    (hγ.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+  have hcomp : HasDerivAt (fun t : ℝ => γ (x + t • EuclideanSpace.single i (1 : ℝ)))
+      (fderiv ℝ γ x (EuclideanSpace.single i (1 : ℝ))) 0 :=
+    hdiff.hasLineDerivAt (EuclideanSpace.single i (1 : ℝ))
+  have hfe : (fun t : ℝ => γ (x + t • EuclideanSpace.single i (1 : ℝ))) = fun _ : ℝ => γ x := by
+    funext t; exact hindep x t
+  have hconst : HasDerivAt (fun t : ℝ => γ (x + t • EuclideanSpace.single i (1 : ℝ))) 0 0 := by
+    rw [hfe]; exact hasDerivAt_const 0 (γ x)
+  exact hcomp.unique hconst
+
+/-- **Determinant of the shear's derivative is `1`.**  For `L : ℝⁿ →L[ℝ] ℝ` with `L eᵢ = 0`, the
+rank-one update `id + L.smulRight eᵢ` has determinant `1` (Weinstein–Aronszajn: `det(1 + AB) =
+det(1 + BA)`, and `BA = [L eᵢ] = [0]`). -/
+theorem det_id_add_smulRight_single {i : Fin n} (L : ℝⁿ →L[ℝ] ℝ)
+    (hLi : L (EuclideanSpace.single i (1 : ℝ)) = 0) :
+    (ContinuousLinearMap.id ℝ ℝⁿ + L.smulRight (EuclideanSpace.single i (1 : ℝ))).det = 1 := by
+  classical
+  set b := (EuclideanSpace.basisFun (Fin n) ℝ).toBasis with hb
+  set A : Matrix (Fin n) (Fin 1) ℝ :=
+    Matrix.of (fun a _ => (EuclideanSpace.single i (1 : ℝ) : ℝⁿ) a) with hA
+  set B : Matrix (Fin 1) (Fin n) ℝ :=
+    Matrix.of (fun _ j => L (EuclideanSpace.single j (1 : ℝ))) with hB
+  rw [ContinuousLinearMap.det]
+  have hcoe : ((ContinuousLinearMap.id ℝ ℝⁿ + L.smulRight (EuclideanSpace.single i (1 : ℝ)) :
+        ℝⁿ →L[ℝ] ℝⁿ) : ℝⁿ →ₗ[ℝ] ℝⁿ)
+      = LinearMap.id + (L : ℝⁿ →ₗ[ℝ] ℝ).smulRight (EuclideanSpace.single i (1 : ℝ)) := by
+    ext y; simp
+  rw [hcoe, ← LinearMap.det_toMatrix b, map_add, LinearMap.toMatrix_id]
+  have hM : LinearMap.toMatrix b b ((L : ℝⁿ →ₗ[ℝ] ℝ).smulRight (EuclideanSpace.single i (1 : ℝ)))
+      = A * B := by
+    ext a j
+    rw [LinearMap.toMatrix_apply, Matrix.mul_apply, Fin.sum_univ_one]
+    simp only [hb, hA, hB, Matrix.of_apply, EuclideanSpace.basisFun_toBasis,
+      PiLp.basisFun_apply, LinearMap.smulRight_apply, ContinuousLinearMap.coe_coe,
+      PiLp.basisFun_repr, PiLp.smul_apply, smul_eq_mul]
+    ring
+  rw [hM, Matrix.det_one_add_mul_comm]
+  have hBA : B * A = 0 := by
+    ext p q
+    fin_cases p; fin_cases q
+    simp only [Matrix.mul_apply, hA, hB, Matrix.of_apply, Matrix.zero_apply,
+      EuclideanSpace.single_apply, mul_ite, mul_one, mul_zero]
+    rw [Finset.sum_ite_eq' Finset.univ i (fun a => L (EuclideanSpace.single a (1 : ℝ)))]
+    simp [hLi]
+  rw [hBA, add_zero, Matrix.det_one]
+
+/-- The graph-shear building block `y ↦ y + g(y)·eᵢ` and its Fréchet derivative. -/
+theorem hasFDerivAt_shearMap (g : ℝⁿ → ℝ) (i : Fin n) (hg : ContDiff ℝ 1 g) (x : ℝⁿ) :
+    HasFDerivAt (fun y : ℝⁿ => y + g y • EuclideanSpace.single i (1 : ℝ))
+      (ContinuousLinearMap.id ℝ ℝⁿ +
+        (fderiv ℝ g x).smulRight (EuclideanSpace.single i (1 : ℝ))) x :=
+  (hasFDerivAt_id x).add
+    (((hg.differentiable (by norm_num)).differentiableAt.hasFDerivAt).smul_const _)
+
+/-- The **shear** as an equivalence `ℝⁿ ≃ ℝⁿ`, `x ↦ x + γ(x)·eᵢ`, with inverse `x ↦ x − γ(x)·eᵢ`
+(uses that `γ` is independent of coordinate `i`). -/
+noncomputable def shearEquiv {γ : ℝⁿ → ℝ} {i : Fin n}
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y) : ℝⁿ ≃ ℝⁿ where
+  toFun x := x + γ x • EuclideanSpace.single i (1 : ℝ)
+  invFun x := x + (-γ x) • EuclideanSpace.single i (1 : ℝ)
+  left_inv x := by simp [hindep x (γ x), neg_smul]
+  right_inv x := by
+    have h : γ (x + -(γ x • EuclideanSpace.single i (1 : ℝ))) = γ x := by
+      have := hindep x (-γ x); rwa [neg_smul] at this
+    simp [h]
+
+/-- **The shear preserves Lebesgue measure.**  Via the change-of-variables formula applied to the
+inverse shear (whose derivative also has determinant `1`), the pushforward of `volume` is `volume`. -/
+theorem measurePreserving_shearEquiv {γ : ℝⁿ → ℝ} {i : Fin n}
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y)
+    (hγ : ContDiff ℝ 1 γ) :
+    MeasurePreserving (shearEquiv hindep) (volume : Measure ℝⁿ) volume := by
+  have hcont : Continuous (shearEquiv hindep) :=
+    continuous_id.add ((hγ.continuous.smul continuous_const))
+  refine ⟨hcont.measurable, ?_⟩
+  have himg : ∀ s : Set ℝⁿ, MeasurableSet s →
+      volume ((shearEquiv hindep).symm '' s) = volume s := by
+    intro s hs
+    have hindep' : ∀ (y : ℝⁿ) (t : ℝ),
+        (-γ) (y + t • EuclideanSpace.single i (1 : ℝ)) = (-γ) y := by
+      intro y t; simp [hindep y t]
+    have hfd : ∀ x ∈ s, HasFDerivWithinAt (shearEquiv hindep).symm
+        (ContinuousLinearMap.id ℝ ℝⁿ +
+          (fderiv ℝ (-γ) x).smulRight (EuclideanSpace.single i (1 : ℝ))) s x := by
+      intro x _
+      exact (hasFDerivAt_shearMap (-γ) i hγ.neg x).hasFDerivWithinAt
+    have hdet : ∀ x ∈ s, |(ContinuousLinearMap.id ℝ ℝⁿ +
+        (fderiv ℝ (-γ) x).smulRight (EuclideanSpace.single i (1 : ℝ))).det| = 1 := by
+      intro x _
+      rw [det_id_add_smulRight_single _
+        (fderiv_single_eq_zero_of_indep (γ := -γ) hγ.neg hindep' x)]
+      norm_num
+    have hinj : Set.InjOn (shearEquiv hindep).symm s :=
+      ((shearEquiv hindep).symm.injective).injOn
+    have hcov := lintegral_abs_det_fderiv_eq_addHaar_image (μ := (volume : Measure ℝⁿ)) hs hfd hinj
+    rw [← hcov, setLIntegral_congr_fun hs (fun x hx => by rw [hdet x hx])]
+    simp
+  refine Measure.ext fun s hs => ?_
+  rw [Measure.map_apply hcont.measurable hs]
+  have hpre : (shearEquiv hindep) ⁻¹' s = (shearEquiv hindep).symm '' s := by
+    rw [Equiv.image_eq_preimage]; simp
+  rw [hpre, himg s hs]
+
 end Sobolev
