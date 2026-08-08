@@ -10,7 +10,7 @@ change of variables, the boundary-density machinery, the **bounded half-space ex
 -/
 
 open MeasureTheory Filter
-open scoped RealInnerProductSpace ContDiff Topology ENNReal Convolution
+open scoped RealInnerProductSpace ContDiff Topology ENNReal Convolution Manifold
 
 namespace Sobolev
 
@@ -1126,6 +1126,91 @@ theorem MemW1p.comp_linearIsometry (L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) {u : ℝ�
     exact memLp_finset_sum Finset.univ
       (fun k _ => ((hv_vol k).comp_measurePreserving hLmp).const_mul _)
 
+/-! ### The general `C¹` domain and its boundary partition of unity
 
+We now leave the flat half-space and set up the geometry for the general extension operator.  A
+bounded `C¹` domain is defined **elementarily** (Evans §5.4): near every boundary point the boundary
+is the graph of a `C¹` function of `n−1` coordinates.  From compactness of the closure and Mathlib's
+smooth partitions of unity we extract a finite-in-effect atlas of boundary charts together with a
+subordinate smooth partition of unity — the backbone that lets us localize the extension to one
+chart at a time (interior pieces extend by zero; boundary pieces flatten–reflect–extend). -/
+
+/-- **A bounded `C¹` domain** (Evans §5.4): an open bounded set whose boundary is, near every
+boundary point, the graph of a `C¹` function of `n−1` of the coordinates.  For each `x ∈ ∂Ω` there
+is a ball `B(x, r)`, a coordinate index `i`, a sign `sgn = ±1`, and a `C¹` function `γ`
+**independent of the `i`-th coordinate**, so that inside the ball `Ω` is exactly the open
+epigraph/hypograph `{y | 0 < sgn·(yᵢ − γ y)}` (`sgn = +1`: above the graph in coordinate `i`;
+`sgn = −1`: below). -/
+structure IsC1Domain (Ω : Set ℝⁿ) : Prop where
+  isOpen : IsOpen Ω
+  isBounded : Bornology.IsBounded Ω
+  chart : ∀ x ∈ frontier Ω, ∃ (r : ℝ) (i : Fin n) (sgn : ℝ) (γ : ℝⁿ → ℝ),
+    0 < r ∧ (sgn = 1 ∨ sgn = -1) ∧ ContDiff ℝ 1 γ ∧
+    (∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y) ∧
+    Ω ∩ Metric.ball x r = {y : ℝⁿ | 0 < sgn * (y i - γ y)} ∩ Metric.ball x r
+
+/-- The closure of a bounded `C¹` domain is compact (closed and bounded in a proper space). -/
+theorem IsC1Domain.isCompact_closure {Ω : Set ℝⁿ} (hΩ : IsC1Domain Ω) :
+    IsCompact (closure Ω) :=
+  Metric.isCompact_of_isClosed_isBounded isClosed_closure hΩ.isBounded.closure
+
+/-- `closure Ω = Ω ∪ frontier Ω` for open `Ω`. -/
+theorem IsC1Domain.closure_eq {Ω : Set ℝⁿ} (hΩ : IsC1Domain Ω) :
+    closure Ω = Ω ∪ frontier Ω := by
+  rw [frontier, hΩ.isOpen.interior_eq]
+  ext y
+  simp only [Set.mem_union, Set.mem_diff]
+  constructor
+  · intro hy; by_cases h : y ∈ Ω
+    · exact Or.inl h
+    · exact Or.inr ⟨hy, h⟩
+  · rintro (h | ⟨h, _⟩)
+    · exact subset_closure h
+    · exact h
+
+/-- **Boundary partition of unity for a `C¹` domain.**  There is a smooth partition of unity
+`ζ : ι → ℝⁿ → ℝ`, subordinate to opens `U`, summing to `1` on `closure Ω`, in which every open
+`U j` is either contained in `Ω` (an interior piece) or is a boundary chart ball carrying valid
+graph data.  This is the geometric backbone of the general extension operator: interior pieces
+extend by zero, boundary pieces flatten–reflect–extend.  (Only finitely many `ζ j` are nonzero on
+`closure Ω` by local finiteness, but we keep the index general here.) -/
+theorem IsC1Domain.exists_boundary_partition {Ω : Set ℝⁿ} (hΩ : IsC1Domain Ω) :
+    ∃ (ι : Type) (ζ : ι → ℝⁿ → ℝ) (U : ι → Set ℝⁿ),
+      (∀ j, IsOpen (U j)) ∧
+      (∀ j, tsupport (ζ j) ⊆ U j) ∧
+      (∀ j, ContDiff ℝ (∞ : WithTop ℕ∞) (ζ j)) ∧
+      (∀ j x, 0 ≤ ζ j x) ∧
+      (LocallyFinite fun j => Function.support (ζ j)) ∧
+      (∀ x ∈ closure Ω, ∑ᶠ j, ζ j x = 1) ∧
+      (∀ j, U j ⊆ Ω ∨ ∃ (x : ℝⁿ) (r : ℝ) (i : Fin n) (sgn : ℝ) (γ : ℝⁿ → ℝ),
+          U j = Metric.ball x r ∧ 0 < r ∧ (sgn = 1 ∨ sgn = -1) ∧ ContDiff ℝ 1 γ ∧
+          (∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y) ∧
+          Ω ∩ Metric.ball x r = {y : ℝⁿ | 0 < sgn * (y i - γ y)} ∩ Metric.ball x r) := by
+  classical
+  choose r idx sgn γ hr hsgn hγcd hγindep hchart using hΩ.chart
+  set ι : Type := Option (frontier Ω) with hι
+  set U : ι → Set ℝⁿ := fun j => j.rec Ω (fun x => Metric.ball (x : ℝⁿ) (r x x.2)) with hU
+  have hUopen : ∀ j, IsOpen (U j) := by
+    intro j; cases j with
+    | none => exact hΩ.isOpen
+    | some x => exact Metric.isOpen_ball
+  have hcover : closure Ω ⊆ ⋃ j, U j := by
+    intro y hy
+    rw [hΩ.closure_eq] at hy
+    rcases hy with hyΩ | hyfr
+    · exact Set.mem_iUnion.2 ⟨none, hyΩ⟩
+    · refine Set.mem_iUnion.2 ⟨some ⟨y, hyfr⟩, ?_⟩
+      change y ∈ Metric.ball (y : ℝⁿ) (r y hyfr)
+      rw [Metric.mem_ball, dist_self]
+      exact hr y hyfr
+  obtain ⟨f, hf⟩ := SmoothPartitionOfUnity.exists_isSubordinate (I := 𝓘(ℝ, ℝⁿ))
+    isClosed_closure U hUopen hcover
+  refine ⟨ι, fun j => (f j : ℝⁿ → ℝ), U, hUopen, hf, fun j => ?_, fun j => f.nonneg j,
+    f.locallyFinite, fun x hx => f.sum_eq_one hx, fun j => ?_⟩
+  · exact contMDiff_iff_contDiff.mp (f j).contMDiff
+  · cases j with
+    | none => exact Or.inl (subset_refl Ω)
+    | some x => exact Or.inr ⟨(x : ℝⁿ), r x x.2, idx x x.2, sgn x x.2, γ x x.2, rfl,
+        hr x x.2, hsgn x x.2, hγcd x x.2, hγindep x x.2, hchart x x.2⟩
 
 end Sobolev
