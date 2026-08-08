@@ -2338,6 +2338,19 @@ theorem exists_memW1p_extension_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {v : 
     rw [← hset]
     exact eLpNorm_evenRefl_grad_le_restrict i j hp1 (hgrad_cont k j).aestronglyMeasurable
 
+/-- **Half-space extension at the `W^{1,p}` level.**  Convenience form of
+`exists_memW1p_extension_halfspace` taking `u ∈ W^{1,p}(\{xᵢ>0\})` as a `MemW1p` hypothesis and
+returning `U ∈ W^{1,p}(ℝⁿ)` agreeing with `u` a.e. on `\{xᵢ>0\}` — the natural interface a
+general-domain construction would chart-flatten and glue. -/
+theorem MemW1p.exists_extension_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hp : p ≠ ⊤) (hu : MemW1p {x : ℝⁿ | 0 < x i} p u) :
+    ∃ U : ℝⁿ → ℝ, MemW1p Set.univ p U ∧ U =ᵐ[volume.restrict {x : ℝⁿ | 0 < x i}] u := by
+  choose v hv_weak hv_mem using hu.exists_weakDeriv
+  obtain ⟨U, V, hU_mem, hV_mem, hV_weak, hUu, _, _⟩ :=
+    exists_memW1p_extension_halfspace i hp hu.memLp hv_mem hv_weak
+  exact ⟨U, ⟨by rw [Measure.restrict_univ]; exact hU_mem,
+    fun j => ⟨V j, hV_weak j, by rw [Measure.restrict_univ]; exact hV_mem j⟩⟩, hUu⟩
+
 
 
 end Sobolev
