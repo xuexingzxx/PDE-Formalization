@@ -1330,4 +1330,32 @@ theorem measurePreserving_shearEquiv {γ : ℝⁿ → ℝ} {i : Fin n}
     rw [Equiv.image_eq_preimage]; simp
   rw [hpre, himg s hs]
 
+/-- **Classical chain rule through the shear.**  For `w, g ∈ C¹`, the composition `w ∘ Ψ`
+(`Ψ x = x + g(x)·eᵢ`) is differentiable, `fderiv (w∘Ψ) x = fderiv w (Ψx) ∘ (id + Dg·eᵢᵀ)`. -/
+theorem hasFDerivAt_comp_shearMap (w g : ℝⁿ → ℝ) (i : Fin n)
+    (hw : ContDiff ℝ 1 w) (hg : ContDiff ℝ 1 g) (x : ℝⁿ) :
+    HasFDerivAt (fun y => w (y + g y • EuclideanSpace.single i (1 : ℝ)))
+      ((fderiv ℝ w (x + g x • EuclideanSpace.single i (1 : ℝ))).comp
+        (ContinuousLinearMap.id ℝ ℝⁿ +
+          (fderiv ℝ g x).smulRight (EuclideanSpace.single i (1 : ℝ)))) x := by
+  have hΨ := hasFDerivAt_shearMap g i hg x
+  have hw' : HasFDerivAt w (fderiv ℝ w (x + g x • EuclideanSpace.single i (1 : ℝ)))
+      (x + g x • EuclideanSpace.single i (1 : ℝ)) :=
+    (hw.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+  exact hw'.comp x hΨ
+
+/-- The directional (`eⱼ`) form of the chain rule:
+`∂ⱼ(w∘Ψ)(x) = (∂ⱼw)(Ψx) + (∂ⱼg)(x)·(∂ᵢw)(Ψx)`. -/
+theorem fderiv_comp_shearMap_single (w g : ℝⁿ → ℝ) (i j : Fin n)
+    (hw : ContDiff ℝ 1 w) (hg : ContDiff ℝ 1 g) (x : ℝⁿ) :
+    fderiv ℝ (fun y => w (y + g y • EuclideanSpace.single i (1 : ℝ))) x
+        (EuclideanSpace.single j (1 : ℝ))
+      = fderiv ℝ w (x + g x • EuclideanSpace.single i (1 : ℝ)) (EuclideanSpace.single j (1 : ℝ))
+        + fderiv ℝ g x (EuclideanSpace.single j (1 : ℝ)) *
+          fderiv ℝ w (x + g x • EuclideanSpace.single i (1 : ℝ))
+            (EuclideanSpace.single i (1 : ℝ)) := by
+  rw [(hasFDerivAt_comp_shearMap w g i hw hg x).fderiv]
+  simp [ContinuousLinearMap.comp_apply, ContinuousLinearMap.add_apply,
+    ContinuousLinearMap.smulRight_apply, map_smul]
+
 end Sobolev
