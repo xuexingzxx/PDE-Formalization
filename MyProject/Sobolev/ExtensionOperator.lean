@@ -1358,4 +1358,31 @@ theorem fderiv_comp_shearMap_single (w g : ℝⁿ → ℝ) (i j : Fin n)
   simp [ContinuousLinearMap.comp_apply, ContinuousLinearMap.add_apply,
     ContinuousLinearMap.smulRight_apply, map_smul]
 
+/-- `Lᵖ` seminorm is invariant under precomposition with the (measure-preserving) shear. -/
+theorem eLpNorm_comp_shearEquiv {γ : ℝⁿ → ℝ} {i : Fin n}
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y)
+    (hγ : ContDiff ℝ 1 γ) {p : ℝ≥0∞} (f : ℝⁿ → ℝ) (hf : AEStronglyMeasurable f volume) :
+    eLpNorm (fun z => f (shearEquiv hindep z)) p volume = eLpNorm f p volume :=
+  eLpNorm_comp_measurePreserving hf (measurePreserving_shearEquiv hindep hγ)
+
+/-- `MemLp` is preserved under precomposition with the shear. -/
+theorem MemLp.comp_shearEquiv {γ : ℝⁿ → ℝ} {i : Fin n}
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y)
+    (hγ : ContDiff ℝ 1 γ) {p : ℝ≥0∞} {f : ℝⁿ → ℝ} (hf : MemLp f p volume) :
+    MemLp (fun z => f (shearEquiv hindep z)) p volume :=
+  hf.comp_measurePreserving (measurePreserving_shearEquiv hindep hγ)
+
+/-- Multiplying by a function bounded (in absolute value) by `M` scales the `Lᵖ` seminorm by at
+most `M`.  (Used to control the chain-rule term `(∂ⱼγ)·(∂ᵢu∘Ψ)`.) -/
+theorem eLpNorm_mul_bounded_le {p : ℝ≥0∞} {g f : ℝⁿ → ℝ} {M : ℝ} (hg : ∀ z, |g z| ≤ M) :
+    eLpNorm (fun z => g z * f z) p volume ≤ ENNReal.ofReal M * eLpNorm f p volume := by
+  have hM0 : 0 ≤ M := le_trans (abs_nonneg _) (hg 0)
+  have hmono : eLpNorm (fun z => g z * f z) p volume ≤ eLpNorm (M • f) p volume := by
+    refine eLpNorm_mono_ae (Filter.Eventually.of_forall (fun z => ?_))
+    rw [Real.norm_eq_abs, abs_mul, Pi.smul_apply, Real.norm_eq_abs, smul_eq_mul, abs_mul,
+      abs_of_nonneg hM0]
+    exact mul_le_mul_of_nonneg_right (hg z) (abs_nonneg _)
+  refine hmono.trans (le_trans eLpNorm_const_smul_le ?_)
+  rw [Real.enorm_eq_ofReal hM0]
+
 end Sobolev
