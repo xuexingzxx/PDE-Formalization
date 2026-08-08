@@ -2351,6 +2351,33 @@ theorem MemW1p.exists_extension_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {p : 
   exact ⟨U, ⟨by rw [Measure.restrict_univ]; exact hU_mem,
     fun j => ⟨V j, hV_weak j, by rw [Measure.restrict_univ]; exact hV_mem j⟩⟩, hUu⟩
 
+/-! ### Toward the general-domain operator: `W^{1,p}`-invariance under a linear isometry
+
+Boundary charts orient the boundary by a rigid motion.  The weak derivative in a rotated direction
+`L eᵢ` is the linear combination `∑ₖ (L eᵢ)ₖ vₖ` of the coordinate weak derivatives, which needs the
+weak derivative to be additive over a *finite sum* of directions. -/
+
+/-- The weak derivative in the zero direction is `0`. -/
+theorem isWeakDerivInDir_zero (U : Set ℝⁿ) (u : ℝⁿ → ℝ) :
+    IsWeakDerivInDir U (0 : ℝⁿ) u 0 := by
+  intro φ hφ; simp
+
+/-- **Directional additivity over a finite sum.**  If `Vₖ` is the weak `eₖ`-derivative of `u` for
+every `k`, then `∑_{k∈s} Vₖ` is the weak `(∑_{k∈s} eₖ)`-derivative of `u`.  Finset induction on the
+sum, gluing with `dir_add_restrict`. -/
+theorem IsWeakDerivInDir.dir_sum {U : Set ℝⁿ} (hU : MeasurableSet U) {ι : Type*}
+    {u : ℝⁿ → ℝ} {e : ι → ℝⁿ} {V : ι → ℝⁿ → ℝ} (hu : LocallyIntegrable u (volume.restrict U))
+    (hV : ∀ k, LocallyIntegrable (V k) (volume.restrict U))
+    (h : ∀ k, IsWeakDerivInDir U (e k) u (V k)) (s : Finset ι) :
+    IsWeakDerivInDir U (∑ k ∈ s, e k) u (fun x => ∑ k ∈ s, V k x) := by
+  classical
+  induction s using Finset.induction with
+  | empty => simpa using isWeakDerivInDir_zero U u
+  | @insert a s ha ih =>
+    simp only [Finset.sum_insert ha]
+    exact IsWeakDerivInDir.dir_add_restrict hU hu (hV a)
+      (locallyIntegrable_finset_sum s (fun k _ => hV k)) (h a) ih
+
 
 
 end Sobolev
