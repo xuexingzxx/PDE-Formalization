@@ -2801,9 +2801,13 @@ gradients are Cauchy in $L^p(\mathbb R^n)$, hence converge to $U$ and $V_j$ (Ban
 $L^p$, packaged as \texttt{exists\_memLp\_tendsto\_of\_dominated} --- one call for the function, one per
 coordinate); the weak-derivative relation passes to the limit by the closedness cornerstone
 \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}; and $U=u$ a.e.\ on $\{x_i>0\}$ because $E_k=w_k$
-there.  This is \texttt{exists\_memW1p\_extension\_halfspace}: \emph{every $u\in W^{1,p}(\{x_i>0\})$
-extends to a $U\in W^{1,p}(\mathbb R^n)$ agreeing with $u$ a.e.\ on $\{x_i>0\}$} --- the flat-boundary
-extension theorem, the local model of \S5.4, now complete and sorry-free.
+there.  This is \texttt{exists\_memW1p\_extension\_halfspace}: \emph{every $u\in W^{1,p}(\{x_i>0\})$ (weak
+derivatives $v$) extends to a $U\in W^{1,p}(\mathbb R^n)$ (with explicit weak derivatives $V$)
+agreeing with $u$ a.e.\ on $\{x_i>0\}$, and moreover the extension is \textbf{bounded}:
+$\|U\|_{L^p(\mathbb R^n)}\le 2\|u\|_{L^p(\{x_i>0\})}$ and $\|V_j\|_{L^p(\mathbb R^n)}\le
+2\|v_j\|_{L^p(\{x_i>0\})}$ for every $j$} (the per-approximant $\le2$ bounds pass to the $L^p$-limit,
+\texttt{eLpNorm\_le\_two\_of\_tendsto}) --- the flat-boundary extension theorem, the local model of
+\S5.4, now complete and sorry-free.
 
 \textbf{What remains.}  Only the general-domain operator: chart-flattening a bounded $C^1$ domain and a
 partition-of-unity gluing of these local reflection extensions into the global bounded operator
