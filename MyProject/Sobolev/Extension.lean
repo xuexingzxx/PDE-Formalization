@@ -2378,6 +2378,42 @@ theorem IsWeakDerivInDir.dir_sum {U : Set ℝⁿ} (hU : MeasurableSet U) {ι : T
     exact IsWeakDerivInDir.dir_add_restrict hU hu (hV a)
       (locallyIntegrable_finset_sum s (fun k _ => hV k)) (h a) ih
 
+/-- **`W^{1,p}(ℝⁿ)` is invariant under a linear isometry.**  For `L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ`,
+`u ∈ W^{1,p}(ℝⁿ) ⟹ u ∘ L ∈ W^{1,p}(ℝⁿ)`.  The weak `eᵢ`-derivative of `u∘L` is `(∂_{L eᵢ}u)∘L`
+(`isWeakDerivInDir_comp_linear`), and `∂_{L eᵢ}u = ∑ₖ (L eᵢ)ₖ·vₖ` expands the rotated direction over
+the coordinate weak derivatives (`dir_sum` of `dir_smul`, using the orthonormal expansion
+`L eᵢ = ∑ₖ (L eᵢ)ₖ • eₖ`).  A rigid-motion building block for orienting boundary charts. -/
+theorem MemW1p.comp_linearIsometry (L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hu : MemW1p Set.univ p u) : MemW1p Set.univ p (fun x => u (L x)) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hLmp : MeasurePreserving (L : ℝⁿ → ℝⁿ) volume volume := L.measurePreserving
+  choose v hv_weak hv_mem using hu.exists_weakDeriv
+  have hu_vol : MemLp u p volume := by have := hu.memLp; rwa [Measure.restrict_univ] at this
+  have hv_vol : ∀ k, MemLp (v k) p volume := fun k => by
+    have := hv_mem k; rwa [Measure.restrict_univ] at this
+  have huLI : LocallyIntegrable u (volume.restrict (Set.univ : Set ℝⁿ)) :=
+    hu.memLp.locallyIntegrable hp1
+  have hvLI : ∀ k, LocallyIntegrable (v k) (volume.restrict (Set.univ : Set ℝⁿ)) :=
+    fun k => (hv_mem k).locallyIntegrable hp1
+  have hbasis : ∀ w : ℝⁿ, (∑ k, w k • EuclideanSpace.single k (1 : ℝ)) = w := by
+    intro w
+    have h := (EuclideanSpace.basisFun (Fin n) ℝ).sum_repr w
+    simpa only [EuclideanSpace.basisFun_repr, EuclideanSpace.basisFun_apply] using h
+  refine ⟨by rw [Measure.restrict_univ]; exact hu_vol.comp_measurePreserving hLmp, fun i => ?_⟩
+  refine ⟨fun x => ∑ k, (L (EuclideanSpace.single i (1 : ℝ))) k * v k (L x), ?_, ?_⟩
+  · have hdir : IsWeakDerivInDir Set.univ (L (EuclideanSpace.single i (1 : ℝ))) u
+        (fun x => ∑ k, (L (EuclideanSpace.single i (1 : ℝ))) k * v k x) := by
+      have hsum := IsWeakDerivInDir.dir_sum MeasurableSet.univ huLI
+        (V := fun k => fun x => (L (EuclideanSpace.single i (1 : ℝ))) k * v k x)
+        (fun k => (hvLI k).smul ((L (EuclideanSpace.single i (1 : ℝ))) k))
+        (fun k => IsWeakDerivInDir.dir_smul ((L (EuclideanSpace.single i (1 : ℝ))) k) (hv_weak k))
+        Finset.univ
+      rwa [hbasis (L (EuclideanSpace.single i (1 : ℝ)))] at hsum
+    exact isWeakDerivInDir_comp_linear L (EuclideanSpace.single i (1 : ℝ)) hdir
+  · rw [Measure.restrict_univ]
+    exact memLp_finset_sum Finset.univ
+      (fun k _ => ((hv_vol k).comp_measurePreserving hLmp).const_mul _)
+
 
 
 end Sobolev
