@@ -15,3 +15,4 @@ import MyProject.Sobolev.RellichKondrachov
 import MyProject.Sobolev.Morrey
 import MyProject.Sobolev.Trace
 import MyProject.Sobolev.Extension
+import MyProject.Sobolev.ExtensionOperator

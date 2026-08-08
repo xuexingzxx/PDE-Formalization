@@ -96,7 +96,7 @@ an **opaque `q : ℝ≥0∞`** (with `Fact (1 ≤ q)`, `q ≠ ⊤`, `q.toReal = 
 so the defeq checker never reduces the exponent — cutting the compile to ~4.6 min. The one remaining
 piece of the *full* trace theorem is extending the operator from `C¹` to all of `W^{1,p}(Ω)` by
 density, which for a general domain needs a Sobolev **extension operator**. The **half-space** case of
-that operator is now proved (§5.4, `exists_memW1p_extension_halfspace` in `Sobolev/Extension.lean`);
+that operator is now proved (§5.4, `exists_memW1p_extension_halfspace` in `Sobolev/ExtensionOperator.lean`);
 the general bounded-`C¹`-domain version remains, gated on the same `C¹`-boundary-chart infrastructure
 (a flattening diffeomorphism + `W^{1,p}`-invariance under a nonlinear `C¹` change of variables).
 
@@ -123,7 +123,8 @@ MyProject/
     RellichKondrachov.lean -- §5.7 self-contained FK criterion + named Rellich–Kondrachov theorem + whole-space converse
     Morrey.lean            -- §5.6 Morrey inequality W^{1,p} ↪ C^{0,1−n/p} (p > n)
     Trace.lean             -- §5.5 trace estimate ∫_{∂Ω} |u|^p ≤ C‖u‖^p_{W^{1,p}} (all p≥1) (+ transverse field, div Leibniz)
-    Extension.lean         -- §5.4 half-space W^{1,p} extension operator (even reflection + boundary density + Lᵖ completeness)
+    Extension.lean         -- §5.4 even-reflection foundations (refll, evenRefl weak gradient, Lᵖ/gradient bounds)
+    ExtensionOperator.lean -- §5.4 half-space W^{1,p} extension operator (boundary density + Lᵖ completeness assembly)
 MyProject.lean             -- imports all of the above
 pde_lean_project.tex  -- companion writeup with proof notes and status tables
 ```
