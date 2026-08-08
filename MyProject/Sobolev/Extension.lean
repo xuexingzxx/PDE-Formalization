@@ -2102,20 +2102,83 @@ theorem exists_memLp_tendsto_of_dominated {c E : ℕ → ℝⁿ → ℝ} {cl : �
   exact exists_memLp_tendsto_of_cauchySeq_toLp hE
     (cauchySeq_toLp_of_le hE hc hcCauchy hbound)
 
-/-- **The half-space extension theorem (existence form).**  Every `u ∈ W^{1,p}(\{xᵢ>0\})` extends to a
-`U ∈ W^{1,p}(ℝⁿ)` agreeing with `u` a.e. on `\{xᵢ>0\}`.  Take the boundary-density approximants
-`wₖ → u`, reflect them (`Eₖ = evenRefl wₖ ∈ W^{1,p}(ℝⁿ)`), and pass to the `Lᵖ` limit: `Eₖ` and their
-reflected gradients are Cauchy (restricted `≤2` bounds + `wₖ` Cauchy), so converge to `U` and `Vⱼ`;
-the weak-derivative relation transfers to the limit by `isWeakDerivInDir_of_tendsto_Lp_restrict`, and
-`U =ᵐ u` on `\{xᵢ>0\}` because `Eₖ = wₖ` there.  This is the `W^{1,p}` extension operator for the flat
-half-space — the local model of Evans §5.4. -/
+/-- **A `≤2` bound passes to the `Lᵖ`-limit.**  If `E_k → G` in `Lᵖ(ℝⁿ)`, `c_k → cl` in `Lᵖ(s)`, and
+`‖E_k‖ ≤ 2‖c_k‖_{Lᵖ(s)}` for every `k`, then `‖G‖ ≤ 2‖cl‖_{Lᵖ(s)}`.  This turns the per-approximant
+restricted `≤2` bounds into the operator norm bound on the limit — applied once to the extended
+function and once per coordinate to its gradient. -/
+theorem eLpNorm_le_two_of_tendsto {E c : ℕ → ℝⁿ → ℝ} {G cl : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    {s : Set ℝⁿ} (haE : ∀ k, AEStronglyMeasurable (E k) volume)
+    (haG : AEStronglyMeasurable G volume) (hacl : AEStronglyMeasurable cl (volume.restrict s))
+    (hac : ∀ k, AEStronglyMeasurable (c k) (volume.restrict s))
+    (hEconv : Tendsto (fun k => eLpNorm (fun x => E k x - G x) p volume) atTop (𝓝 0))
+    (hcconv : Tendsto (fun k => eLpNorm (fun x => c k x - cl x) p (volume.restrict s)) atTop (𝓝 0))
+    (hbound : ∀ k, eLpNorm (E k) p volume ≤ 2 * eLpNorm (c k) p (volume.restrict s)) :
+    eLpNorm G p volume ≤ 2 * eLpNorm cl p (volume.restrict s) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hbnd : ∀ k, eLpNorm G p volume
+      ≤ eLpNorm (fun x => E k x - G x) p volume
+        + (2 * eLpNorm cl p (volume.restrict s)
+           + 2 * eLpNorm (fun x => c k x - cl x) p (volume.restrict s)) := by
+    intro k
+    have hck : eLpNorm (c k) p (volume.restrict s)
+        ≤ eLpNorm cl p (volume.restrict s)
+          + eLpNorm (fun x => c k x - cl x) p (volume.restrict s) :=
+      calc eLpNorm (c k) p (volume.restrict s)
+          = eLpNorm (fun x => cl x + (c k x - cl x)) p (volume.restrict s) :=
+            eLpNorm_congr_ae (Filter.Eventually.of_forall fun x => by
+              show c k x = cl x + (c k x - cl x); ring)
+        _ ≤ eLpNorm cl p (volume.restrict s)
+            + eLpNorm (fun x => c k x - cl x) p (volume.restrict s) :=
+            eLpNorm_add_le hacl ((hac k).sub hacl) hp1
+    calc eLpNorm G p volume
+        = eLpNorm (fun x => (G x - E k x) + E k x) p volume :=
+          eLpNorm_congr_ae (Filter.Eventually.of_forall fun x => by
+            show G x = (G x - E k x) + E k x; ring)
+      _ ≤ eLpNorm (fun x => G x - E k x) p volume + eLpNorm (E k) p volume :=
+          eLpNorm_add_le (haG.sub (haE k)) (haE k) hp1
+      _ = eLpNorm (fun x => E k x - G x) p volume + eLpNorm (E k) p volume := by
+          congr 1
+          rw [show (fun x => G x - E k x) = (fun x : ℝⁿ => -(E k x - G x)) from
+            funext fun x => by ring]
+          exact eLpNorm_neg (fun x => E k x - G x) p volume
+      _ ≤ eLpNorm (fun x => E k x - G x) p volume + 2 * eLpNorm (c k) p (volume.restrict s) := by
+          gcongr; exact hbound k
+      _ ≤ eLpNorm (fun x => E k x - G x) p volume
+          + (2 * eLpNorm cl p (volume.restrict s)
+             + 2 * eLpNorm (fun x => c k x - cl x) p (volume.restrict s)) := by
+          gcongr; rw [← mul_add]; gcongr
+  have htend : Tendsto (fun k => eLpNorm (fun x => E k x - G x) p volume
+      + (2 * eLpNorm cl p (volume.restrict s)
+         + 2 * eLpNorm (fun x => c k x - cl x) p (volume.restrict s)))
+      atTop (𝓝 (2 * eLpNorm cl p (volume.restrict s))) := by
+    have h0 : Tendsto (fun k => eLpNorm (fun x => E k x - G x) p volume
+        + (2 * eLpNorm cl p (volume.restrict s)
+           + 2 * eLpNorm (fun x => c k x - cl x) p (volume.restrict s)))
+        atTop (𝓝 (0 + (2 * eLpNorm cl p (volume.restrict s) + 2 * 0))) :=
+      hEconv.add (tendsto_const_nhds.add
+        (ENNReal.Tendsto.const_mul hcconv (Or.inr (by simp))))
+    simpa using h0
+  exact ge_of_tendsto htend (Filter.Eventually.of_forall hbnd)
+
+/-- **The half-space extension theorem (bounded operator).**  Every `u ∈ W^{1,p}(\{xᵢ>0\})` with weak
+derivatives `v` extends to a `U ∈ W^{1,p}(ℝⁿ)` with weak derivatives `V`, agreeing with `u` a.e. on
+`\{xᵢ>0\}` and satisfying the operator bounds `‖U‖_{Lᵖ(ℝⁿ)} ≤ 2‖u‖_{Lᵖ(\{xᵢ>0\})}` and
+`‖Vⱼ‖_{Lᵖ(ℝⁿ)} ≤ 2‖vⱼ‖_{Lᵖ(\{xᵢ>0\})}`.  Take the boundary-density approximants `wₖ → u`, reflect
+them (`Eₖ = evenRefl wₖ`), and pass to the `Lᵖ` limit: `Eₖ` and their reflected gradients are Cauchy
+(restricted `≤2` bounds + `wₖ` Cauchy), so converge to `U` and `Vⱼ`; the weak-derivative relation
+transfers by `isWeakDerivInDir_of_tendsto_Lp_restrict`, the `≤2` bounds pass to the limit
+(`eLpNorm_le_two_of_tendsto`), and `U =ᵐ u` on `\{xᵢ>0\}` because `Eₖ = wₖ` there.  This is the
+bounded `W^{1,p}` extension operator for the flat half-space — the local model of Evans §5.4. -/
 theorem exists_memW1p_extension_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ}
     {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
     (hu : MemLp u p (volume.restrict {x : ℝⁿ | 0 < x i}))
     (hv : ∀ j, MemLp (v j) p (volume.restrict {x : ℝⁿ | 0 < x i}))
     (hweak : ∀ j, IsWeakDerivInDir {x : ℝⁿ | 0 < x i} (EuclideanSpace.single j (1 : ℝ)) u (v j)) :
-    ∃ U : ℝⁿ → ℝ, MemW1p Set.univ p U ∧ U =ᵐ[volume.restrict {x : ℝⁿ | 0 < x i}] u ∧
-      eLpNorm U p volume ≤ 2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i}) := by
+    ∃ (U : ℝⁿ → ℝ) (V : Fin n → ℝⁿ → ℝ), MemLp U p volume ∧ (∀ j, MemLp (V j) p volume) ∧
+      (∀ j, IsWeakDerivInDir Set.univ (EuclideanSpace.single j (1 : ℝ)) U (V j)) ∧
+      U =ᵐ[volume.restrict {x : ℝⁿ | 0 < x i}] u ∧
+      eLpNorm U p volume ≤ 2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i}) ∧
+      ∀ j, eLpNorm (V j) p volume ≤ 2 * eLpNorm (v j) p (volume.restrict {x : ℝⁿ | 0 < x i}) := by
   have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
   have hmsGt : MeasurableSet {x : ℝⁿ | 0 < x i} :=
     measurableSet_lt measurable_const (EuclideanSpace.proj i).continuous.measurable
@@ -2198,9 +2261,10 @@ theorem exists_memW1p_extension_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {v : 
       (((hgrad_cont m j).sub (hgrad_cont k j)).aestronglyMeasurable.congr
         (Filter.Eventually.of_forall fun z => (hfd z).symm))
   choose Vlim hVlim_mem hVlim_conv using hVexists
-  -- assemble `U ∈ W^{1,p}(ℝⁿ)` and `U =ᵐ u`
-  refine ⟨U, ⟨by rw [Measure.restrict_univ]; exact hU_mem, fun j => ⟨Vlim j, ?_, ?_⟩⟩, ?_, ?_⟩
+  -- assemble the bounded extension operator
+  refine ⟨U, Vlim, hU_mem, hVlim_mem, ?_, ?_, ?_, ?_⟩
   · -- weak `eⱼ`-derivative of `U`
+    intro j
     refine isWeakDerivInDir_of_tendsto_Lp_restrict hp1 hp (fun k => hE_weak k j)
       (fun k => ((hE_mem k).restrict _).locallyIntegrable hp1)
       (hU_mem.restrict _ |>.locallyIntegrable hp1)
@@ -2210,7 +2274,6 @@ theorem exists_memW1p_extension_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {v : 
       (fun k => by rw [Measure.restrict_univ]; exact (hV_mem j k).sub (hVlim_mem j))
       (by rw [Measure.restrict_univ]; exact hU_conv)
       (by rw [Measure.restrict_univ]; exact hVlim_conv j)
-  · rw [Measure.restrict_univ]; exact hVlim_mem j
   · -- `U =ᵐ u` on `{xᵢ>0}`: `Eₖ = wₖ` there, `Eₖ → U`, `wₖ → u`
     have hEU : Tendsto (fun k => eLpNorm (fun x => w k x - U x) p
         (volume.restrict {x : ℝⁿ | 0 < x i})) atTop (𝓝 0) := by
@@ -2259,59 +2322,21 @@ theorem exists_memW1p_extension_halfspace (i : Fin n) {u : ℝⁿ → ℝ} {v : 
         ((hU_mem.aestronglyMeasurable.mono_measure Measure.restrict_le_self).sub hau) hp0).mp huU
     filter_upwards [hae0] with x hx
     simpa [sub_eq_zero] using hx
-  · -- norm bound `‖U‖ ≤ 2‖u‖` (bounded extension): pass the `≤2` bound to the `Lᵖ`-limit
-    have hbnd : ∀ k, eLpNorm U p volume
-        ≤ eLpNorm (fun x => evenRefl i (w k) x - U x) p volume
-          + (2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i})
-             + 2 * eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i})) := by
-      intro k
-      have haU : AEStronglyMeasurable U volume := hU_mem.aestronglyMeasurable
-      have haE : AEStronglyMeasurable (evenRefl i (w k)) volume := (hE_mem k).aestronglyMeasurable
-      have haw : AEStronglyMeasurable (w k) volume := (hw_cd1 k).continuous.aestronglyMeasurable
-      have hwbnd : eLpNorm (w k) p (volume.restrict {x : ℝⁿ | 0 ≤ x i})
-          ≤ eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i})
-            + eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i}) := by
-        rw [hset]
-        calc eLpNorm (w k) p (volume.restrict {x : ℝⁿ | 0 < x i})
-            = eLpNorm (fun x => u x + (w k x - u x)) p (volume.restrict {x : ℝⁿ | 0 < x i}) :=
-              eLpNorm_congr_ae (Filter.Eventually.of_forall fun x => by
-                show w k x = u x + (w k x - u x); ring)
-          _ ≤ eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i})
-              + eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i}) :=
-              eLpNorm_add_le hu.aestronglyMeasurable
-                ((haw.mono_measure Measure.restrict_le_self).sub hu.aestronglyMeasurable) hp1
-      calc eLpNorm U p volume
-          = eLpNorm (fun x => (U x - evenRefl i (w k) x) + evenRefl i (w k) x) p volume :=
-            eLpNorm_congr_ae (Filter.Eventually.of_forall fun x => by
-              show U x = (U x - evenRefl i (w k) x) + evenRefl i (w k) x; ring)
-        _ ≤ eLpNorm (fun x => U x - evenRefl i (w k) x) p volume
-            + eLpNorm (evenRefl i (w k)) p volume := eLpNorm_add_le (haU.sub haE) haE hp1
-        _ = eLpNorm (fun x => evenRefl i (w k) x - U x) p volume
-            + eLpNorm (evenRefl i (w k)) p volume := by
-            congr 1
-            rw [show (fun x => U x - evenRefl i (w k) x)
-              = (fun x : ℝⁿ => -(evenRefl i (w k) x - U x)) from funext fun x => by ring]
-            exact eLpNorm_neg (fun x => evenRefl i (w k) x - U x) p volume
-        _ ≤ eLpNorm (fun x => evenRefl i (w k) x - U x) p volume
-            + 2 * eLpNorm (w k) p (volume.restrict {x : ℝⁿ | 0 ≤ x i}) := by
-            gcongr; exact eLpNorm_evenRefl_le_restrict i hp1 haw
-        _ ≤ eLpNorm (fun x => evenRefl i (w k) x - U x) p volume
-            + (2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i})
-               + 2 * eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i})) := by
-            gcongr
-            rw [← mul_add]; gcongr
-    have htend : Tendsto (fun k => eLpNorm (fun x => evenRefl i (w k) x - U x) p volume
-        + (2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i})
-           + 2 * eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i})))
-        atTop (𝓝 (2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i}))) := by
-      have h0 : Tendsto (fun k => eLpNorm (fun x => evenRefl i (w k) x - U x) p volume
-          + (2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i})
-             + 2 * eLpNorm (fun x => w k x - u x) p (volume.restrict {x : ℝⁿ | 0 < x i})))
-          atTop (𝓝 (0 + (2 * eLpNorm u p (volume.restrict {x : ℝⁿ | 0 < x i}) + 2 * 0))) :=
-        hU_conv.add (tendsto_const_nhds.add
-          (ENNReal.Tendsto.const_mul hw_fun (Or.inr (by simp))))
-      simpa using h0
-    exact ge_of_tendsto htend (Filter.Eventually.of_forall hbnd)
+  · -- operator bound `‖U‖ ≤ 2‖u‖`
+    refine eLpNorm_le_two_of_tendsto (fun k => (hE_mem k).aestronglyMeasurable)
+      hU_mem.aestronglyMeasurable hu.aestronglyMeasurable
+      (fun k => ((hw_cd1 k).continuous.aestronglyMeasurable).mono_measure Measure.restrict_le_self)
+      hU_conv hw_fun (fun k => ?_)
+    rw [← hset]
+    exact eLpNorm_evenRefl_le_restrict i hp1 (hw_cd1 k).continuous.aestronglyMeasurable
+  · -- operator bound `‖Vⱼ‖ ≤ 2‖vⱼ‖`
+    intro j
+    refine eLpNorm_le_two_of_tendsto (fun k => (hV_mem j k).aestronglyMeasurable)
+      (hVlim_mem j).aestronglyMeasurable (hv j).aestronglyMeasurable
+      (fun k => ((hgrad_cont k j).aestronglyMeasurable).mono_measure Measure.restrict_le_self)
+      (hVlim_conv j) (hw_grad j) (fun k => ?_)
+    rw [← hset]
+    exact eLpNorm_evenRefl_grad_le_restrict i j hp1 (hgrad_cont k j).aestronglyMeasurable
 
 
 
