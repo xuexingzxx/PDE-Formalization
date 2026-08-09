@@ -1564,4 +1564,182 @@ theorem memW1p_univ_of_compactSupport {Ω : Set ℝⁿ} (hΩ : IsOpen Ω) {p : �
   · rw [Measure.restrict_univ]
     exact memLp_of_restrict_of_tsupport_subset hΩ.measurableSet (hvLp i) (hvsub i)
 
+
+/-- Convolution preserves independence of coordinate `i`. -/
+theorem convolution_indep {i : Fin n} {ρ h : ℝⁿ → ℝ}
+    (hhindep : ∀ (y : ℝⁿ) (t : ℝ), h (y + t • EuclideanSpace.single i (1 : ℝ)) = h y)
+    (s : ℝ) (x : ℝⁿ) :
+    (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] h) (x + s • EuclideanSpace.single i (1 : ℝ))
+      = (ρ ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] h) x := by
+  simp only [convolution_def]
+  refine integral_congr_ae (Eventually.of_forall (fun t => ?_))
+  dsimp only
+  congr 1
+  rw [show x + s • EuclideanSpace.single i (1 : ℝ) - t
+      = (x - t) + s • EuclideanSpace.single i (1 : ℝ) from by abel]
+  exact hhindep (x - t) s
+
+/-- **Weak-derivative test identity with a coordinate-`i`-independent multiplier.**  If `wi` is the
+weak `eᵢ`-derivative of `w` on the open set `U`, `h` is continuous and independent of coordinate `i`,
+and `ψ` is a test function on `U`, then integration by parts in direction `i` works with the extra
+`h` factor: `∫ w·(h·∂ᵢψ) = −∫ wi·(h·ψ)`.  Proved by mollifying `h` (which stays `i`-independent, so
+`∂ᵢ(h_δ) = 0` exactly) and passing to the limit — no second derivative of `h` is needed. -/
+theorem weakDeriv_mul_indep {U : Set ℝⁿ} {i : Fin n} {w wi h : ℝⁿ → ℝ}
+    (hw : IsWeakDerivInDir U (EuclideanSpace.single i (1 : ℝ)) w wi)
+    (hwloc : LocallyIntegrable w volume) (hwiloc : LocallyIntegrable wi volume)
+    (hh : Continuous h)
+    (hhindep : ∀ (y : ℝⁿ) (t : ℝ), h (y + t • EuclideanSpace.single i (1 : ℝ)) = h y)
+    {ψ : ℝⁿ → ℝ} (hψ : IsTestFunction U ψ) :
+    ∫ x, w x * (h x * fderiv ℝ ψ x (EuclideanSpace.single i (1 : ℝ)))
+      = -∫ x, wi x * (h x * ψ x) := by
+  classical
+  obtain ⟨hψcd, hψcs, hψsub⟩ := hψ
+  set eᵢ := EuclideanSpace.single i (1 : ℝ)
+  -- the mollifier family, radius `1/(m+1) → 0`
+  set φ : ℕ → ContDiffBump (0 : ℝⁿ) := fun m =>
+    { rIn := 1 / (m + 2), rOut := 1 / (m + 1), rIn_pos := by positivity,
+      rIn_lt_rOut := by
+        apply one_div_lt_one_div_of_lt <;> [positivity; · push_cast; linarith] } with hφdef
+  set hm : ℕ → ℝⁿ → ℝ :=
+    fun m => (φ m).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] h with hmdef
+  have hmcd : ∀ m, ContDiff ℝ ∞ (hm m) := fun m =>
+    (φ m).hasCompactSupport_normed.contDiff_convolution_left (ContinuousLinearMap.lsmul ℝ ℝ)
+      (φ m).contDiff_normed (hh.locallyIntegrable (μ := volume))
+  have hm_fderiv0 : ∀ m x, fderiv ℝ (hm m) x eᵢ = 0 := by
+    intro m x
+    have hind : ∀ (y : ℝⁿ) (t : ℝ), hm m (y + t • EuclideanSpace.single i (1 : ℝ)) = hm m y := by
+      intro y t; rw [hmdef]; exact convolution_indep hhindep t y
+    exact fderiv_single_eq_zero_of_indep ((hmcd m).of_le (by norm_num)) hind x
+  -- per-`m`: `hm m · ψ` is a test function, and IBP gives the identity
+  have identity : ∀ m, ∫ x, w x * (hm m x * fderiv ℝ ψ x eᵢ)
+      = -∫ x, wi x * (hm m x * ψ x) := by
+    intro m
+    have htest : IsTestFunction U (fun x => hm m x * ψ x) :=
+      ⟨(hmcd m).mul hψcd, hψcs.mul_left, tsupport_mul_subset_right.trans hψsub⟩
+    have key := hw _ htest
+    have hfd : ∀ x, fderiv ℝ (fun x => hm m x * ψ x) x eᵢ = hm m x * fderiv ℝ ψ x eᵢ := by
+      intro x
+      have h1 : HasFDerivAt (hm m) (fderiv ℝ (hm m) x) x :=
+        ((hmcd m).differentiable (by norm_num)).differentiableAt.hasFDerivAt
+      have h2 : HasFDerivAt ψ (fderiv ℝ ψ x) x :=
+        (hψcd.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+      have hHF : HasFDerivAt (fun x => hm m x * ψ x)
+          (hm m x • fderiv ℝ ψ x + ψ x • fderiv ℝ (hm m) x) x := h1.mul h2
+      rw [hHF.fderiv]
+      simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply, smul_eq_mul,
+        hm_fderiv0 m x, mul_zero, add_zero]
+    calc ∫ x, w x * (hm m x * fderiv ℝ ψ x eᵢ)
+        = ∫ x, w x * fderiv ℝ (fun x => hm m x * ψ x) x eᵢ := by
+          refine integral_congr_ae (Eventually.of_forall fun x => ?_); simp only [hfd]
+      _ = -∫ x, wi x * (hm m x * ψ x) := key
+  -- pass to the limit as the mollifier radius → 0
+  have hrOut : Tendsto (fun m => (φ m).rOut) atTop (𝓝 (0 : ℝ)) :=
+    tendsto_one_div_add_atTop_nhds_zero_nat
+  have hconv : ∀ x, Tendsto (fun m => hm m x) atTop (𝓝 (h x)) := fun x =>
+    ContDiffBump.convolution_tendsto_right_of_continuous hrOut hh x
+  -- a ball containing `tsupport ψ`, and a uniform bound `C` on `|h|` over its `1`-enlargement
+  obtain ⟨R, hR⟩ := (Metric.isBounded_iff_subset_closedBall 0).1 hψcs.isBounded
+  obtain ⟨C, hC⟩ := (isCompact_closedBall (0 : ℝⁿ) (R + 1)).exists_bound_of_continuousOn
+    hh.continuousOn
+  -- `|hm m x| ≤ C` on `closedBall 0 R`
+  have hnormed_cont : ∀ m, Continuous ((φ m).normed volume) := fun m =>
+    ((φ m).contDiff_normed (n := 1)).continuous
+  have hnormed_int : ∀ m, Integrable ((φ m).normed volume) volume := fun m =>
+    (hnormed_cont m).integrable_of_hasCompactSupport (φ m).hasCompactSupport_normed
+  have hbound_hm : ∀ m x, x ∈ Metric.closedBall (0 : ℝⁿ) R → |hm m x| ≤ C := by
+    intro m x hx
+    rw [Metric.mem_closedBall] at hx
+    have hrle : (φ m).rOut ≤ 1 := by
+      have h1 : (φ m).rOut = 1 / ((m : ℝ) + 1) := rfl
+      rw [h1, div_le_one (by positivity)]
+      have : (0 : ℝ) ≤ (m : ℝ) := Nat.cast_nonneg m
+      linarith
+    have hLHSint : Integrable (fun t => |(φ m).normed volume t| * |h (x - t)|) volume :=
+      Continuous.integrable_of_hasCompactSupport
+        ((hnormed_cont m).abs.mul ((hh.comp (continuous_const.sub continuous_id)).abs))
+        (((φ m).hasCompactSupport_normed.abs).mul_right)
+    have hpt : ∀ t, |(φ m).normed volume t| * |h (x - t)| ≤ (φ m).normed volume t * C := by
+      intro t
+      rcases eq_or_ne ((φ m).normed volume t) 0 with h0 | h0
+      · simp [h0]
+      · rw [abs_of_nonneg ((φ m).nonneg_normed t)]
+        refine mul_le_mul_of_nonneg_left ?_ ((φ m).nonneg_normed t)
+        have ht : dist t 0 < (φ m).rOut := by
+          have hts := Function.mem_support.2 h0
+          rw [(φ m).support_normed_eq] at hts
+          simpa [Metric.mem_ball] using hts
+        refine hC (x - t) ?_
+        rw [Metric.mem_closedBall]
+        calc dist (x - t) 0 = ‖x - t‖ := by rw [dist_zero_right]
+          _ ≤ ‖x‖ + ‖t‖ := norm_sub_le x t
+          _ = dist x 0 + dist t 0 := by rw [dist_zero_right, dist_zero_right]
+          _ ≤ R + 1 := add_le_add hx (le_of_lt (ht.trans_le hrle))
+    simp only [hmdef]; rw [convolution_def]
+    calc |∫ t, (ContinuousLinearMap.lsmul ℝ ℝ) ((φ m).normed volume t) (h (x - t))|
+        ≤ ∫ t, |(φ m).normed volume t| * |h (x - t)| := by
+          refine abs_integral_le_integral_abs.trans (le_of_eq (integral_congr_ae
+            (Eventually.of_forall fun t => ?_)))
+          simp [abs_mul]
+      _ ≤ ∫ t, (φ m).normed volume t * C :=
+          integral_mono_ae hLHSint ((hnormed_int m).mul_const _) (Eventually.of_forall hpt)
+      _ = C := by rw [integral_mul_const, (φ m).integral_normed, one_mul]
+  -- `∂ᵢψ` is continuous with compact support inside the ball
+  have hdψcont : Continuous (fun x => fderiv ℝ ψ x eᵢ) :=
+    (hψcd.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hdψcs : HasCompactSupport (fun x => fderiv ℝ ψ x eᵢ) :=
+    HasCompactSupport.intro hψcs (fun x hx => by
+      rw [(notMem_tsupport_iff_eventuallyEq.1 hx).fderiv_eq]; simp)
+  have hdψ0 : ∀ x, fderiv ℝ ψ x eᵢ ≠ 0 → x ∈ Metric.closedBall (0 : ℝⁿ) R := by
+    intro x hx; refine hR ?_; by_contra hc
+    exact hx (by rw [(notMem_tsupport_iff_eventuallyEq.1 hc).fderiv_eq]; simp)
+  have hψ0 : ∀ x, ψ x ≠ 0 → x ∈ Metric.closedBall (0 : ℝⁿ) R := fun x hx =>
+    hR (subset_tsupport ψ hx)
+  have hint_wdψ : Integrable (fun x => w x * fderiv ℝ ψ x eᵢ) volume := by
+    simpa only [smul_eq_mul] using
+      hwloc.integrable_smul_right_of_hasCompactSupport hdψcont hdψcs
+  have hint_wiψ : Integrable (fun x => wi x * ψ x) volume := by
+    simpa only [smul_eq_mul] using
+      hwiloc.integrable_smul_right_of_hasCompactSupport hψcd.continuous hψcs
+  -- the two dominated-convergence limits
+  have hL : Tendsto (fun m => ∫ x, w x * (hm m x * fderiv ℝ ψ x eᵢ)) atTop
+      (𝓝 (∫ x, w x * (h x * fderiv ℝ ψ x eᵢ))) := by
+    refine tendsto_integral_of_dominated_convergence
+      (fun x => C * |w x * fderiv ℝ ψ x eᵢ|) (fun m => ?_) (hint_wdψ.abs.const_mul C)
+      (fun m => Eventually.of_forall fun x => ?_) (Eventually.of_forall fun x => ?_)
+    · exact hwloc.aestronglyMeasurable.mul
+        ((hmcd m).continuous.aestronglyMeasurable.mul hdψcont.aestronglyMeasurable)
+    · by_cases h0 : fderiv ℝ ψ x eᵢ = 0
+      · simp [h0]
+      · have hb := hbound_hm m x (hdψ0 x h0)
+        rw [Real.norm_eq_abs, abs_mul, abs_mul]
+        calc |w x| * (|hm m x| * |fderiv ℝ ψ x eᵢ|)
+            = |hm m x| * (|w x| * |fderiv ℝ ψ x eᵢ|) := by ring
+          _ ≤ C * (|w x| * |fderiv ℝ ψ x eᵢ|) := by
+              exact mul_le_mul_of_nonneg_right hb (by positivity)
+          _ = C * |w x * fderiv ℝ ψ x eᵢ| := by rw [abs_mul]
+    · exact ((hconv x).mul_const _).const_mul (w x)
+  have hRlim : Tendsto (fun m => ∫ x, wi x * (hm m x * ψ x)) atTop
+      (𝓝 (∫ x, wi x * (h x * ψ x))) := by
+    refine tendsto_integral_of_dominated_convergence
+      (fun x => C * |wi x * ψ x|) (fun m => ?_) (hint_wiψ.abs.const_mul C)
+      (fun m => Eventually.of_forall fun x => ?_) (Eventually.of_forall fun x => ?_)
+    · exact hwiloc.aestronglyMeasurable.mul
+        ((hmcd m).continuous.aestronglyMeasurable.mul hψcd.continuous.aestronglyMeasurable)
+    · by_cases h0 : ψ x = 0
+      · simp [h0]
+      · have hb := hbound_hm m x (hψ0 x h0)
+        rw [Real.norm_eq_abs, abs_mul, abs_mul]
+        calc |wi x| * (|hm m x| * |ψ x|)
+            = |hm m x| * (|wi x| * |ψ x|) := by ring
+          _ ≤ C * (|wi x| * |ψ x|) := mul_le_mul_of_nonneg_right hb (by positivity)
+          _ = C * |wi x * ψ x| := by rw [abs_mul]
+    · exact ((hconv x).mul_const _).const_mul (wi x)
+  -- combine: `identity` says the two sequences are negatives of each other
+  have hL2 : Tendsto (fun m => ∫ x, w x * (hm m x * fderiv ℝ ψ x eᵢ)) atTop
+      (𝓝 (-∫ x, wi x * (h x * ψ x))) := by
+    have := hRlim.neg
+    simp_rw [← identity] at this
+    exact this
+  exact tendsto_nhds_unique hL hL2
+
 end Sobolev
