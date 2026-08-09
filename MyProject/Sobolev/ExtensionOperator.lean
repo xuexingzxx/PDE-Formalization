@@ -1385,4 +1385,192 @@ theorem eLpNorm_mul_bounded_le {p : ℝ≥0∞} {g f : ℝⁿ → ℝ} {M : ℝ}
   refine hmono.trans (le_trans eLpNorm_const_smul_le ?_)
   rw [Real.enorm_eq_ofReal hM0]
 
+/-- `MemLp` of a product with a continuous bounded multiplier. -/
+theorem MemLp.mul_bounded {p : ℝ≥0∞} {g f : ℝⁿ → ℝ} {M : ℝ} (hgc : Continuous g)
+    (hg : ∀ z, |g z| ≤ M) (hf : MemLp f p volume) : MemLp (fun z => g z * f z) p volume :=
+  ⟨hgc.aestronglyMeasurable.mul hf.aestronglyMeasurable,
+    lt_of_le_of_lt (eLpNorm_mul_bounded_le hg) (ENNReal.mul_lt_top ENNReal.ofReal_lt_top hf.2)⟩
+
+/-- `1/(m+1) → 0` in `ℝ≥0∞`. -/
+theorem tendsto_one_div_natSucc : Tendsto (fun m : ℕ => (1 : ℝ≥0∞) / (m + 1)) atTop (𝓝 0) := by
+  have h : Tendsto (fun m : ℕ => ((m : ℝ≥0∞) + 1)⁻¹) atTop (𝓝 0) :=
+    Tendsto.congr (fun m => by simp)
+      (ENNReal.tendsto_inv_nat_nhds_zero.comp (tendsto_add_atTop_nat 1))
+  simpa only [one_div] using h
+
+/-- **Whole-space `W^{1,p}` chain rule under the shear.**  If `u ∈ W^{1,p}(ℝⁿ)` and `γ` is `C¹`,
+independent of coordinate `i`, with derivative bounded by `M`, then `u ∘ Ψ ∈ W^{1,p}(ℝⁿ)`
+(`Ψ x = x + γ(x)·eᵢ`), with weak derivative in direction `eⱼ` equal to
+`(∂ⱼu)∘Ψ + (∂ⱼγ)·(∂ᵢu)∘Ψ`.  Proved by mollifying `u`, applying the classical chain rule to the
+smooth approximants, and passing to the `Lᵖ` limit (measure-preservation + closedness). -/
+theorem memW1p_comp_shearEquiv {γ : ℝⁿ → ℝ} {i : Fin n}
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y)
+    (hγ : ContDiff ℝ 1 γ) {M : ℝ}
+    (hM : ∀ (z : ℝⁿ) (j : Fin n), |fderiv ℝ γ z (EuclideanSpace.single j (1 : ℝ))| ≤ M)
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) {u : ℝⁿ → ℝ} (hu : MemW1p Set.univ p u) :
+    MemW1p Set.univ p (fun z => u (shearEquiv hindep z)) := by
+  classical
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  choose v hvweak hvLp using hu.exists_weakDeriv
+  set Ψ := shearEquiv hindep with hΨdef
+  have hΨcd : ContDiff ℝ 1 (fun z : ℝⁿ => z + γ z • EuclideanSpace.single i (1 : ℝ)) :=
+    contDiff_id.add (hγ.smul contDiff_const)
+  have hmu : MemLp u p volume := by
+    rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hu.memLp
+  have hmv : ∀ j, MemLp (v j) p volume := fun j => by
+    rw [← Measure.restrict_univ (μ := (volume : Measure ℝⁿ))]; exact hvLp j
+  -- continuity of the multiplier `z ↦ ∂ⱼγ z`
+  have hγj_cont : ∀ j : Fin n,
+      Continuous (fun z => fderiv ℝ γ z (EuclideanSpace.single j (1 : ℝ))) :=
+    fun j => (hγ.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  -- Meyers–Serrin sequence relative to `v`
+  have hseq : ∀ m : ℕ, ∃ (w : ℝⁿ → ℝ) (w' : Fin n → ℝⁿ → ℝ), ContDiff ℝ ∞ w ∧
+      HasCompactSupport w ∧ eLpNorm (u - w) p volume ≤ 1 / (m + 1) ∧
+      (∀ j, ContDiff ℝ ∞ (w' j) ∧
+        IsWeakDerivInDir Set.univ (EuclideanSpace.single j (1 : ℝ)) w (w' j)
+        ∧ eLpNorm (v j - w' j) p volume ≤ 1 / (m + 1)) := by
+    intro m
+    obtain ⟨w, w', hwcd, hwcs, hwu, hw'⟩ := exists_contDiff_hasCompactSupport_forall_isWeakDerivInDir
+      hp hmu hmv (fun j => EuclideanSpace.single j (1 : ℝ)) hvweak (ε := 1 / (m + 1))
+      (ENNReal.div_pos one_ne_zero (by simp))
+    exact ⟨w, w', hwcd, hwcs, hwu, hw'⟩
+  choose w w' hwcd hwcs hwu hw' using hseq
+  have hwmLp : ∀ m, MemLp (w m) p volume := fun m =>
+    (hwcd m).continuous.memLp_of_hasCompactSupport (hwcs m)
+  -- reconcile `fderiv (w m) · eⱼ =ᵐ w' m j`
+  have hfd_ae : ∀ (m : ℕ) (j : Fin n),
+      (fun x => fderiv ℝ (w m) x (EuclideanSpace.single j (1 : ℝ))) =ᵐ[volume] w' m j := by
+    intro m j
+    have hcd1 : ContDiff ℝ 1 (w m) := (hwcd m).of_le (by norm_num)
+    have h1 := isWeakDerivInDir_of_contDiff (Set.univ) (EuclideanSpace.single j (1 : ℝ)) hcd1
+    have h2 := (hw' m j).2.1
+    have hli1 : LocallyIntegrable
+        (fun x => fderiv ℝ (w m) x (EuclideanSpace.single j (1 : ℝ))) volume :=
+      ((hcd1.continuous_fderiv (by norm_num)).clm_apply continuous_const).locallyIntegrable
+    have hli2 : LocallyIntegrable (w' m j) volume := (hw' m j).1.continuous.locallyIntegrable
+    filter_upwards [isWeakDerivInDir_ae_unique isOpen_univ hli1 hli2 h1 h2] with x hx
+    exact hx (Set.mem_univ x)
+  refine ⟨?_, fun j => ⟨fun z => v j (Ψ z) + fderiv ℝ γ z (EuclideanSpace.single j (1 : ℝ)) *
+      v i (Ψ z), ?_, ?_⟩⟩
+  · rw [Measure.restrict_univ]; exact MemLp.comp_shearEquiv hindep hγ hmu
+  · -- weak-derivative relation via closedness of the weak-derivative graph
+    have hΨcont : Continuous Ψ := continuous_id.add (hγ.continuous.smul continuous_const)
+    have hEcd : ∀ m, ContDiff ℝ 1 (fun z => w m (Ψ z)) := fun m =>
+      ((hwcd m).of_le (by norm_num)).comp hΨcd
+    -- classical chain-rule derivative of each smooth approximant
+    set D : ℕ → ℝⁿ → ℝ := fun m z =>
+      fderiv ℝ (w m) (Ψ z) (EuclideanSpace.single j (1 : ℝ))
+      + fderiv ℝ γ z (EuclideanSpace.single j (1 : ℝ)) *
+        fderiv ℝ (w m) (Ψ z) (EuclideanSpace.single i (1 : ℝ)) with hDdef
+    have hEweak : ∀ m, IsWeakDerivInDir Set.univ (EuclideanSpace.single j (1 : ℝ))
+        (fun z => w m (Ψ z)) (D m) := by
+      intro m
+      have hfun : (fun z => fderiv ℝ (fun z => w m (Ψ z)) z (EuclideanSpace.single j (1 : ℝ)))
+          = D m := by
+        funext z
+        exact fderiv_comp_shearMap_single (w m) γ i j ((hwcd m).of_le (by norm_num)) hγ z
+      rw [← hfun]
+      exact isWeakDerivInDir_of_contDiff Set.univ _ (hEcd m)
+    -- continuity of the derivative sequence
+    have hDcont : ∀ m, Continuous (D m) := by
+      intro m
+      have hfw : Continuous (fun y => fderiv ℝ (w m) y (EuclideanSpace.single i (1 : ℝ))) :=
+        ((hwcd m).continuous_fderiv (by norm_num)).clm_apply continuous_const
+      have hfwj : Continuous (fun y => fderiv ℝ (w m) y (EuclideanSpace.single j (1 : ℝ))) :=
+        ((hwcd m).continuous_fderiv (by norm_num)).clm_apply continuous_const
+      exact (hfwj.comp hΨcont).add ((hγj_cont j).mul (hfw.comp hΨcont))
+    -- limit data
+    have huΨ : MemLp (fun z => u (Ψ z)) p volume := MemLp.comp_shearEquiv hindep hγ hmu
+    have hVj : MemLp (fun z => v j (Ψ z) + fderiv ℝ γ z (EuclideanSpace.single j (1 : ℝ)) *
+        v i (Ψ z)) p volume :=
+      (MemLp.comp_shearEquiv hindep hγ (hmv j)).add
+        (MemLp.mul_bounded (hγj_cont j) (fun z => hM z j)
+          (MemLp.comp_shearEquiv hindep hγ (hmv i)))
+    -- key bound: `‖(∂_{j'}wₖ)∘Ψ − vⱼ'∘Ψ‖ ≤ 1/(k+1)` (measure-preservation + reconciliation)
+    have hAbound : ∀ (k : ℕ) (j' : Fin n),
+        eLpNorm (fun x => fderiv ℝ (w k) (Ψ x) (EuclideanSpace.single j' (1 : ℝ)) - v j' (Ψ x))
+          p volume ≤ 1 / (k + 1) := by
+      intro k j'
+      have hAESM : AEStronglyMeasurable
+          (fun y => fderiv ℝ (w k) y (EuclideanSpace.single j' (1 : ℝ)) - v j' y) volume :=
+        (((hwcd k).continuous_fderiv (by norm_num)).clm_apply
+          continuous_const).aestronglyMeasurable.sub (hmv j').aestronglyMeasurable
+      have heq : (fun y => fderiv ℝ (w k) y (EuclideanSpace.single j' (1 : ℝ)) - v j' y)
+          =ᵐ[volume] (w' k j' - v j') := by
+        filter_upwards [hfd_ae k j'] with y hy
+        simp only [Pi.sub_apply]; rw [hy]
+      rw [show (fun x => fderiv ℝ (w k) (Ψ x) (EuclideanSpace.single j' (1 : ℝ)) - v j' (Ψ x))
+          = (fun z => (fun y => fderiv ℝ (w k) y (EuclideanSpace.single j' (1 : ℝ)) - v j' y)
+            (Ψ z)) from rfl,
+        eLpNorm_comp_shearEquiv hindep hγ _ hAESM, eLpNorm_congr_ae heq, eLpNorm_sub_comm]
+      exact (hw' k j').2.2
+    have hfwΨ : ∀ (k : ℕ) (j' : Fin n),
+        Continuous (fun x => fderiv ℝ (w k) (Ψ x) (EuclideanSpace.single j' (1 : ℝ))) :=
+      fun k j' => (((hwcd k).continuous_fderiv (by norm_num)).clm_apply
+        continuous_const).comp hΨcont
+    have hvΨ_aesm : ∀ j' : Fin n,
+        AEStronglyMeasurable (fun x => v j' (Ψ x)) volume :=
+      fun j' => (MemLp.comp_shearEquiv hindep hγ (hmv j')).aestronglyMeasurable
+    -- combined bound `‖D k − Vⱼ‖ ≤ (1+M)/(k+1)`
+    have hDVbound : ∀ k, eLpNorm (fun x => D k x -
+        (v j (Ψ x) + fderiv ℝ γ x (EuclideanSpace.single j (1 : ℝ)) * v i (Ψ x))) p volume
+        ≤ (1 + ENNReal.ofReal M) * (1 / (k + 1)) := by
+      intro k
+      have hsplit : (fun x => D k x -
+          (v j (Ψ x) + fderiv ℝ γ x (EuclideanSpace.single j (1 : ℝ)) * v i (Ψ x)))
+          = (fun x => fderiv ℝ (w k) (Ψ x) (EuclideanSpace.single j (1 : ℝ)) - v j (Ψ x))
+            + (fun x => fderiv ℝ γ x (EuclideanSpace.single j (1 : ℝ)) *
+              (fderiv ℝ (w k) (Ψ x) (EuclideanSpace.single i (1 : ℝ)) - v i (Ψ x))) := by
+        funext x; simp only [hDdef, Pi.add_apply]; ring
+      rw [hsplit]
+      refine le_trans (eLpNorm_add_le ((hfwΨ k j).aestronglyMeasurable.sub (hvΨ_aesm j))
+        ((hγj_cont j).aestronglyMeasurable.mul
+          ((hfwΨ k i).aestronglyMeasurable.sub (hvΨ_aesm i))) hp1) ?_
+      have hQ : eLpNorm (fun x => fderiv ℝ γ x (EuclideanSpace.single j (1 : ℝ)) *
+          (fderiv ℝ (w k) (Ψ x) (EuclideanSpace.single i (1 : ℝ)) - v i (Ψ x))) p volume
+          ≤ ENNReal.ofReal M * (1 / (k + 1)) :=
+        le_trans (eLpNorm_mul_bounded_le (fun z => hM z j)) (by gcongr; exact hAbound k i)
+      refine le_trans (add_le_add (hAbound k j) hQ) (le_of_eq ?_)
+      rw [add_mul, one_mul]
+    -- apply closedness
+    refine isWeakDerivInDir_of_tendsto_Lp_restrict hp1 hp hEweak
+      (fun m => by rw [Measure.restrict_univ]; exact (hEcd m).continuous.locallyIntegrable)
+      (by rw [Measure.restrict_univ]; exact huΨ.locallyIntegrable hp1)
+      (fun m => by rw [Measure.restrict_univ]; exact (hDcont m).locallyIntegrable)
+      (by rw [Measure.restrict_univ]; exact hVj.locallyIntegrable hp1)
+      (fun m => by
+        rw [Measure.restrict_univ]
+        exact (MemLp.comp_shearEquiv hindep hγ ((hwmLp m).sub hmu)))
+      ?_ ?_ ?_
+    · -- hvmem
+      intro k
+      rw [Measure.restrict_univ]
+      exact ⟨(hDcont k).aestronglyMeasurable.sub hVj.aestronglyMeasurable,
+        lt_of_le_of_lt (hDVbound k) (ENNReal.mul_lt_top
+          (ENNReal.add_lt_top.2 ⟨ENNReal.one_lt_top, ENNReal.ofReal_lt_top⟩)
+          (ENNReal.div_lt_top ENNReal.one_ne_top (by simp)))⟩
+    · -- hucon
+      have hbound : ∀ k, eLpNorm (fun x => w k (Ψ x) - u (Ψ x)) p (volume.restrict Set.univ)
+          ≤ 1 / (k + 1) := by
+        intro k
+        rw [Measure.restrict_univ,
+          show (fun x => w k (Ψ x) - u (Ψ x)) = (fun z => (w k - u) (Ψ z)) from rfl,
+          eLpNorm_comp_shearEquiv hindep hγ _
+            ((hwmLp k).aestronglyMeasurable.sub hmu.aestronglyMeasurable), eLpNorm_sub_comm]
+        exact hwu k
+      exact tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds tendsto_one_div_natSucc
+        (Eventually.of_forall (fun k => zero_le _)) (Eventually.of_forall hbound)
+    · -- hvcon
+      have htop : Tendsto (fun k : ℕ => (1 + ENNReal.ofReal M) * (1 / (k + 1))) atTop (𝓝 0) := by
+        have h := ENNReal.Tendsto.const_mul (a := 1 + ENNReal.ofReal M) tendsto_one_div_natSucc
+          (Or.inr (ENNReal.add_ne_top.2 ⟨ENNReal.one_ne_top, ENNReal.ofReal_ne_top⟩))
+        simpa using h
+      refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds htop
+        (Eventually.of_forall (fun k => zero_le _)) (Eventually.of_forall (fun k => ?_))
+      rw [Measure.restrict_univ]; exact hDVbound k
+  · rw [Measure.restrict_univ]
+    exact (MemLp.comp_shearEquiv hindep hγ (hmv j)).add
+      (MemLp.mul_bounded (hγj_cont j) (fun z => hM z j)
+        (MemLp.comp_shearEquiv hindep hγ (hmv i)))
+
 end Sobolev
