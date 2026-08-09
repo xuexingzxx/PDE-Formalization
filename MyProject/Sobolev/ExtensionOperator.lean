@@ -1486,4 +1486,82 @@ theorem memW1p_comp_shearEquiv {γ : ℝⁿ → ℝ} {i : Fin n}
       (MemLp.mul_bounded (hγj_cont j) (fun z => hM z j)
         (MemLp.comp_shearEquiv hindep hγ (hmv i)))
 
+/-! ### Interior zero-extension (the interior piece of the partition-of-unity gluing)
+
+A `W^{1,p}` function compactly supported inside an open set extends by zero to `W^{1,p}(ℝⁿ)`.  This
+handles the interior chart of the general-domain operator (no boundary flattening needed there). -/
+
+/-- **Zero-extension of the weak-derivative relation from an open set to `ℝⁿ`.**  If `w` is weakly
+`e`-differentiable on the open set `Ω` with derivative `wⱼ`, and both `w` and `wⱼ` are compactly
+supported inside `Ω`, then the same relation holds on all of `ℝⁿ`.  A smooth cutoff `χ ≡ 1` near
+the supports turns any global test function `φ` into a test function `χφ` on `Ω`. -/
+theorem isWeakDerivInDir_univ_of_compactSupport {Ω : Set ℝⁿ} (hΩ : IsOpen Ω) {e : ℝⁿ}
+    {w wⱼ : ℝⁿ → ℝ} (hw : IsWeakDerivInDir Ω e w wⱼ)
+    (hwK : IsCompact (tsupport w)) (hwjK : IsCompact (tsupport wⱼ))
+    (hwsub : tsupport w ⊆ Ω) (hwjsub : tsupport wⱼ ⊆ Ω) :
+    IsWeakDerivInDir Set.univ e w wⱼ := by
+  classical
+  set K : Set ℝⁿ := tsupport w ∪ tsupport wⱼ with hKdef
+  have hKcpt : IsCompact K := hwK.union hwjK
+  have hKsub : K ⊆ Ω := Set.union_subset hwsub hwjsub
+  obtain ⟨L, hLcpt, hKL, hLΩ⟩ := exists_compact_between hKcpt hΩ hKsub
+  obtain ⟨χ, hχ1, hχ0, hχ01⟩ :=
+    exists_contMDiffMap_one_nhds_of_subset_interior (𝓘(ℝ, ℝⁿ)) hKcpt.isClosed hKL
+  have hχcd : ContDiff ℝ ∞ (⇑χ) := by
+    have h := χ.contMDiff; rw [contMDiff_iff_contDiff] at h; exact h
+  have hχcs : HasCompactSupport (⇑χ) := HasCompactSupport.intro hLcpt (fun x hx => hχ0 x hx)
+  have hsupp_sub : Function.support (⇑χ) ⊆ L := fun x hx => by
+    by_contra h; exact hx (hχ0 x h)
+  have hχsub : tsupport (⇑χ) ⊆ Ω := (closure_minimal hsupp_sub hLcpt.isClosed).trans hLΩ
+  intro φ hφ
+  obtain ⟨hφcd, hφcs, _⟩ := hφ
+  have hχφ : IsTestFunction Ω (fun x => χ x * φ x) :=
+    ⟨hχcd.mul hφcd, hφcs.mul_left, tsupport_mul_subset_left.trans hχsub⟩
+  have key := hw _ hχφ
+  have hcong1 : ∀ x, w x * fderiv ℝ (fun y => χ y * φ y) x e = w x * fderiv ℝ φ x e := by
+    intro x
+    by_cases hx : x ∈ K
+    · have hev : (fun y => χ y * φ y) =ᶠ[𝓝 x] φ := by
+        filter_upwards [hχ1.filter_mono (nhds_le_nhdsSet hx)] with y hy; rw [hy, one_mul]
+      rw [hev.fderiv_eq]
+    · rw [image_eq_zero_of_notMem_tsupport (fun h => hx (Or.inl h))]; ring
+  have hcong2 : ∀ x, wⱼ x * (χ x * φ x) = wⱼ x * φ x := by
+    intro x
+    by_cases hx : x ∈ tsupport wⱼ
+    · rw [hχ1.self_of_nhdsSet x (Or.inr hx), one_mul]
+    · rw [image_eq_zero_of_notMem_tsupport hx]; ring
+  have e1 : ∫ x, w x * fderiv ℝ (fun y => χ y * φ y) x e = ∫ x, w x * fderiv ℝ φ x e :=
+    integral_congr_ae (Eventually.of_forall hcong1)
+  have e2 : ∫ x, wⱼ x * (χ x * φ x) = ∫ x, wⱼ x * φ x :=
+    integral_congr_ae (Eventually.of_forall hcong2)
+  rw [← e1, key, e2]
+
+/-- An `Lᵖ` function on `Ω` whose (topological) support lies in `Ω` is `Lᵖ` on all of `ℝⁿ`. -/
+theorem memLp_of_restrict_of_tsupport_subset {Ω : Set ℝⁿ} (hΩm : MeasurableSet Ω) {p : ℝ≥0∞}
+    {f : ℝⁿ → ℝ} (hf : MemLp f p (volume.restrict Ω)) (hsub : tsupport f ⊆ Ω) :
+    MemLp f p volume := by
+  have hfeq : f = Ω.indicator f := by
+    funext x; by_cases hx : x ∈ Ω
+    · rw [Set.indicator_of_mem hx]
+    · rw [Set.indicator_of_notMem hx, image_eq_zero_of_notMem_tsupport (fun h => hx (hsub h))]
+  rw [hfeq]; exact (memLp_indicator_iff_restrict hΩm).2 hf
+
+/-- **Interior zero-extension at the `W^{1,p}` level.**  A `W^{1,p}(Ω)` function `w` whose value and
+whose weak derivatives `v` are all compactly supported inside the open set `Ω` extends (by zero) to
+`W^{1,p}(ℝⁿ)`.  This is the interior piece of the partition-of-unity assembly. -/
+theorem memW1p_univ_of_compactSupport {Ω : Set ℝⁿ} (hΩ : IsOpen Ω) {p : ℝ≥0∞}
+    {w : ℝⁿ → ℝ} {v : Fin n → ℝⁿ → ℝ}
+    (hwK : IsCompact (tsupport w)) (hwsub : tsupport w ⊆ Ω)
+    (hwLp : MemLp w p (volume.restrict Ω))
+    (hvK : ∀ i, IsCompact (tsupport (v i))) (hvsub : ∀ i, tsupport (v i) ⊆ Ω)
+    (hvweak : ∀ i, IsWeakDerivInDir Ω (EuclideanSpace.single i (1 : ℝ)) w (v i))
+    (hvLp : ∀ i, MemLp (v i) p (volume.restrict Ω)) :
+    MemW1p Set.univ p w := by
+  refine ⟨?_, fun i => ⟨v i, ?_, ?_⟩⟩
+  · rw [Measure.restrict_univ]
+    exact memLp_of_restrict_of_tsupport_subset hΩ.measurableSet hwLp hwsub
+  · exact isWeakDerivInDir_univ_of_compactSupport hΩ (hvweak i) hwK (hvK i) hwsub (hvsub i)
+  · rw [Measure.restrict_univ]
+    exact memLp_of_restrict_of_tsupport_subset hΩ.measurableSet (hvLp i) (hvsub i)
+
 end Sobolev
