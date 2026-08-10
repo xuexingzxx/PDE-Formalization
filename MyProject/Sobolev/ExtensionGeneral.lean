@@ -590,4 +590,28 @@ theorem flatten_symm_fst_indep_last (m : ℕ) (y : EuclideanSpace ℝ (Fin (m + 
       show t • (-heightVec m) = (-t) • heightVec m from by rw [neg_smul, smul_neg]]
     exact key (-t)
 
+
+/-- The chart "base" map `y ↦ ((flatten.symm y).ofLp).1` is a continuous linear map
+(`fst ∘ flattenCLE`), hence smooth. -/
+theorem contDiff_flatten_base (m : ℕ) :
+    ContDiff ℝ ∞ (fun y : EuclideanSpace ℝ (Fin (m + 2)) => (((flatten m).symm y).ofLp).1) := by
+  have hbase : (fun y : EuclideanSpace ℝ (Fin (m + 2)) => (((flatten m).symm y).ofLp).1)
+      = fun y => (flattenCLE m y).1 := rfl
+  rw [hbase]
+  exact (ContinuousLinearMap.fst ℝ (EuclideanSpace ℝ (Fin (m + 1))) ℝ).contDiff.comp
+    (flattenCLE m).contDiff
+
+/-- The chart shift `γ ∘ base` is `C¹`. -/
+theorem contDiff_gamma_base (m : ℕ) {γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ}
+    (hγ : ContDiff ℝ 1 γ) :
+    ContDiff ℝ 1 (fun y : EuclideanSpace ℝ (Fin (m + 2)) => γ ((((flatten m).symm y).ofLp).1)) :=
+  hγ.comp ((contDiff_flatten_base m).of_le (by norm_num))
+
+/-- The chart shift `γ ∘ base` is independent of the last coordinate. -/
+theorem gamma_base_indep_last (m : ℕ) (γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ)
+    (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ) :
+    γ ((((flatten m).symm (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ))).ofLp).1)
+      = γ ((((flatten m).symm y).ofLp).1) := by
+  rw [flatten_symm_fst_indep_last]
+
 end Sobolev
