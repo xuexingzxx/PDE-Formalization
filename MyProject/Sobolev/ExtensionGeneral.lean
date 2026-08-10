@@ -614,4 +614,43 @@ theorem gamma_base_indep_last (m : ℕ) (γ : EuclideanSpace ℝ (Fin (m + 1)) �
       = γ ((((flatten m).symm y).ofLp).1) := by
   rw [flatten_symm_fst_indep_last]
 
+section FlattenCoord
+variable {m : ℕ}
+
+/-- Shifting the argument by `t • heightVec` raises the extracted height coordinate by exactly `t`.
+(`flatten.symm heightVec = (0,1)` has height `1`.) -/
+theorem flatten_symm_snd_shift_hv (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ) :
+    (((flatten m).symm (y + t • heightVec m)).ofLp).2 = (((flatten m).symm y).ofLp).2 + t := by
+  have hhv : (flatten m).symm (heightVec m)
+      = WithLp.toLp 2 ((0 : EuclideanSpace ℝ (Fin (m + 1))), (1 : ℝ)) := by
+    rw [heightVec, LinearIsometryEquiv.symm_apply_apply]
+  rw [map_add, map_smul, hhv]; simp
+
+/-- The base part is unchanged by a `heightVec`-shift. -/
+theorem flatten_symm_fst_shift_hv (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ) :
+    (((flatten m).symm (y + t • heightVec m)).ofLp).1 = (((flatten m).symm y).ofLp).1 := by
+  have hhv : (flatten m).symm (heightVec m)
+      = WithLp.toLp 2 ((0 : EuclideanSpace ℝ (Fin (m + 1))), (1 : ℝ)) := by
+    rw [heightVec, LinearIsometryEquiv.symm_apply_apply]
+  rw [map_add, map_smul, hhv]; simp
+
+/-- Robust `⟪z, single k 1⟫ = z k` bridging the `RealInnerProductSpace` notation instance to the
+generic `EuclideanSpace.inner_single_right` (the two `RCLike` instances are defeq but not
+syntactically equal, so `rw`/`simp` won't match — `simpa`'s closing `exact` bridges them). -/
+theorem inner_single_one_eq (z : EuclideanSpace ℝ (Fin (m + 2))) (k : Fin (m + 2)) :
+    ⟪z, EuclideanSpace.single k (1 : ℝ)⟫ = z k := by
+  simpa using EuclideanSpace.inner_single_right (𝕜 := ℝ) k (1 : ℝ) z
+
+/-- The extracted height coordinate equals `±` the last Euclidean coordinate (sign = that of
+`heightVec`). -/
+theorem flatten_symm_snd_eq_last (z : EuclideanSpace ℝ (Fin (m + 2))) :
+    (((flatten m).symm z).ofLp).2 = z (Fin.last (m + 1)) ∨
+      (((flatten m).symm z).ofLp).2 = - z (Fin.last (m + 1)) := by
+  rw [flatten_symm_snd]
+  rcases heightVec_eq_single_or_neg m with h | h
+  · left; rw [h, inner_single_one_eq]
+  · right; rw [h, inner_neg_right, inner_single_one_eq]
+
+end FlattenCoord
+
 end Sobolev
