@@ -671,6 +671,82 @@ theorem MemW1p.comp_linearIsometry_restrict (L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) {
   · exact memLp_finset_sum Finset.univ
       (fun k _ => (MemLp.comp_measurePreserving_restrict (hv_mem k) hLmp hLme).const_mul _)
 
+
+/-- **Restricting a weak derivative to its set.** If `v` is a weak `e`-derivative of `u` on the open
+set `U`, so is `U.indicator v` (they agree on `U`, which contains the support of every test
+function). This gives a representative that vanishes off `U`, hence is globally `Lᵖ`/integrable. -/
+theorem IsWeakDerivInDir.indicator {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ → ℝ}
+    (h : IsWeakDerivInDir U e u v) : IsWeakDerivInDir U e u (U.indicator v) := by
+  intro φ hφ
+  rw [h φ hφ]
+  congr 1
+  refine integral_congr_ae (Eventually.of_forall fun x => ?_)
+  by_cases hx : x ∈ U
+  · simp [Set.indicator_of_mem hx]
+  · simp [image_eq_zero_of_notMem_tsupport (fun hc => hx (hφ.2.2 hc))]
+
+/-- **`W^{1,p}` transfer under the boundary shear on an open set.** If `u ∈ W^{1,p}(S)` with support
+in `S` and the shear shift `g` is `C¹` with globally bounded gradient, then `u ∘ Ψ ∈ W^{1,p}(Ψ⁻¹S)`.
+The transferred `eⱼ`-derivative picks up the cross term `(∂ⱼg)·(vᵢ∘Ψ)`. -/
+theorem MemW1p.comp_shearEquiv_restrict {g : ℝⁿ → ℝ} {i : Fin n}
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), g (y + t • EuclideanSpace.single i (1 : ℝ)) = g y)
+    (hg : ContDiff ℝ 1 g) (hg_bdd : ∀ j : Fin n, ∃ M : ℝ, ∀ x,
+      |fderiv ℝ g x (EuclideanSpace.single j (1 : ℝ))| ≤ M)
+    {S : Set ℝⁿ} (hS : IsOpen S) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hu : MemW1p S p u) (hu_sub : tsupport u ⊆ S) :
+    MemW1p (shearEquiv hindep ⁻¹' S) p (fun x => u (shearEquiv hindep x)) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hSm : MeasurableSet S := hS.measurableSet
+  have hΨmp : MeasurePreserving (shearEquiv hindep : ℝⁿ → ℝⁿ) volume volume :=
+    measurePreserving_shearEquiv hindep hg
+  have hΨcont : Continuous (shearEquiv hindep : ℝⁿ → ℝⁿ) :=
+    continuous_id.add (hg.continuous.smul continuous_const)
+  have hΨsymm_cont : Continuous ((shearEquiv hindep).symm : ℝⁿ → ℝⁿ) :=
+    continuous_id.add (hg.neg.continuous.smul continuous_const)
+  have hΨme : MeasurableEmbedding (shearEquiv hindep : ℝⁿ → ℝⁿ) :=
+    (⟨shearEquiv hindep, hΨcont, hΨsymm_cont⟩ : Homeomorph ℝⁿ ℝⁿ).measurableEmbedding
+  have hu_LI : LocallyIntegrable u volume :=
+    (memLp_of_restrict_of_tsupport_subset hSm hu.memLp hu_sub).locallyIntegrable hp1
+  choose v hv_weak hv_mem using hu.exists_weakDeriv
+  have hvind_weak : ∀ k, IsWeakDerivInDir S (EuclideanSpace.single k (1 : ℝ)) u (S.indicator (v k)) :=
+    fun k => (hv_weak k).indicator
+  have hvind_mem_restrict : ∀ k, MemLp (S.indicator (v k)) p (volume.restrict S) := fun k =>
+    (memLp_congr_ae (by
+      filter_upwards [ae_restrict_mem hSm] with x hx
+      rw [Set.indicator_of_mem hx])).mp (hv_mem k)
+  have hvind_LI : ∀ k, LocallyIntegrable (S.indicator (v k)) volume := fun k =>
+    ((memLp_indicator_iff_restrict hSm).2 (hv_mem k)).locallyIntegrable hp1
+  refine ⟨MemLp.comp_measurePreserving_restrict hu.memLp hΨmp hΨme, fun j => ?_⟩
+  refine ⟨fun z => S.indicator (v j) (shearEquiv hindep z)
+      + fderiv ℝ g z (EuclideanSpace.single j (1 : ℝ)) * S.indicator (v i) (shearEquiv hindep z), ?_, ?_⟩
+  · exact isWeakDerivInDir_comp_shearEquiv hS hindep hg hu_LI (hvind_LI j) (hvind_LI i)
+      (hvind_weak j) (hvind_weak i)
+  · obtain ⟨M, hM⟩ := hg_bdd j
+    have hgⱼcont : Continuous (fun z => fderiv ℝ g z (EuclideanSpace.single j (1 : ℝ))) :=
+      (hg.continuous_fderiv (by norm_num)).clm_apply continuous_const
+    have h1 : MemLp (fun z => S.indicator (v j) (shearEquiv hindep z)) p
+        (volume.restrict (shearEquiv hindep ⁻¹' S)) :=
+      MemLp.comp_measurePreserving_restrict (hvind_mem_restrict j) hΨmp hΨme
+    have h2 : MemLp (fun z => S.indicator (v i) (shearEquiv hindep z)) p
+        (volume.restrict (shearEquiv hindep ⁻¹' S)) :=
+      MemLp.comp_measurePreserving_restrict (hvind_mem_restrict i) hΨmp hΨme
+    have hM0 : (0 : ℝ) ≤ M := le_trans (abs_nonneg _) (hM 0)
+    have h2' : MemLp (fun z => fderiv ℝ g z (EuclideanSpace.single j (1 : ℝ))
+        * S.indicator (v i) (shearEquiv hindep z)) p (volume.restrict (shearEquiv hindep ⁻¹' S)) := by
+      refine ⟨hgⱼcont.aestronglyMeasurable.mul h2.1, ?_⟩
+      have hbound : eLpNorm (fun z => fderiv ℝ g z (EuclideanSpace.single j (1 : ℝ))
+            * S.indicator (v i) (shearEquiv hindep z)) p (volume.restrict (shearEquiv hindep ⁻¹' S))
+          ≤ eLpNorm (M • fun z => S.indicator (v i) (shearEquiv hindep z)) p
+            (volume.restrict (shearEquiv hindep ⁻¹' S)) := by
+        refine eLpNorm_mono_ae (Filter.Eventually.of_forall fun z => ?_)
+        rw [Real.norm_eq_abs, abs_mul, Pi.smul_apply, Real.norm_eq_abs, smul_eq_mul, abs_mul,
+          abs_of_nonneg hM0]
+        exact mul_le_mul_of_nonneg_right (hM z) (abs_nonneg _)
+      refine lt_of_le_of_lt (hbound.trans eLpNorm_const_smul_le) ?_
+      rw [Real.enorm_eq_ofReal hM0]
+      exact ENNReal.mul_lt_top ENNReal.ofReal_lt_top h2.2
+    exact h1.add h2'
+
 section FlattenCoord
 variable {m : ℕ}
 
