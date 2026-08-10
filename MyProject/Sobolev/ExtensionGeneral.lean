@@ -614,6 +614,15 @@ theorem gamma_base_indep_last (m : ℕ) (γ : EuclideanSpace ℝ (Fin (m + 1)) �
       = γ ((((flatten m).symm y).ofLp).1) := by
   rw [flatten_symm_fst_indep_last]
 
+/-- **`MemLp` transfer on a restricted set under a measure-preserving map.** If `u ∈ Lᵖ` on the
+restricted measure `volume.restrict S` and `f` is measure-preserving, then `u ∘ f ∈ Lᵖ` on
+`volume.restrict (f ⁻¹' S)`. -/
+theorem MemLp.comp_measurePreserving_restrict {p : ℝ≥0∞} {u : ℝⁿ → ℝ} {S : Set ℝⁿ} {f : ℝⁿ → ℝⁿ}
+    (hu : MemLp u p (volume.restrict S)) (hf : MeasurePreserving f volume volume)
+    (hfm : MeasurableEmbedding f) :
+    MemLp (u ∘ f) p (volume.restrict (f ⁻¹' S)) :=
+  hu.comp_measurePreserving (hf.restrict_preimage_emb hfm S)
+
 section FlattenCoord
 variable {m : ℕ}
 
