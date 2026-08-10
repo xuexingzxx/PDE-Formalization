@@ -463,4 +463,95 @@ theorem isWeakDerivInDir_comp_shearEquiv {W : Set ℝⁿ} (hW : IsOpen W) {γ : 
     fderiv_indep_of_indep hγ hindep j z (γ z)]
 
 
+
+/-- **Restricted linear change of variables for the weak-derivative relation.**  If `v` is the weak
+`(L e)`-derivative of `u` on the open set `W`, then `u ∘ L` has weak `e`-derivative `v ∘ L` on
+`L ⁻¹' W`. -/
+theorem isWeakDerivInDir_comp_linear_restrict (L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) {W : Set ℝⁿ} (hW : IsOpen W)
+    (e : ℝⁿ) {u v : ℝⁿ → ℝ} (h : IsWeakDerivInDir W (L e) u v) :
+    IsWeakDerivInDir (L ⁻¹' W) e (fun x => u (L x)) (fun x => v (L x)) := by
+  intro φ hφ
+  obtain ⟨hφcd, hφcs, hφsub⟩ := hφ
+  have hLmp : MeasurePreserving (L : ℝⁿ → ℝⁿ) volume volume := L.measurePreserving
+  have hLme : MeasurableEmbedding (L : ℝⁿ → ℝⁿ) := L.toHomeomorph.measurableEmbedding
+  have hinvsymm : ∀ x, L.symm (L x) = x := L.symm_apply_apply
+  set ψ : ℝⁿ → ℝ := fun z => φ (L.symm z) with hψdef
+  -- `ψ = φ ∘ L.symm` is a test function on `W`
+  have hsupp_sub : Function.support ψ ⊆ L '' tsupport φ := fun y hy =>
+    ⟨L.symm y, subset_tsupport φ hy, L.apply_symm_apply y⟩
+  have hImg_cpt : IsCompact (L '' tsupport φ) := hφcs.isCompact.image L.continuous
+  have hψcs : HasCompactSupport ψ :=
+    HasCompactSupport.intro hImg_cpt
+      (fun x hx => not_not.1 fun hne => hx (hsupp_sub (Function.mem_support.2 hne)))
+  have hψsub : tsupport ψ ⊆ W :=
+    (closure_minimal hsupp_sub hImg_cpt.isClosed).trans
+      ((Set.image_mono hφsub).trans (le_of_eq (Set.image_preimage_eq W L.surjective)))
+  have hψtest : IsTestFunction W ψ :=
+    ⟨hφcd.comp L.symm.toContinuousLinearEquiv.contDiff, hψcs, hψsub⟩
+  -- chain rule: `∂_e φ` at `L.symm y` equals `∂_{L e}ψ` at `y`
+  have hpt : ∀ y, fderiv ℝ φ (L.symm y) e = fderiv ℝ ψ y (L e) := by
+    intro y
+    have hcomp : HasFDerivAt ψ
+        ((fderiv ℝ φ (L.symm y)).comp (L.symm.toContinuousLinearEquiv : ℝⁿ →L[ℝ] ℝⁿ)) y :=
+      (hφcd.differentiable (by norm_num) (L.symm y)).hasFDerivAt.comp y
+        L.symm.toContinuousLinearEquiv.hasFDerivAt
+    rw [hψdef, hcomp.fderiv, ContinuousLinearMap.comp_apply]
+    change fderiv ℝ φ (L.symm y) e = fderiv ℝ φ (L.symm y) (L.symm (L e))
+    rw [hinvsymm e]
+  -- change variables `x = L.symm y` on both sides
+  have hcovL : ∫ x, u (L x) * fderiv ℝ φ x e = ∫ y, u y * fderiv ℝ φ (L.symm y) e := by
+    have key := hLmp.integral_comp hLme (fun y => u y * fderiv ℝ φ (L.symm y) e)
+    simp only [hinvsymm] at key; exact key
+  have hcovR : ∫ x, v (L x) * φ x = ∫ y, v y * φ (L.symm y) := by
+    have key := hLmp.integral_comp hLme (fun y => v y * φ (L.symm y))
+    simp only [hinvsymm] at key; exact key
+  rw [hcovL,
+    show (∫ y, u y * fderiv ℝ φ (L.symm y) e) = ∫ y, u y * fderiv ℝ ψ y (L e) from
+      integral_congr_ae (Eventually.of_forall (fun y => by dsimp only; rw [hpt y])),
+    h ψ hψtest, ← hcovR]
+
+/-- **Restricted translation change of variables for the weak-derivative relation.**  If `v` is the
+weak `e`-derivative of `u` on the open set `W`, then `u(· + t)` has weak `e`-derivative `v(· + t)`
+on `W - t = (· + t) ⁻¹' W`. -/
+theorem isWeakDerivInDir_comp_translate_restrict (t : ℝⁿ) {W : Set ℝⁿ} (hW : IsOpen W)
+    (e : ℝⁿ) {u v : ℝⁿ → ℝ} (h : IsWeakDerivInDir W e u v) :
+    IsWeakDerivInDir ((fun x => x + t) ⁻¹' W) e (fun x => u (x + t)) (fun x => v (x + t)) := by
+  intro φ hφ
+  obtain ⟨hφcd, hφcs, hφsub⟩ := hφ
+  have htmp : MeasurePreserving (fun x : ℝⁿ => x + t) volume volume :=
+    measurePreserving_add_right volume t
+  have htme : MeasurableEmbedding (fun x : ℝⁿ => x + t) :=
+    (Homeomorph.addRight t).measurableEmbedding
+  set ψ : ℝⁿ → ℝ := fun z => φ (z - t) with hψdef
+  have hsupp_sub : Function.support ψ ⊆ (fun x => x + t) '' tsupport φ := fun y hy =>
+    ⟨y - t, subset_tsupport φ hy, by simp⟩
+  have hImg_cpt : IsCompact ((fun x => x + t) '' tsupport φ) :=
+    hφcs.isCompact.image (continuous_id.add continuous_const)
+  have hψcs : HasCompactSupport ψ :=
+    HasCompactSupport.intro hImg_cpt
+      (fun x hx => not_not.1 fun hne => hx (hsupp_sub (Function.mem_support.2 hne)))
+  have hψsub : tsupport ψ ⊆ W :=
+    (closure_minimal hsupp_sub hImg_cpt.isClosed).trans
+      ((Set.image_mono hφsub).trans
+        (le_of_eq (Set.image_preimage_eq W (Equiv.addRight t).surjective)))
+  have hψtest : IsTestFunction W ψ :=
+    ⟨hφcd.comp (contDiff_id.sub contDiff_const), hψcs, hψsub⟩
+  have hpt : ∀ y, fderiv ℝ φ (y - t) e = fderiv ℝ ψ y e := by
+    intro y
+    have hcomp : HasFDerivAt ψ ((fderiv ℝ φ (y - t)).comp (ContinuousLinearMap.id ℝ ℝⁿ)) y := by
+      have hg : HasFDerivAt φ (fderiv ℝ φ (y - t)) (y - t) :=
+        (hφcd.differentiable (by norm_num) (y - t)).hasFDerivAt
+      exact hg.comp y ((hasFDerivAt_id y).sub_const t)
+    rw [hψdef, hcomp.fderiv]; simp
+  have hcovL : ∫ x, u (x + t) * fderiv ℝ φ x e = ∫ y, u y * fderiv ℝ φ (y - t) e := by
+    have key := htmp.integral_comp htme (fun y => u y * fderiv ℝ φ (y - t) e)
+    simp only [add_sub_cancel_right] at key; exact key
+  have hcovR : ∫ x, v (x + t) * φ x = ∫ y, v y * φ (y - t) := by
+    have key := htmp.integral_comp htme (fun y => v y * φ (y - t))
+    simp only [add_sub_cancel_right] at key; exact key
+  rw [hcovL,
+    show (∫ y, u y * fderiv ℝ φ (y - t) e) = ∫ y, u y * fderiv ℝ ψ y e from
+      integral_congr_ae (Eventually.of_forall (fun y => by dsimp only; rw [hpt y])),
+    h ψ hψtest, ← hcovR]
+
 end Sobolev
