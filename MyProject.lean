@@ -16,3 +16,4 @@ import MyProject.Sobolev.Morrey
 import MyProject.Sobolev.Trace
 import MyProject.Sobolev.Extension
 import MyProject.Sobolev.ExtensionOperator
+import MyProject.Sobolev.ExtensionGeneral
