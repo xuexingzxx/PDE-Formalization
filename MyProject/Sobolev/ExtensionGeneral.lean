@@ -339,4 +339,128 @@ theorem weakDeriv_mul_indep_contDiff1 {U : Set ℝⁿ} (hU : IsOpen U) {i : Fin 
     exact this
   exact tendsto_nhds_unique hL hL2
 
+
+/-- `∂ⱼγ` is itself independent of coordinate `i` (differentiate `hindep` in `j`). -/
+theorem fderiv_indep_of_indep {γ : ℝⁿ → ℝ} {i : Fin n} (hγ : ContDiff ℝ 1 γ)
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y)
+    (j : Fin n) (y : ℝⁿ) (t : ℝ) :
+    fderiv ℝ γ (y + t • EuclideanSpace.single i (1 : ℝ)) (EuclideanSpace.single j (1 : ℝ))
+      = fderiv ℝ γ y (EuclideanSpace.single j (1 : ℝ)) := by
+  have hcomp : (fun z => γ (z + t • EuclideanSpace.single i (1 : ℝ))) = γ := funext fun z =>
+    hindep z t
+  have h1 : HasFDerivAt (fun z => γ (z + t • EuclideanSpace.single i (1 : ℝ)))
+      ((fderiv ℝ γ (y + t • EuclideanSpace.single i (1 : ℝ))).comp
+        (ContinuousLinearMap.id ℝ ℝⁿ)) y := by
+    have hg : HasFDerivAt γ (fderiv ℝ γ (y + t • EuclideanSpace.single i (1 : ℝ)))
+        (y + t • EuclideanSpace.single i (1 : ℝ)) :=
+      (hγ.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+    exact hg.comp y ((hasFDerivAt_id y).add_const _)
+  rw [hcomp] at h1
+  have h2 : HasFDerivAt γ (fderiv ℝ γ y) y :=
+    (hγ.differentiable (by norm_num)).differentiableAt.hasFDerivAt
+  have := h1.unique h2
+  rw [← this]; simp
+
+/-- **Restricted chain rule (weak-derivative relation) for the shear.**  If `u` has weak `eⱼ`- and
+`eᵢ`-derivatives `vⱼ, vᵢ` on the open set `W`, then `u ∘ Ψ` (`Ψ = shearEquiv`) has weak
+`eⱼ`-derivative `vⱼ∘Ψ + (∂ⱼγ)·(vᵢ∘Ψ)` on `Ψ⁻¹(W)`. -/
+theorem isWeakDerivInDir_comp_shearEquiv {W : Set ℝⁿ} (hW : IsOpen W) {γ : ℝⁿ → ℝ} {i j : Fin n}
+    (hindep : ∀ (y : ℝⁿ) (t : ℝ), γ (y + t • EuclideanSpace.single i (1 : ℝ)) = γ y)
+    (hγ : ContDiff ℝ 1 γ) {u vⱼ vᵢ : ℝⁿ → ℝ}
+    (huloc : LocallyIntegrable u volume) (hvⱼloc : LocallyIntegrable vⱼ volume)
+    (hvᵢloc : LocallyIntegrable vᵢ volume)
+    (hwⱼ : IsWeakDerivInDir W (EuclideanSpace.single j (1 : ℝ)) u vⱼ)
+    (hwᵢ : IsWeakDerivInDir W (EuclideanSpace.single i (1 : ℝ)) u vᵢ) :
+    IsWeakDerivInDir (shearEquiv hindep ⁻¹' W) (EuclideanSpace.single j (1 : ℝ))
+      (fun z => u (shearEquiv hindep z))
+      (fun z => vⱼ (shearEquiv hindep z) +
+        fderiv ℝ γ z (EuclideanSpace.single j (1 : ℝ)) * vᵢ (shearEquiv hindep z)) := by
+  intro φ hφ
+  obtain ⟨hφcd, hφcs, hφsub⟩ := hφ
+  set Ψ := shearEquiv hindep with hΨdef
+  set eⱼ := EuclideanSpace.single j (1 : ℝ)
+  set eᵢ := EuclideanSpace.single i (1 : ℝ)
+  have hΨmp : MeasurePreserving (Ψ : ℝⁿ → ℝⁿ) volume volume :=
+    measurePreserving_shearEquiv hindep hγ
+  have hΨcont : Continuous (Ψ : ℝⁿ → ℝⁿ) := continuous_id.add (hγ.continuous.smul continuous_const)
+  have hΨsymm_cont : Continuous (Ψ.symm : ℝⁿ → ℝⁿ) :=
+    continuous_id.add (hγ.neg.continuous.smul continuous_const)
+  have hΨme : MeasurableEmbedding (Ψ : ℝⁿ → ℝⁿ) :=
+    (⟨shearEquiv hindep, hΨcont, hΨsymm_cont⟩ : Homeomorph ℝⁿ ℝⁿ).measurableEmbedding
+  set ψ : ℝⁿ → ℝ := fun y => φ (Ψ.symm y) with hψdef
+  have hΨsymm_cd : ContDiff ℝ 1 (Ψ.symm : ℝⁿ → ℝⁿ) :=
+    contDiff_id.add (hγ.neg.smul contDiff_const)
+  have hψcd : ContDiff ℝ 1 ψ := (hφcd.of_le (by norm_num)).comp hΨsymm_cd
+  have hImg_cpt : IsCompact (Ψ '' tsupport φ) := hφcs.isCompact.image hΨcont
+  have hsupp_sub : Function.support ψ ⊆ Ψ '' tsupport φ := fun y hy =>
+    ⟨Ψ.symm y, subset_tsupport φ hy, Ψ.apply_symm_apply y⟩
+  have hψcs : HasCompactSupport ψ :=
+    HasCompactSupport.intro hImg_cpt
+      (fun x hx => not_not.1 fun hne => hx (hsupp_sub (Function.mem_support.2 hne)))
+  have hψsub : tsupport ψ ⊆ W :=
+    (closure_minimal hsupp_sub hImg_cpt.isClosed).trans
+      ((Set.image_mono hφsub).trans (le_of_eq (Set.image_preimage_eq W Ψ.surjective)))
+  -- `φ = ψ ∘ Ψ`, so the chain rule gives `∂ⱼφ`
+  have hφfun : φ = fun z => ψ (Ψ z) := funext fun z => by
+    simp only [hψdef, Equiv.symm_apply_apply]
+  have hchain : ∀ z, fderiv ℝ φ z eⱼ
+      = fderiv ℝ ψ (Ψ z) eⱼ + fderiv ℝ γ z eⱼ * fderiv ℝ ψ (Ψ z) eᵢ := by
+    intro z
+    conv_lhs => rw [hφfun]
+    exact fderiv_comp_shearMap_single ψ γ i j hψcd hγ z
+  -- change of variables + the two identities
+  have hcov : ∫ z, u (Ψ z) * fderiv ℝ φ z eⱼ
+      = ∫ y, u y * (fderiv ℝ ψ y eⱼ + fderiv ℝ γ y eⱼ * fderiv ℝ ψ y eᵢ) := by
+    rw [← hΨmp.integral_comp hΨme
+      (fun y => u y * (fderiv ℝ ψ y eⱼ + fderiv ℝ γ y eⱼ * fderiv ℝ ψ y eᵢ))]
+    refine integral_congr_ae (Eventually.of_forall fun z => ?_)
+    dsimp only
+    rw [hchain z, show fderiv ℝ γ z eⱼ = fderiv ℝ γ (Ψ z) eⱼ from
+      (fderiv_indep_of_indep hγ hindep j z (γ z)).symm]
+  have hA : ∫ y, u y * fderiv ℝ ψ y eⱼ = -∫ y, vⱼ y * ψ y :=
+    isWeakDerivInDir_test_contDiff1 hW hwⱼ huloc hvⱼloc hψcd hψcs hψsub
+  have hB : ∫ y, u y * (fderiv ℝ γ y eⱼ * fderiv ℝ ψ y eᵢ)
+      = -∫ y, vᵢ y * (fderiv ℝ γ y eⱼ * ψ y) :=
+    weakDeriv_mul_indep_contDiff1 hW hwᵢ huloc hvᵢloc
+      ((hγ.continuous_fderiv (by norm_num)).clm_apply continuous_const)
+      (fun y t => fderiv_indep_of_indep hγ hindep j y t) hψcd hψcs hψsub
+  -- continuity / compact support of the derivative factors
+  have hdψcont : ∀ k : Fin n, Continuous (fun y => fderiv ℝ ψ y (EuclideanSpace.single k (1 : ℝ))) :=
+    fun k => (hψcd.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hdψcs : ∀ k : Fin n, HasCompactSupport
+      (fun y => fderiv ℝ ψ y (EuclideanSpace.single k (1 : ℝ))) := fun k =>
+    HasCompactSupport.intro hψcs.isCompact (fun x hx => by
+      rw [(notMem_tsupport_iff_eventuallyEq.1 hx).fderiv_eq]; simp)
+  have hγⱼcont : Continuous (fun y => fderiv ℝ γ y eⱼ) :=
+    (hγ.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hsplit : ∫ y, u y * (fderiv ℝ ψ y eⱼ + fderiv ℝ γ y eⱼ * fderiv ℝ ψ y eᵢ)
+      = -∫ y, (vⱼ y + fderiv ℝ γ y eⱼ * vᵢ y) * ψ y := by
+    have hIA : Integrable (fun y => u y * fderiv ℝ ψ y eⱼ) volume := by
+      simpa only [smul_eq_mul] using
+        huloc.integrable_smul_right_of_hasCompactSupport (hdψcont j) (hdψcs j)
+    have hIB : Integrable (fun y => u y * (fderiv ℝ γ y eⱼ * fderiv ℝ ψ y eᵢ)) volume := by
+      simpa only [smul_eq_mul] using huloc.integrable_smul_right_of_hasCompactSupport
+        (hγⱼcont.mul (hdψcont i)) ((hdψcs i).mul_left)
+    have hIvⱼ : Integrable (fun y => vⱼ y * ψ y) volume := by
+      simpa only [smul_eq_mul] using
+        hvⱼloc.integrable_smul_right_of_hasCompactSupport hψcd.continuous hψcs
+    have hIvᵢ : Integrable (fun y => vᵢ y * (fderiv ℝ γ y eⱼ * ψ y)) volume := by
+      simpa only [smul_eq_mul] using hvᵢloc.integrable_smul_right_of_hasCompactSupport
+        (hγⱼcont.mul hψcd.continuous) (hψcs.mul_left)
+    rw [show (fun y => u y * (fderiv ℝ ψ y eⱼ + fderiv ℝ γ y eⱼ * fderiv ℝ ψ y eᵢ))
+        = fun y => u y * fderiv ℝ ψ y eⱼ + u y * (fderiv ℝ γ y eⱼ * fderiv ℝ ψ y eᵢ) from
+        funext fun y => by ring, integral_add hIA hIB, hA, hB,
+      show (fun y => (vⱼ y + fderiv ℝ γ y eⱼ * vᵢ y) * ψ y)
+        = fun y => vⱼ y * ψ y + vᵢ y * (fderiv ℝ γ y eⱼ * ψ y) from funext fun y => by ring,
+      integral_add hIvⱼ hIvᵢ]
+    ring
+  rw [show (fun z => vⱼ (Ψ z) + fderiv ℝ γ z eⱼ * vᵢ (Ψ z)) = _ from rfl]
+  rw [hcov, hsplit]
+  rw [← hΨmp.integral_comp hΨme (fun y => (vⱼ y + fderiv ℝ γ y eⱼ * vᵢ y) * ψ y)]
+  refine congrArg Neg.neg (integral_congr_ae (Eventually.of_forall fun z => ?_))
+  simp only [hψdef, Equiv.symm_apply_apply]
+  rw [show fderiv ℝ γ (Ψ z) eⱼ = fderiv ℝ γ z eⱼ from
+    fderiv_indep_of_indep hγ hindep j z (γ z)]
+
+
 end Sobolev
