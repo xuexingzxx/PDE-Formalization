@@ -1,4 +1,5 @@
 import MyProject.Sobolev.ExtensionOperator
+import MyProject.Common.AreaFormula
 
 /-!
 # Sobolev extension operator (Evans §5.4) — the general `C¹`-domain operator
@@ -12,7 +13,7 @@ The heavy mollification-based lemmas (e.g. `isWeakDerivInDir_test_contDiff1`) li
 `ExtensionOperator.lean` fast to recompile.
 -/
 
-open MeasureTheory Filter
+open MeasureTheory Filter AreaFormula
 open scoped RealInnerProductSpace ContDiff ENNReal Topology Convolution Manifold
 
 namespace Sobolev
@@ -553,5 +554,40 @@ theorem isWeakDerivInDir_comp_translate_restrict (t : ℝⁿ) {W : Set ℝⁿ} (
     show (∫ y, u y * fderiv ℝ φ (y - t) e) = ∫ y, u y * fderiv ℝ ψ y e from
       integral_congr_ae (Eventually.of_forall (fun y => by dsimp only; rw [hpt y])),
     h ψ hψtest, ← hcovR]
+
+
+/-- The height vector is `±` the last standard basis vector (sign undetermined because
+`stdOrthonormalBasis ℝ ℝ` is only pinned up to sign). -/
+theorem heightVec_eq_single_or_neg (m : ℕ) :
+    heightVec m = EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ) ∨
+      heightVec m = -EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ) := by
+  have hbasis : flatten m (((EuclideanSpace.basisFun (Fin (m + 1)) ℝ).prod
+      (stdOrthonormalBasis ℝ ℝ)) (Sum.inr ⟨0, by simp⟩))
+      = EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ) := by
+    rw [flatten, OrthonormalBasis.equiv_apply_basis, ← EuclideanSpace.basisFun_apply]; congr 1
+  rw [OrthonormalBasis.prod_apply] at hbasis
+  simp only [Sum.elim_inr, Function.comp_apply, LinearMap.coe_inr] at hbasis
+  rcases orthonormalBasis_one_dim (stdOrthonormalBasis ℝ ℝ) with h | h <;>
+    simp only [h] at hbasis
+  · left; rw [heightVec]; exact hbasis
+  · right; rw [heightVec, ← neg_eq_iff_eq_neg, ← map_neg]; convert hbasis using 3; ext <;> simp
+
+/-- The base part `((flatten.symm ·).ofLp).1` is independent of the last coordinate: shifting the
+argument along `single (last)` leaves it unchanged. (Because `flatten.symm (heightVec) = (0,1)` has
+zero base part, and `single (last) = ± heightVec`.) -/
+theorem flatten_symm_fst_indep_last (m : ℕ) (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ) :
+    (((flatten m).symm (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ))).ofLp).1
+      = (((flatten m).symm y).ofLp).1 := by
+  have hhv : (flatten m).symm (heightVec m)
+      = WithLp.toLp 2 ((0 : EuclideanSpace ℝ (Fin (m + 1))), (1 : ℝ)) := by
+    rw [heightVec, LinearIsometryEquiv.symm_apply_apply]
+  have key : ∀ s : ℝ, (((flatten m).symm (y + s • heightVec m)).ofLp).1
+      = (((flatten m).symm y).ofLp).1 := by
+    intro s; rw [map_add, map_smul, hhv]; simp
+  rcases heightVec_eq_single_or_neg m with h | h
+  · rw [show EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ) = heightVec m from h.symm]; exact key t
+  · rw [show EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ) = -heightVec m from by rw [h, neg_neg],
+      show t • (-heightVec m) = (-t) • heightVec m from by rw [neg_smul, smul_neg]]
+    exact key (-t)
 
 end Sobolev
