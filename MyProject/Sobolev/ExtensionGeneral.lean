@@ -747,6 +747,39 @@ theorem MemW1p.comp_shearEquiv_restrict {g : ℝⁿ → ℝ} {i : Fin n}
       exact ENNReal.mul_lt_top ENNReal.ofReal_lt_top h2.2
     exact h1.add h2'
 
+
+/-- A `C¹`, compactly supported function has bounded directional derivatives. -/
+theorem exists_bound_fderiv_of_compactSupport {f : ℝⁿ → ℝ} (hf : ContDiff ℝ 1 f)
+    (hfs : HasCompactSupport f) (j : Fin n) :
+    ∃ M : ℝ, ∀ x, |fderiv ℝ f x (EuclideanSpace.single j (1 : ℝ))| ≤ M := by
+  have hcont : Continuous (fun x => fderiv ℝ f x (EuclideanSpace.single j (1 : ℝ))) :=
+    (hf.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hcs : HasCompactSupport (fun x => fderiv ℝ f x (EuclideanSpace.single j (1 : ℝ))) :=
+    hfs.fderiv_apply (𝕜 := ℝ) (EuclideanSpace.single j (1 : ℝ))
+  obtain ⟨C, hC⟩ := hcs.isCompact.exists_bound_of_continuousOn hcont.continuousOn
+  refine ⟨max C 0, fun x => ?_⟩
+  by_cases hx : x ∈ tsupport (fun x => fderiv ℝ f x (EuclideanSpace.single j (1 : ℝ)))
+  · rw [← Real.norm_eq_abs]; exact (hC x hx).trans (le_max_left _ _)
+  · rw [image_eq_zero_of_notMem_tsupport hx]; simp
+
+/-- A `C¹` function can be modified to be compactly supported (hence bounded-gradient) while agreeing
+with the original on a prescribed compact set. Multiply by a smooth bump that is `1` on a ball
+covering `K`. -/
+theorem exists_contDiff_compactSupport_eqOn {γ : ℝⁿ → ℝ} (hγ : ContDiff ℝ 1 γ)
+    {K : Set ℝⁿ} (hK : IsCompact K) :
+    ∃ γ' : ℝⁿ → ℝ, ContDiff ℝ 1 γ' ∧ HasCompactSupport γ' ∧ Set.EqOn γ' γ K := by
+  obtain ⟨R, hR⟩ := hK.isBounded.subset_closedBall (0 : ℝⁿ)
+  set χ : ContDiffBump (0 : ℝⁿ) :=
+    { rIn := |R| + 1, rOut := |R| + 2, rIn_pos := by positivity, rIn_lt_rOut := by linarith } with hχ
+  refine ⟨fun x => χ x * γ x, χ.contDiff.mul hγ,
+    χ.hasCompactSupport.mul_right, fun x hx => ?_⟩
+  have hxb : x ∈ Metric.closedBall (0 : ℝⁿ) χ.rIn := by
+    refine Metric.closedBall_subset_closedBall ?_ (hR hx)
+    show R ≤ |R| + 1
+    exact le_trans (le_abs_self R) (by linarith)
+  show χ x * γ x = γ x
+  rw [χ.one_of_mem_closedBall hxb, one_mul]
+
 section FlattenCoord
 variable {m : ℕ}
 
