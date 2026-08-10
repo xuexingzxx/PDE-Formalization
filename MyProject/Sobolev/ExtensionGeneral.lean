@@ -697,6 +697,40 @@ theorem exists_chart_shear_generator {γ : EuclideanSpace ℝ (Fin (m + 1)) → 
       fun y t => by simp only [gamma_base_indep_last], fun w => ?_⟩
     rw [h]; simp [smul_neg, neg_smul]
 
+
+/-- **Flattening set identity.**  The shear pulls the flat lower half-space
+`{(flatten.symm z).2 < 0}` back to the standard subgraph `{(flatten.symm y).2 < γ(base y)}`. -/
+theorem shear_preimage_halfspace {g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+      g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y)
+    (γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ)
+    (hg : ∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+      = -(γ ((((flatten m).symm w).ofLp).1)) • heightVec m) :
+    shearEquiv hindep ⁻¹' {z | (((flatten m).symm z).ofLp).2 < 0}
+      = {y | (((flatten m).symm y).ofLp).2 < γ ((((flatten m).symm y).ofLp).1)} := by
+  ext y
+  simp only [Set.mem_preimage, Set.mem_setOf_eq, shear_flatten_snd hindep γ hg y]
+  constructor <;> intro h <;> linarith
+
+/-- The flat lower half-space is a coordinate half-space (last coordinate), up to sign. -/
+theorem halfspace_flat_eq_coord :
+    {z : EuclideanSpace ℝ (Fin (m + 2)) | (((flatten m).symm z).ofLp).2 < 0}
+      = {z | z (Fin.last (m + 1)) < 0} ∨
+    {z : EuclideanSpace ℝ (Fin (m + 2)) | (((flatten m).symm z).ofLp).2 < 0}
+      = {z | 0 < z (Fin.last (m + 1))} := by
+  rcases heightVec_eq_single_or_neg m with h | h
+  · left
+    have hpt : ∀ z : EuclideanSpace ℝ (Fin (m + 2)),
+        (((flatten m).symm z).ofLp).2 = z (Fin.last (m + 1)) :=
+      fun z => by rw [flatten_symm_snd, h, inner_single_one_eq]
+    ext z; simp only [Set.mem_setOf_eq, hpt]
+  · right
+    have hpt : ∀ z : EuclideanSpace ℝ (Fin (m + 2)),
+        (((flatten m).symm z).ofLp).2 = - z (Fin.last (m + 1)) :=
+      fun z => by rw [flatten_symm_snd, h, inner_neg_right, inner_single_one_eq]
+    ext z; simp only [Set.mem_setOf_eq, hpt]
+    constructor <;> intro hz <;> linarith
+
 end FlattenCoord
 
 end Sobolev
