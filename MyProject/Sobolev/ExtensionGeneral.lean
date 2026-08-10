@@ -651,6 +651,52 @@ theorem flatten_symm_snd_eq_last (z : EuclideanSpace ℝ (Fin (m + 2))) :
   · left; rw [h, inner_single_one_eq]
   · right; rw [h, inner_neg_right, inner_single_one_eq]
 
+
+/-- **Shear flattening (height).**  A last-coordinate shear whose shift `g` satisfies the flattening
+relation `g w • single(last) = -(γ∘base)(w) • heightVec` lowers the height coordinate by exactly
+`γ∘base`. -/
+theorem shear_flatten_snd {g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+      g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y)
+    (γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ)
+    (hg : ∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+      = -(γ ((((flatten m).symm w).ofLp).1)) • heightVec m)
+    (y : EuclideanSpace ℝ (Fin (m + 2))) :
+    (((flatten m).symm (shearEquiv hindep y)).ofLp).2
+      = (((flatten m).symm y).ofLp).2 - γ ((((flatten m).symm y).ofLp).1) := by
+  show (((flatten m).symm (y + g y • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ))).ofLp).2 = _
+  rw [hg y, flatten_symm_snd_shift_hv]; ring
+
+/-- **Shear flattening (base).**  The same shear leaves the base part fixed. -/
+theorem shear_flatten_fst {g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+      g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y)
+    (γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ)
+    (hg : ∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+      = -(γ ((((flatten m).symm w).ofLp).1)) • heightVec m)
+    (y : EuclideanSpace ℝ (Fin (m + 2))) :
+    (((flatten m).symm (shearEquiv hindep y)).ofLp).1 = (((flatten m).symm y).ofLp).1 := by
+  show (((flatten m).symm (y + g y • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ))).ofLp).1 = _
+  rw [hg y, flatten_symm_fst_shift_hv]
+
+/-- **The boundary shear generator.**  For a `C¹` graph `γ`, there is a `C¹` last-coordinate-
+independent shift `g` whose shear flattens the standard subgraph: `g` satisfies the flattening
+relation `g w • single(last) = -(γ∘base)(w) • heightVec`. -/
+theorem exists_chart_shear_generator {γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ}
+    (hγ : ContDiff ℝ 1 γ) :
+    ∃ g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ, ContDiff ℝ 1 g ∧
+      (∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+        g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y) ∧
+      (∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+        = -(γ ((((flatten m).symm w).ofLp).1)) • heightVec m) := by
+  rcases heightVec_eq_single_or_neg m with h | h
+  · refine ⟨fun w => -(γ ((((flatten m).symm w).ofLp).1)), (contDiff_gamma_base m hγ).neg,
+      fun y t => by simp only [gamma_base_indep_last], fun w => ?_⟩
+    rw [h]
+  · refine ⟨fun w => γ ((((flatten m).symm w).ofLp).1), contDiff_gamma_base m hγ,
+      fun y t => by simp only [gamma_base_indep_last], fun w => ?_⟩
+    rw [h]; simp [smul_neg, neg_smul]
+
 end FlattenCoord
 
 end Sobolev
