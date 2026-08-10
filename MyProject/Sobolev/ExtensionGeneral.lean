@@ -623,6 +623,54 @@ theorem MemLp.comp_measurePreserving_restrict {p : ℝ≥0∞} {u : ℝⁿ → �
     MemLp (u ∘ f) p (volume.restrict (f ⁻¹' S)) :=
   hu.comp_measurePreserving (hf.restrict_preimage_emb hfm S)
 
+
+/-- **`W^{1,p}` transfer under a translation on an open set.** If `u ∈ W^{1,p}(S)` with `S` open,
+then `u(· + t) ∈ W^{1,p}((· + t) ⁻¹' S)`. Translation preserves coordinate directions, so no
+direction mixing occurs. -/
+theorem MemW1p.comp_translate_restrict (t : ℝⁿ) {S : Set ℝⁿ} (hS : IsOpen S) {p : ℝ≥0∞}
+    {u : ℝⁿ → ℝ} (hu : MemW1p S p u) :
+    MemW1p ((fun x => x + t) ⁻¹' S) p (fun x => u (x + t)) := by
+  have htmp : MeasurePreserving (fun x : ℝⁿ => x + t) volume volume :=
+    measurePreserving_add_right volume t
+  have htme : MeasurableEmbedding (fun x : ℝⁿ => x + t) :=
+    (Homeomorph.addRight t).measurableEmbedding
+  refine ⟨MemLp.comp_measurePreserving_restrict hu.memLp htmp htme, fun j => ?_⟩
+  obtain ⟨v, hv, hvLp⟩ := hu.exists_weakDeriv j
+  exact ⟨fun x => v (x + t),
+    isWeakDerivInDir_comp_translate_restrict t hS (EuclideanSpace.single j (1 : ℝ)) hv,
+    MemLp.comp_measurePreserving_restrict hvLp htmp htme⟩
+
+/-- **`W^{1,p}` transfer under a linear isometry on an open set.** If `u ∈ W^{1,p}(S)` (`S` open),
+then `u ∘ L ∈ W^{1,p}(L ⁻¹' S)`; the rotated direction `L eᵢ` is expanded over the standard basis. -/
+theorem MemW1p.comp_linearIsometry_restrict (L : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) {S : Set ℝⁿ} (hS : IsOpen S)
+    {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hu : MemW1p S p u) :
+    MemW1p (L ⁻¹' S) p (fun x => u (L x)) := by
+  have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+  have hLmp : MeasurePreserving (L : ℝⁿ → ℝⁿ) volume volume := L.measurePreserving
+  have hLme : MeasurableEmbedding (L : ℝⁿ → ℝⁿ) := L.toHomeomorph.measurableEmbedding
+  have hSm : MeasurableSet S := hS.measurableSet
+  choose v hv_weak hv_mem using hu.exists_weakDeriv
+  have huLI : LocallyIntegrable u (volume.restrict S) := hu.memLp.locallyIntegrable hp1
+  have hvLI : ∀ k, LocallyIntegrable (v k) (volume.restrict S) :=
+    fun k => (hv_mem k).locallyIntegrable hp1
+  have hbasis : ∀ w : ℝⁿ, (∑ k, w k • EuclideanSpace.single k (1 : ℝ)) = w := by
+    intro w
+    have h := (EuclideanSpace.basisFun (Fin n) ℝ).sum_repr w
+    simpa only [EuclideanSpace.basisFun_repr, EuclideanSpace.basisFun_apply] using h
+  refine ⟨MemLp.comp_measurePreserving_restrict hu.memLp hLmp hLme, fun i => ?_⟩
+  refine ⟨fun x => ∑ k, (L (EuclideanSpace.single i (1 : ℝ))) k * v k (L x), ?_, ?_⟩
+  · have hdir : IsWeakDerivInDir S (L (EuclideanSpace.single i (1 : ℝ))) u
+        (fun x => ∑ k, (L (EuclideanSpace.single i (1 : ℝ))) k * v k x) := by
+      have hsum := IsWeakDerivInDir.dir_sum hSm huLI
+        (V := fun k => fun x => (L (EuclideanSpace.single i (1 : ℝ))) k * v k x)
+        (fun k => (hvLI k).smul ((L (EuclideanSpace.single i (1 : ℝ))) k))
+        (fun k => IsWeakDerivInDir.dir_smul ((L (EuclideanSpace.single i (1 : ℝ))) k) (hv_weak k))
+        Finset.univ
+      rwa [hbasis (L (EuclideanSpace.single i (1 : ℝ)))] at hsum
+    exact isWeakDerivInDir_comp_linear_restrict L hS (EuclideanSpace.single i (1 : ℝ)) hdir
+  · exact memLp_finset_sum Finset.univ
+      (fun k _ => (MemLp.comp_measurePreserving_restrict (hv_mem k) hLmp hLme).const_mul _)
+
 section FlattenCoord
 variable {m : ℕ}
 
