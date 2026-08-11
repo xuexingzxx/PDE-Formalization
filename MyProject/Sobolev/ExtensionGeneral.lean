@@ -685,15 +685,26 @@ theorem IsWeakDerivInDir.indicator {U : Set ℝⁿ} {e : ℝⁿ} {u v : ℝⁿ �
   · simp [Set.indicator_of_mem hx]
   · simp [image_eq_zero_of_notMem_tsupport (fun hc => hx (hφ.2.2 hc))]
 
-/-- **`W^{1,p}` transfer under the boundary shear on an open set.** If `u ∈ W^{1,p}(S)` with support
-in `S` and the shear shift `g` is `C¹` with globally bounded gradient, then `u ∘ Ψ ∈ W^{1,p}(Ψ⁻¹S)`.
+/-- `Lᵖ` on `volume` from `Lᵖ` on `volume.restrict Ω` when the function vanishes off `Ω` (support
+version of `memLp_of_restrict_of_tsupport_subset`). -/
+theorem memLp_of_restrict_of_support_subset {Ω : Set ℝⁿ} (hΩm : MeasurableSet Ω) {p : ℝ≥0∞}
+    {f : ℝⁿ → ℝ} (hf : MemLp f p (volume.restrict Ω)) (hsub : ∀ x ∉ Ω, f x = 0) :
+    MemLp f p volume := by
+  have hfeq : f = Ω.indicator f := funext fun x => by
+    by_cases hx : x ∈ Ω
+    · rw [Set.indicator_of_mem hx]
+    · rw [Set.indicator_of_notMem hx, hsub x hx]
+  rw [hfeq]; exact (memLp_indicator_iff_restrict hΩm).2 hf
+
+/-- **`W^{1,p}` transfer under the boundary shear on an open set.** If `u ∈ W^{1,p}(S)` vanishing off
+`S` and the shear shift `g` is `C¹` with globally bounded gradient, then `u ∘ Ψ ∈ W^{1,p}(Ψ⁻¹S)`.
 The transferred `eⱼ`-derivative picks up the cross term `(∂ⱼg)·(vᵢ∘Ψ)`. -/
 theorem MemW1p.comp_shearEquiv_restrict {g : ℝⁿ → ℝ} {i : Fin n}
     (hindep : ∀ (y : ℝⁿ) (t : ℝ), g (y + t • EuclideanSpace.single i (1 : ℝ)) = g y)
     (hg : ContDiff ℝ 1 g) (hg_bdd : ∀ j : Fin n, ∃ M : ℝ, ∀ x,
       |fderiv ℝ g x (EuclideanSpace.single j (1 : ℝ))| ≤ M)
     {S : Set ℝⁿ} (hS : IsOpen S) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
-    (hu : MemW1p S p u) (hu_sub : tsupport u ⊆ S) :
+    (hu : MemW1p S p u) (hu_sub : ∀ x ∉ S, u x = 0) :
     MemW1p (shearEquiv hindep ⁻¹' S) p (fun x => u (shearEquiv hindep x)) := by
   have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
   have hSm : MeasurableSet S := hS.measurableSet
@@ -706,7 +717,7 @@ theorem MemW1p.comp_shearEquiv_restrict {g : ℝⁿ → ℝ} {i : Fin n}
   have hΨme : MeasurableEmbedding (shearEquiv hindep : ℝⁿ → ℝⁿ) :=
     (⟨shearEquiv hindep, hΨcont, hΨsymm_cont⟩ : Homeomorph ℝⁿ ℝⁿ).measurableEmbedding
   have hu_LI : LocallyIntegrable u volume :=
-    (memLp_of_restrict_of_tsupport_subset hSm hu.memLp hu_sub).locallyIntegrable hp1
+    (memLp_of_restrict_of_support_subset hSm hu.memLp hu_sub).locallyIntegrable hp1
   choose v hv_weak hv_mem using hu.exists_weakDeriv
   have hvind_weak : ∀ k, IsWeakDerivInDir S (EuclideanSpace.single k (1 : ℝ)) u (S.indicator (v k)) :=
     fun k => (hv_weak k).indicator
@@ -1122,8 +1133,8 @@ theorem memW1p_halfspace_of_subgraph
     {w : EuclideanSpace ℝ (Fin (m + 2)) → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
     (hw : MemW1p {x | (((flatten m).symm (e (x - c))).ofLp).2
         < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} p w)
-    (hw_sub : tsupport w ⊆ {x | (((flatten m).symm (e (x - c))).ofLp).2
-        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}) :
+    (hw_sub : ∀ x ∉ {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}, w x = 0) :
     MemW1p {z | (((flatten m).symm z).ofLp).2 < 0} p
       (fun z => w (e.symm (shearEquiv (γ := -g) (i := Fin.last (m + 1))
         (fun y t => by simp only [Pi.neg_apply, hindep]) z) + c)) := by
@@ -1139,12 +1150,13 @@ theorem memW1p_halfspace_of_subgraph
       (fun y => w (e.symm y + c)) := by
     have := hw.comp_affineIsometry_restrict e.symm c hD'open
     rwa [chart_rigid_preimage e c γ'] at this
-  have hstep1sub : tsupport (fun y => w (e.symm y + c)) ⊆ {y : EuclideanSpace ℝ (Fin (m + 2)) |
-      (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)} := by
-    have h := tsupport_comp_subset (φ := fun y => e.symm y + c)
-      (e.symm.continuous.add continuous_const) w
-    rw [← chart_rigid_preimage e c γ']
-    exact h.trans (Set.preimage_mono hw_sub)
+  have hstep1sub : ∀ y ∉ {y : EuclideanSpace ℝ (Fin (m + 2)) |
+      (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)}, w (e.symm y + c) = 0 := by
+    intro y hy
+    refine hw_sub (e.symm y + c) (fun hc => hy ?_)
+    have hmem : y ∈ (fun y => e.symm y + c) ⁻¹' {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} := hc
+    rwa [chart_rigid_preimage e c γ'] at hmem
   -- step 2: inverse shear  D'₀ → half-space
   have hstep2 := hstep1.comp_shearEquiv_restrict (i := Fin.last (m + 1))
     (fun y t => by simp only [Pi.neg_apply, hindep]) hg_cd.neg
@@ -1227,8 +1239,8 @@ theorem exists_memW1p_extension_chart
     {w : EuclideanSpace ℝ (Fin (m + 2)) → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
     (hw : MemW1p {x | (((flatten m).symm (e (x - c))).ofLp).2
         < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} p w)
-    (hw_sub : tsupport w ⊆ {x | (((flatten m).symm (e (x - c))).ofLp).2
-        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}) :
+    (hw_sub : ∀ x ∉ {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}, w x = 0) :
     ∃ Ũ : EuclideanSpace ℝ (Fin (m + 2)) → ℝ, MemW1p Set.univ p Ũ ∧
       Ũ =ᵐ[volume.restrict {x | (((flatten m).symm (e (x - c))).ofLp).2
         < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}] w := by
