@@ -1109,6 +1109,7 @@ theorem exists_bounded_chart_shear {γ : EuclideanSpace ℝ (Fin (m + 1)) → �
     ∃ (γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ) (g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ)
       (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
         g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y),
+      ContDiff ℝ 1 γ' ∧
       ContDiff ℝ 1 g ∧
       (∀ j : Fin (m + 2), ∃ M : ℝ, ∀ x, |fderiv ℝ g x (EuclideanSpace.single j (1 : ℝ))| ≤ M) ∧
       Set.EqOn γ' γ K ∧
@@ -1120,7 +1121,7 @@ theorem exists_bounded_chart_shear {γ : EuclideanSpace ℝ (Fin (m + 1)) → �
         ≤ M := fun j => exists_bound_fderiv_gamma_base hγ'cd hγ'cs j
   rcases heightVec_eq_single_or_neg m with h | h
   · refine ⟨γ', fun w => -(γ' ((((flatten m).symm w).ofLp).1)),
-      fun y t => by simp only [gamma_base_indep_last], (contDiff_gamma_base m hγ'cd).neg,
+      fun y t => by simp only [gamma_base_indep_last], hγ'cd, (contDiff_gamma_base m hγ'cd).neg,
       fun j => ?_, hγ'eq, fun w => by rw [h]⟩
     obtain ⟨M, hM⟩ := hbdd j
     refine ⟨M, fun x => ?_⟩
@@ -1132,7 +1133,7 @@ theorem exists_bounded_chart_shear {γ : EuclideanSpace ℝ (Fin (m + 1)) → �
     rw [heq, hd.neg.fderiv, ContinuousLinearMap.neg_apply, abs_neg]
     exact hM x
   · refine ⟨γ', fun w => γ' ((((flatten m).symm w).ofLp).1),
-      fun y t => by simp only [gamma_base_indep_last], contDiff_gamma_base m hγ'cd,
+      fun y t => by simp only [gamma_base_indep_last], hγ'cd, contDiff_gamma_base m hγ'cd,
       hbdd, hγ'eq, fun w => by rw [h]; simp [smul_neg, neg_smul]⟩
 
 
@@ -1366,5 +1367,179 @@ theorem exists_memW1p_extension_chart
       = e (x + -c) := (shearEquiv hindep).symm_apply_apply _
   show w (e.symm _ + c) = w x
   rw [hinv, e.symm_apply_apply]; congr 1; abel
+
+/-! ### Finite partition-of-unity assembly of the general extension operator -/
+
+/-- The zero function lies in `W^{1,p}(U)`. -/
+theorem MemW1p.zero {U : Set ℝⁿ} {p : ℝ≥0∞} : MemW1p U p (fun _ => (0 : ℝ)) where
+  memLp := MemLp.zero
+  exists_weakDeriv i := ⟨fun _ => 0, fun φ _ => by simp, MemLp.zero⟩
+
+/-- Restricting a `W^{1,p}(U)` function to `U` by an indicator keeps it in `W^{1,p}(U)`: values off
+`U` are irrelevant to the space, and `U.indicator w` additionally vanishes outside `U`. -/
+theorem MemW1p.indicator {U : Set ℝⁿ} (hU : MeasurableSet U) {p : ℝ≥0∞} {w : ℝⁿ → ℝ}
+    (hw : MemW1p U p w) : MemW1p U p (U.indicator w) := by
+  have hae : w =ᵐ[volume.restrict U] U.indicator w :=
+    (ae_restrict_iff' hU).2 <| Filter.Eventually.of_forall
+      fun x hx => (Set.indicator_of_mem hx w).symm
+  refine ⟨(memLp_congr_ae hae).1 hw.memLp, fun i => ?_⟩
+  obtain ⟨v, hvw, hvLp⟩ := hw.exists_weakDeriv i
+  exact ⟨v, hvw.congr_ae_restrict hU hae (ae_eq_refl v), hvLp⟩
+
+/-- A finite sum of `W^{1,p}(U)` functions lies in `W^{1,p}(U)`. -/
+theorem MemW1p.sum {U : Set ℝⁿ} (hU : MeasurableSet U) {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    {ι' : Type*} (s : Finset ι') {g : ι' → ℝⁿ → ℝ}
+    (hg : ∀ i ∈ s, MemW1p U p (g i)) : MemW1p U p (fun x => ∑ i ∈ s, g i x) := by
+  classical
+  revert hg
+  induction s using Finset.induction with
+  | empty => intro _; simpa using (MemW1p.zero : MemW1p U p (fun _ => (0 : ℝ)))
+  | insert a s ha ih =>
+      intro hg
+      simp only [Finset.sum_insert ha]
+      exact MemW1p.add hU (hg a (Finset.mem_insert_self a s))
+        (ih (fun i hi => hg i (Finset.mem_insert_of_mem hi)))
+
+set_option maxHeartbeats 1000000 in
+/-- **Boundary-chart piece of the extension.** For a `C¹` boundary chart of `Ω` (rotation `e`, graph
+`γ`, ball `B(c,r)`) and a smooth cutoff `f` supported in the ball, the piece `f · u` of a
+`W^{1,p}(Ω)` function extends to a global `U ∈ W^{1,p}(ℝⁿ)` that agrees a.e. with `f · u` on `Ω`. -/
+theorem exists_extension_boundary_piece {m : ℕ}
+    (c : EuclideanSpace ℝ (Fin (m + 2))) {r : ℝ}
+    (e : EuclideanSpace ℝ (Fin (m + 2)) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin (m + 2)))
+    {γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ} (hγ : ContDiff ℝ 1 γ)
+    {Ω : Set (EuclideanSpace ℝ (Fin (m + 2)))} (hΩopen : IsOpen Ω)
+    (hchart : Ω ∩ Metric.ball c r =
+      {x | (((flatten m).symm (e (x - c))).ofLp).2 < γ ((((flatten m).symm (e (x - c))).ofLp).1)}
+        ∩ Metric.ball c r)
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤) {u : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    (hu : MemW1p Ω p u)
+    {f : EuclideanSpace ℝ (Fin (m + 2)) → ℝ} (hf : ContDiff ℝ ∞ f) (hfcs : HasCompactSupport f)
+    (hfsub : tsupport f ⊆ Metric.ball c r) :
+    ∃ U : EuclideanSpace ℝ (Fin (m + 2)) → ℝ, MemW1p Set.univ p U ∧
+      U =ᵐ[volume.restrict Ω] (fun x => f x * u x) := by
+  -- base projection and compact base region
+  have hbase : Continuous fun x : EuclideanSpace ℝ (Fin (m + 2)) =>
+      (((flatten m).symm (e (x - c))).ofLp).1 :=
+    (continuous_fst.comp (flattenCLE m).continuous).comp
+      (e.continuous.comp (continuous_id.sub continuous_const))
+  set K : Set (EuclideanSpace ℝ (Fin (m + 1))) :=
+    (fun x => (((flatten m).symm (e (x - c))).ofLp).1) '' Metric.closedBall c r with hKdef
+  have hKcomp : IsCompact K := (isCompact_closedBall c r).image hbase
+  -- shear data
+  obtain ⟨γ', g, hindep, hγ'cd, hg_cd, hg_bdd, hγ'eq, hg_flat⟩ := exists_bounded_chart_shear hγ hKcomp
+  set Sset : Set (EuclideanSpace ℝ (Fin (m + 2))) :=
+    {x | (((flatten m).symm (e (x - c))).ofLp).2
+      < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} with hSdef
+  have hSopen : IsOpen Sset := isOpen_phys_subgraph e c hγ'cd.continuous
+  -- `w := f · u ∈ W^{1,p}(Ω)`
+  have hwΩ : MemW1p Ω p (fun x => f x * u x) := hu.mul_cutoff_restrict hΩopen.measurableSet hf hfcs
+  have htsub : tsupport (fun x => f x * u x) ⊆ tsupport f :=
+    closure_mono (Function.support_mul_subset_left f u)
+  have hwcs : IsCompact (tsupport fun x => f x * u x) :=
+    hfcs.of_isClosed_subset (isClosed_tsupport _) htsub
+  have hwV : tsupport (fun x => f x * u x) ⊆ Metric.ball c r := htsub.trans hfsub
+  -- chart identity with the cut-off graph `γ'`
+  have hSeq : Metric.ball c r ∩ Ω = Metric.ball c r ∩ Sset := by
+    ext x
+    simp only [hSdef, Set.mem_inter_iff, Set.mem_setOf_eq]
+    have hce := Set.ext_iff.mp hchart x
+    simp only [Set.mem_inter_iff, Set.mem_setOf_eq] at hce
+    constructor
+    · rintro ⟨hxb, hxΩ⟩
+      have hxK : (((flatten m).symm (e (x - c))).ofLp).1 ∈ K :=
+        Set.mem_image_of_mem _ (Metric.ball_subset_closedBall hxb)
+      exact ⟨hxb, by rw [hγ'eq hxK]; exact (hce.mp ⟨hxΩ, hxb⟩).1⟩
+    · rintro ⟨hxb, hlt⟩
+      have hxK : (((flatten m).symm (e (x - c))).ofLp).1 ∈ K :=
+        Set.mem_image_of_mem _ (Metric.ball_subset_closedBall hxb)
+      rw [hγ'eq hxK] at hlt
+      exact ⟨hxb, (hce.mpr ⟨hlt, hxb⟩).1⟩
+  -- move `w` to the subgraph, zero it out off the subgraph, extend
+  have hwS : MemW1p Sset p (fun x => f x * u x) :=
+    hwΩ.of_eqOn_open Metric.isOpen_ball hSeq hwcs hwV
+  have hwSind : MemW1p Sset p (Sset.indicator fun x => f x * u x) :=
+    hwS.indicator hSopen.measurableSet
+  obtain ⟨Ũ, hŨuniv, hŨeq⟩ := exists_memW1p_extension_chart e c hindep hg_cd hg_bdd
+    hγ'cd.continuous hg_flat hp hwSind
+    (fun x hx => Set.indicator_of_notMem hx _)
+  -- cutoff `χ = 1` on `tsupport f`, supported in the ball
+  obtain ⟨χ, O, hχcd, hχcs, hOopen, hKO, hχO, hχsub⟩ :=
+    exists_smooth_cutoff_nhds hfcs Metric.isOpen_ball hfsub
+  have hχf : ∀ x, χ x * f x = f x := fun x => by
+    by_cases hx0 : f x = 0
+    · rw [hx0, mul_zero]
+    · rw [hχO x (hKO (subset_tsupport f (Function.mem_support.2 hx0))), one_mul]
+  have hUuniv : MemW1p Set.univ p (fun x => χ x * Ũ x) :=
+    hŨuniv.mul_cutoff_restrict MeasurableSet.univ hχcd hχcs
+  refine ⟨fun x => χ x * Ũ x, hUuniv, ?_⟩
+  have hŨae : ∀ᵐ x ∂volume, x ∈ Sset → Ũ x = Sset.indicator (fun x => f x * u x) x :=
+    (ae_restrict_iff' hSopen.measurableSet).mp hŨeq
+  rw [Filter.EventuallyEq, ae_restrict_iff' hΩopen.measurableSet]
+  filter_upwards [hŨae] with x hx hxΩ
+  by_cases hxb : x ∈ Metric.ball c r
+  · have hxbΩ : x ∈ Metric.ball c r ∩ Ω := ⟨hxb, hxΩ⟩
+    rw [hSeq] at hxbΩ
+    have hxS : x ∈ Sset := hxbΩ.2
+    show χ x * Ũ x = f x * u x
+    rw [hx hxS, Set.indicator_of_mem hxS]
+    show χ x * (f x * u x) = f x * u x
+    rw [← mul_assoc, hχf x]
+  · have hχ0 : χ x = 0 := image_eq_zero_of_notMem_tsupport fun hmem => hxb (hχsub hmem)
+    have hf0 : f x = 0 := image_eq_zero_of_notMem_tsupport fun hmem => hxb (hfsub hmem)
+    show χ x * Ũ x = f x * u x
+    rw [hχ0, hf0, zero_mul, zero_mul]
+
+set_option maxHeartbeats 1000000 in
+/-- **General `C¹`-domain Sobolev extension operator** (Evans §5.4). Every `u ∈ W^{1,p}(Ω)` on a
+bounded `C¹` domain `Ω ⊆ ℝⁿ` extends to a global `U ∈ W^{1,p}(ℝⁿ)` agreeing a.e. with `u` on `Ω`.
+Assembled from a partition of unity `{ρ_i}` subordinate to `{Ω} ∪ {chart balls}`: the interior piece
+`ρ_none · u` extends by zero, each boundary piece `ρ_j · u` extends by chart-flattening + even
+reflection, and the pieces sum back to `u` on `Ω` because `∑ ρ_i = 1` there. -/
+theorem exists_memW1p_extension {m : ℕ} {Ω : Set (EuclideanSpace ℝ (Fin (m + 2)))}
+    (h : IsBoundedC1Domain Ω) {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    {u : EuclideanSpace ℝ (Fin (m + 2)) → ℝ} (hu : MemW1p Ω p u) :
+    ∃ U : EuclideanSpace ℝ (Fin (m + 2)) → ℝ, MemW1p Set.univ p U ∧
+      U =ᵐ[volume.restrict Ω] u := by
+  classical
+  obtain ⟨ι, hFin, c, r, hr, hcharts, ρ, hsub⟩ := h.exists_smoothPartitionOfUnity
+  haveI : Fintype ι := hFin
+  have hficd : ∀ i, ContDiff ℝ ∞ (ρ i) := fun i => contMDiff_iff_contDiff.1 (ρ i).contMDiff
+  have hfcs : ∀ i : Option ι, HasCompactSupport (ρ i) := fun i => by
+    refine Metric.isCompact_of_isClosed_isBounded (isClosed_tsupport _) ?_
+    cases i with
+    | none => exact h.isBounded.subset (hsub none)
+    | some j => exact Metric.isBounded_ball.subset (hsub (some j))
+  -- per-index extension: interior piece + boundary-chart pieces
+  have hpiece : ∀ i : Option ι, ∃ W : EuclideanSpace ℝ (Fin (m + 2)) → ℝ,
+      MemW1p Set.univ p W ∧ W =ᵐ[volume.restrict Ω] (fun x => ρ i x * u x) := by
+    intro i
+    cases i with
+    | none =>
+        have hwΩ : MemW1p Ω p (fun x => ρ none x * u x) :=
+          hu.mul_cutoff_restrict h.isOpen.measurableSet (hficd none) (hfcs none)
+        have htsub : tsupport (fun x => ρ none x * u x) ⊆ Ω :=
+          (closure_mono (Function.support_mul_subset_left _ u)).trans (hsub none)
+        have hwcs : IsCompact (tsupport fun x => ρ none x * u x) :=
+          (hfcs none).of_isClosed_subset (isClosed_tsupport _)
+            (closure_mono (Function.support_mul_subset_left _ u))
+        exact ⟨fun x => ρ none x * u x, hwΩ.of_eqOn_open (V := Ω) h.isOpen
+          (by rw [Set.inter_self, Set.inter_univ]) hwcs htsub, Filter.EventuallyEq.refl _ _⟩
+    | some j =>
+        obtain ⟨e, γ, hγ, hchart⟩ := hcharts j
+        exact exists_extension_boundary_piece (c j) e hγ h.isOpen hchart hp hu
+          (hficd (some j)) (hfcs (some j)) (hsub (some j))
+  choose W hWuniv hWae using hpiece
+  refine ⟨fun x => ∑ i : Option ι, W i x,
+    MemW1p.sum MeasurableSet.univ Finset.univ (fun i _ => hWuniv i), ?_⟩
+  have hallae : ∀ᵐ x ∂(volume.restrict Ω), ∀ i, W i x = ρ i x * u x := ae_all_iff.2 hWae
+  have hΩae : ∀ᵐ x ∂(volume.restrict Ω), x ∈ Ω := ae_restrict_mem h.isOpen.measurableSet
+  filter_upwards [hallae, hΩae] with x hx hxΩ
+  have hsum1 : ∑ i : Option ι, ρ i x = 1 := by
+    rw [← finsum_eq_sum_of_fintype]; exact ρ.sum_eq_one (subset_closure hxΩ)
+  calc ∑ i : Option ι, W i x
+      = ∑ i : Option ι, ρ i x * u x := Finset.sum_congr rfl (fun i _ => hx i)
+    _ = (∑ i : Option ι, ρ i x) * u x := by rw [Finset.sum_mul]
+    _ = u x := by rw [hsum1, one_mul]
 
 end Sobolev
