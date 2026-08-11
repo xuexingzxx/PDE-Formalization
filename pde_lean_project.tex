@@ -560,10 +560,11 @@ The following were initially defined but later found to be redundant:
       convolution-error bound \texttt{eLpNorm\_convolution\_sub\_rpow\_le} \\
   Sobolev extension operator $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$
     & Evans §5.4; full trace theorem; bounded-domain Rellich--Kondrachov
-    & \emph{Half-space case resolved}: \texttt{exists\_memW1p\_extension\_halfspace}
-      (\texttt{Sobolev/\allowbreak Extension.\allowbreak lean}) --- even reflection $+$ boundary
-      density $+$ $L^p$-completeness.  General bounded-$C^1$-domain version remains, gated on
-      $C^1$-boundary-chart infrastructure \\
+    & \emph{Complete}: \texttt{exists\_memW1p\_extension}
+      (\texttt{Sobolev/\allowbreak Extension\allowbreak General.\allowbreak lean}) --- half-space local
+      model by even reflection $+$ boundary density $+$ $L^p$-completeness
+      (\texttt{exists\_memW1p\_extension\_halfspace}), then the general bounded-$C^1$-domain operator by
+      chart-flatten $+$ partition-of-unity assembly over the Chapter~6 boundary-chart infrastructure \\
   \bottomrule
 \end{longtable}
 
@@ -2663,7 +2664,9 @@ explode (a $>\!12$-minute, non-converging compile).  The fix is to carry the Sob
 $q.\mathtt{toReal}=p$) rather than $\mathtt{ENNReal.ofReal}\,p$, so the definitional-equality checker
 never tries to reduce the exponent --- cutting the compile to $\sim\!4.6$ minutes.  The one remaining
 piece of the \emph{full} trace theorem is extending $T$ from $C^1$ to all of $W^{1,p}(\Omega)$ by
-density, which for a general domain needs a Sobolev extension operator (the future-work item below).
+density; this needed a Sobolev extension operator, which is now complete for general bounded $C^1$
+domains (\texttt{exists\_memW1p\_extension}, the subsection below), so the full trace theorem is
+unblocked --- the remaining step is $C^1$-density up to the boundary via that operator.
 
 \subsection{Future work}
 
@@ -2687,7 +2690,7 @@ What remains:
     $p\ge 1$, and the bounded trace \emph{operator} \texttt{traceCLM} is now built (on the range of the
     $u\mapsto(u,Du)$ embedding; see the trace-estimate subsection).  What remains is to extend it from
     $C^1$ to all of $W^{1,p}(\Omega)$ by density --- now \emph{unblocked}, since the general-domain
-    Sobolev extension operator (next item) is complete.
+    Sobolev extension operator (see below) is complete.
 \end{enumerate}
 
 The \textbf{Sobolev extension operator} $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ (\S5.4) ---
