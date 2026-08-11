@@ -1010,6 +1010,79 @@ theorem shear_inv_preimage {g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
   simp only [Pi.neg_apply]
   constructor <;> intro h <;> linarith
 
+
+/-- The standard flat-frame subgraph is open. -/
+theorem isOpen_flat_subgraph {γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ} (hγ' : Continuous γ') :
+    IsOpen {y : EuclideanSpace ℝ (Fin (m + 2)) |
+      (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)} :=
+  isOpen_lt (continuous_snd.comp (flattenCLE m).continuous)
+    (hγ'.comp (continuous_fst.comp (flattenCLE m).continuous))
+
+/-- The physical chart subgraph is open. -/
+theorem isOpen_phys_subgraph
+    (e : EuclideanSpace ℝ (Fin (m + 2)) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin (m + 2)))
+    (c : EuclideanSpace ℝ (Fin (m + 2))) {γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ}
+    (hγ' : Continuous γ') :
+    IsOpen {x : EuclideanSpace ℝ (Fin (m + 2)) |
+      (((flatten m).symm (e (x - c))).ofLp).2 < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} :=
+  (isOpen_flat_subgraph hγ').preimage (e.continuous.comp (continuous_id.sub continuous_const))
+
+/-- `tsupport (w ∘ φ) ⊆ φ ⁻¹' (tsupport w)` for continuous `φ`. -/
+theorem tsupport_comp_subset {φ : EuclideanSpace ℝ (Fin (m + 2)) → EuclideanSpace ℝ (Fin (m + 2))}
+    (hφ : Continuous φ) (w : EuclideanSpace ℝ (Fin (m + 2)) → ℝ) :
+    tsupport (fun y => w (φ y)) ⊆ φ ⁻¹' tsupport w :=
+  closure_minimal
+    (fun y hy => subset_tsupport w (Function.mem_support.mpr (Function.mem_support.mp hy)))
+    ((isClosed_tsupport w).preimage hφ)
+
+/-- **Forward transfer: subgraph → half-space.** A `W^{1,p}` function `w` supported in the physical
+chart subgraph `D'` transfers, along the inverse chart map `Θ⁻¹ z = e.symm (Ψ⁻¹ z) + c`, to a
+`W^{1,p}` function on the flat lower half-space. -/
+theorem memW1p_halfspace_of_subgraph
+    (e : EuclideanSpace ℝ (Fin (m + 2)) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin (m + 2)))
+    (c : EuclideanSpace ℝ (Fin (m + 2))) {g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+      g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y)
+    (hg_cd : ContDiff ℝ 1 g)
+    (hg_bdd : ∀ j : Fin (m + 2), ∃ M : ℝ, ∀ x, |fderiv ℝ g x (EuclideanSpace.single j (1 : ℝ))| ≤ M)
+    {γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ} (hγ'cont : Continuous γ')
+    (hg_flat : ∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+      = -(γ' ((((flatten m).symm w).ofLp).1)) • heightVec m)
+    {w : EuclideanSpace ℝ (Fin (m + 2)) → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hw : MemW1p {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} p w)
+    (hw_sub : tsupport w ⊆ {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}) :
+    MemW1p {z | (((flatten m).symm z).ofLp).2 < 0} p
+      (fun z => w (e.symm (shearEquiv (γ := -g) (i := Fin.last (m + 1))
+        (fun y t => by simp only [Pi.neg_apply, hindep]) z) + c)) := by
+  have hD'open : IsOpen {x : EuclideanSpace ℝ (Fin (m + 2)) |
+      (((flatten m).symm (e (x - c))).ofLp).2 < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} :=
+    isOpen_phys_subgraph e c hγ'cont
+  have hD'₀open : IsOpen {y : EuclideanSpace ℝ (Fin (m + 2)) |
+      (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)} :=
+    isOpen_flat_subgraph hγ'cont
+  -- step 1: inverse rigid motion  D' → D'₀
+  have hstep1 : MemW1p {y : EuclideanSpace ℝ (Fin (m + 2)) |
+      (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)} p
+      (fun y => w (e.symm y + c)) := by
+    have := hw.comp_affineIsometry_restrict e.symm c hD'open
+    rwa [chart_rigid_preimage e c γ'] at this
+  have hstep1sub : tsupport (fun y => w (e.symm y + c)) ⊆ {y : EuclideanSpace ℝ (Fin (m + 2)) |
+      (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)} := by
+    have h := tsupport_comp_subset (φ := fun y => e.symm y + c)
+      (e.symm.continuous.add continuous_const) w
+    rw [← chart_rigid_preimage e c γ']
+    exact h.trans (Set.preimage_mono hw_sub)
+  -- step 2: inverse shear  D'₀ → half-space
+  have hstep2 := hstep1.comp_shearEquiv_restrict (i := Fin.last (m + 1))
+    (fun y t => by simp only [Pi.neg_apply, hindep]) hg_cd.neg
+    (fun j => by obtain ⟨M, hM⟩ := hg_bdd j; exact ⟨M, fun x => by
+      rw [show (fun x => -g x) = -g from rfl, fderiv_neg, ContinuousLinearMap.neg_apply, abs_neg]
+      exact hM x⟩)
+    hD'₀open hstep1sub
+  rwa [shear_inv_preimage hindep γ' hg_flat] at hstep2
+
 end FlattenCoord
 
 end Sobolev
