@@ -1085,4 +1085,57 @@ theorem memW1p_halfspace_of_subgraph
 
 end FlattenCoord
 
+
+
+/-- **Extension from an upper coordinate half-space (bundled).** A `W^{1,p}({0 < xᵢ})` function
+extends to `W^{1,p}(ℝⁿ)` agreeing with it a.e. on the half-space. Bundles
+`exists_memW1p_extension_halfspace`. -/
+theorem exists_memW1p_extension_coord_upper (i : Fin n) {f : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    (hp : p ≠ ⊤) (hf : MemW1p {x : ℝⁿ | 0 < x i} p f) :
+    ∃ U : ℝⁿ → ℝ, MemW1p Set.univ p U ∧
+      U =ᵐ[volume.restrict {x : ℝⁿ | 0 < x i}] f := by
+  choose v hv_weak hv_mem using hf.exists_weakDeriv
+  obtain ⟨U, V, hU, hV, hVweak, hUf, _, _⟩ :=
+    exists_memW1p_extension_halfspace i hp hf.memLp hv_mem hv_weak
+  exact ⟨U, ⟨by rw [Measure.restrict_univ]; exact hU,
+    fun j => ⟨V j, hVweak j, by rw [Measure.restrict_univ]; exact hV j⟩⟩, hUf⟩
+
+/-- **Extension from the flat lower half-space.** A `W^{1,p}` function on the flat half-space
+`{(flatten.symm z).2 < 0}` extends to `W^{1,p}(ℝⁿ)` agreeing with it a.e. there. The flat half-space
+is a coordinate half-space (`halfspace_flat_eq_coord`); in the lower-coordinate case reflect first. -/
+theorem exists_memW1p_extension_flat_halfspace {m : ℕ} {f : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    (hf : MemW1p {z | (((flatten m).symm z).ofLp).2 < 0} p f) :
+    ∃ U : EuclideanSpace ℝ (Fin (m + 2)) → ℝ, MemW1p Set.univ p U ∧
+      U =ᵐ[volume.restrict {z | (((flatten m).symm z).ofLp).2 < 0}] f := by
+  rcases halfspace_flat_eq_coord (m := m) with hc | hc
+  · rw [hc] at hf ⊢
+    have hpre : refll (Fin.last (m + 1)) ⁻¹' {x | x (Fin.last (m + 1)) < 0}
+        = {x | 0 < x (Fin.last (m + 1))} := by
+      ext x; simp only [Set.mem_preimage, Set.mem_setOf_eq, refll_apply_self]
+      constructor <;> intro h <;> linarith
+    have hopen : IsOpen {x : EuclideanSpace ℝ (Fin (m + 2)) | x (Fin.last (m + 1)) < 0} :=
+      isOpen_lt (EuclideanSpace.proj _).continuous continuous_const
+    have href : MemW1p {x | 0 < x (Fin.last (m + 1))} p
+        (fun x => f (refll (Fin.last (m + 1)) x)) := by
+      have := hf.comp_linearIsometry_restrict (refll (Fin.last (m + 1))) hopen
+      rwa [hpre] at this
+    obtain ⟨U', hU', hU'f⟩ := exists_memW1p_extension_coord_upper (Fin.last (m + 1)) hp href
+    refine ⟨fun x => U' (refll (Fin.last (m + 1)) x), hU'.comp_refll (Fin.last (m + 1)), ?_⟩
+    have hpre2 : refll (Fin.last (m + 1)) ⁻¹' {x | 0 < x (Fin.last (m + 1))}
+        = {x | x (Fin.last (m + 1)) < 0} := by
+      ext x; simp only [Set.mem_preimage, Set.mem_setOf_eq, refll_apply_self]
+      constructor <;> intro h <;> linarith
+    have hmp : MeasurePreserving (refll (Fin.last (m + 1)))
+        (volume.restrict {x : EuclideanSpace ℝ (Fin (m + 2)) | x (Fin.last (m + 1)) < 0})
+        (volume.restrict {x | 0 < x (Fin.last (m + 1))}) := by
+      rw [← hpre2]
+      exact (refll_measurePreserving _).restrict_preimage_emb
+        (refll (Fin.last (m + 1))).toHomeomorph.measurableEmbedding _
+    refine (hmp.quasiMeasurePreserving.ae_eq_comp hU'f).trans ?_
+    filter_upwards with x
+    exact congrArg f (refll_involutive (Fin.last (m + 1)) x)
+  · rw [hc] at hf ⊢
+    exact exists_memW1p_extension_coord_upper (Fin.last (m + 1)) hp hf
+
 end Sobolev
