@@ -904,6 +904,85 @@ theorem MemW1p.mul_cutoff_restrict {U : Set ℝⁿ} (hUmeas : MeasurableSet U) {
     exact (hwLp.mul (hζ.continuous.memLp_top_of_hasCompactSupport hζs _)).add
       (hu.memLp.mul (hdζc.memLp_top_of_hasCompactSupport hdζs _))
 
+
+/-- `Lᵖ` locality: a function supported in `V`, in `Lᵖ` on `U`, is in `Lᵖ` on any `D'` that agrees
+with `U` on `V`. -/
+theorem memLp_restrict_of_support_eqOn {U D' V : Set ℝⁿ} (hVmeas : MeasurableSet V)
+    (hVU : V ∩ U = V ∩ D') {p : ℝ≥0∞} {f : ℝⁿ → ℝ} (hf : MemLp f p (volume.restrict U))
+    (hfV : ∀ x ∉ V, f x = 0) :
+    MemLp f p (volume.restrict D') := by
+  have hfind : f = V.indicator f := funext fun x => by
+    by_cases hx : x ∈ V
+    · rw [Set.indicator_of_mem hx]
+    · rw [Set.indicator_of_notMem hx, hfV x hx]
+  rw [hfind, memLp_indicator_iff_restrict hVmeas, Measure.restrict_restrict hVmeas, ← hVU]
+  exact hf.mono_measure (Measure.restrict_mono Set.inter_subset_right le_rfl)
+
+/-- A smooth cutoff equal to `1` on an open neighbourhood of a compact set `K`, compactly supported
+inside an open superset `V`. -/
+theorem exists_smooth_cutoff_nhds {K V : Set ℝⁿ} (hK : IsCompact K) (hV : IsOpen V) (hKV : K ⊆ V) :
+    ∃ (η : ℝⁿ → ℝ) (O : Set ℝⁿ), ContDiff ℝ ∞ η ∧ HasCompactSupport η ∧ IsOpen O ∧ K ⊆ O ∧
+      (∀ x ∈ O, η x = 1) ∧ tsupport η ⊆ V := by
+  obtain ⟨L, hLc, hKL, hLV⟩ := exists_compact_between hK hV hKV
+  obtain ⟨L', hL'c, hKL', hL'L⟩ := exists_compact_between hK isOpen_interior hKL
+  obtain ⟨η, hηcmd, _, hηs, hηt⟩ := exists_contMDiff_zero_iff_one_iff_of_isClosed
+    (I := 𝓘(ℝ, ℝⁿ)) (n := ⊤) (isOpen_interior.isClosed_compl) hL'c.isClosed
+    (Set.disjoint_compl_left_iff_subset.2 hL'L)
+  have hη0 : ∀ x ∉ L, η x = 0 := fun x hx =>
+    (hηs x).mp (fun hc => hx (interior_subset hc))
+  have hsuppL : Function.support η ⊆ L := by
+    intro x hx; by_contra hxL; exact (Function.mem_support.1 hx) (hη0 x hxL)
+  have hsupp : tsupport η ⊆ L := closure_minimal hsuppL hLc.isClosed
+  exact ⟨η, interior L', contMDiff_iff_contDiff.1 hηcmd, HasCompactSupport.intro hLc hη0,
+    isOpen_interior, hKL', fun x hx => (hηt x).1 (interior_subset hx), hsupp.trans hLV⟩
+
+/-- **`W^{1,p}` locality.** If `w ∈ W^{1,p}(U)` is compactly supported inside an open set `V` on
+which `U` and `D'` agree (`V ∩ U = V ∩ D'`), then `w ∈ W^{1,p}(D')`. The transferred weak derivative
+is `η · v` for a cutoff `η = 1` near `tsupport w`; the cross term `(∂ₑη)·(w or v)` vanishes because
+`η` is locally constant on `tsupport w`. -/
+theorem MemW1p.of_eqOn_open {U D' V : Set ℝⁿ} {p : ℝ≥0∞} [Fact (1 ≤ p)] {w : ℝⁿ → ℝ}
+    (hVopen : IsOpen V) (hVU : V ∩ U = V ∩ D') (hw : MemW1p U p w)
+    (hwcs : IsCompact (tsupport w)) (hwV : tsupport w ⊆ V) :
+    MemW1p D' p w := by
+  have hVmeas : MeasurableSet V := hVopen.measurableSet
+  obtain ⟨η, O, hηcd, hηcs, hOopen, hKO, hηO, hηsub⟩ := exists_smooth_cutoff_nhds hwcs hVopen hwV
+  have hw0 : ∀ x ∉ V, w x = 0 := fun x hx =>
+    image_eq_zero_of_notMem_tsupport (fun h => hx (hwV h))
+  refine ⟨memLp_restrict_of_support_eqOn hVmeas hVU hw.memLp hw0, fun i => ?_⟩
+  obtain ⟨v, hv, hvLp⟩ := hw.exists_weakDeriv i
+  set e := EuclideanSpace.single i (1 : ℝ) with he
+  have hdη0 : ∀ x ∈ O, fderiv ℝ η x e = 0 := fun x hx => by
+    rw [(Filter.eventuallyEq_of_mem (hOopen.mem_nhds hx) hηO).fderiv_eq]; simp
+  refine ⟨fun x => η x * v x, ?_, ?_⟩
+  · intro φ hφ
+    have htest : IsTestFunction U (fun x => η x * φ x) := by
+      refine ⟨hηcd.mul hφ.contDiff, hφ.hasCompactSupport.mul_left, fun x hx => ?_⟩
+      have hmem : x ∈ V ∩ D' :=
+        ⟨(tsupport_mul_subset_left.trans hηsub) hx,
+          (tsupport_mul_subset_right.trans hφ.tsupport_subset) hx⟩
+      rw [← hVU] at hmem; exact hmem.2
+    have hkey := hv (fun x => η x * φ x) htest
+    have hLHS : (fun x => w x * fderiv ℝ (fun y => η y * φ y) x e)
+        = fun x => w x * fderiv ℝ φ x e := by
+      funext x
+      by_cases hwx : w x = 0
+      · rw [hwx, zero_mul, zero_mul]
+      · have hxO : x ∈ O := hKO (subset_tsupport w (Function.mem_support.2 hwx))
+        rw [fderiv_fun_mul (hηcd.differentiable (by norm_num) x) (hφ.differentiable x)]
+        simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply, smul_eq_mul,
+          hηO x hxO, hdη0 x hxO]
+        ring
+    have e1 : ∫ x, w x * fderiv ℝ φ x e = ∫ x, w x * fderiv ℝ (fun y => η y * φ y) x e :=
+      integral_congr_ae (Filter.Eventually.of_forall fun x => (congrFun hLHS x).symm)
+    have e2 : ∫ x, v x * (η x * φ x) = ∫ x, (η x * v x) * φ x :=
+      integral_congr_ae (Filter.Eventually.of_forall fun x => by ring)
+    change ∫ x, w x * fderiv ℝ φ x e = -∫ x, (η x * v x) * φ x
+    rw [e1, hkey, e2]
+  · have hmul : MemLp (fun x => η x * v x) p (volume.restrict U) :=
+      hvLp.mul (hηcd.continuous.memLp_top_of_hasCompactSupport hηcs (volume.restrict U))
+    exact memLp_restrict_of_support_eqOn hVmeas hVU hmul
+      (fun x hx => by rw [image_eq_zero_of_notMem_tsupport (fun h => hx (hηsub h)), zero_mul])
+
 section FlattenCoord
 variable {m : ℕ}
 
