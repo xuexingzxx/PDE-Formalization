@@ -2423,31 +2423,33 @@ theorem exists_eLpNorm_le_eLpNorm_fderiv_of_le (hu : ContDiff R 1 u) (h2u : u.su
     exists C : NNReal, eLpNorm u q volume <= C * eLpNorm (fderiv R u) p volume
 \end{lstlisting}
 
-The embedding \emph{passes to the limit} on all of $W^{1,p}(\mathbb{R}^n)$.  If $u$ is the
-$W^{1,p}$-limit of $C^1$ compactly supported functions $u_k$ --- $u_k\to u$ in $L^p$ and
-$Du_k\to V$ in $L^p$ --- then $u$ inherits the bound $\|u\|_{p^*}\le C\|V\|_p$ with the \emph{same}
-(uniform) constant (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}).  The argument is
-the standard density passage: the GNS constant is uniform across the sequence; $L^p$-convergence
-yields an a.e.\ convergent subsequence (convergence in measure,
-\texttt{tendstoInMeasure\_of\_tendsto\_eLpNorm} then
-\texttt{TendstoInMeasure.exists\_seq\_tendsto\_ae}); Fatou lower-semicontinuity of the seminorm
-(\texttt{Lp.eLpNorm'\_lim\_le\_liminf\_eLpNorm'}) passes the inequality to the limit; and the
-right-hand side converges since $\|Du_k\|_p\to\|V\|_p$ (norm-continuity in $L^p$).  The required
-approximating sequence is supplied by the now-proved \textbf{density of $C^\infty_c$ in
-$W^{1,p}(\mathbb{R}^n)$}, \texttt{exists\_contDiff\_hasCompactSupport\_forall\_isWeakDerivInDir}:
+\paragraph{Passing to the limit.}  The embedding extends from $C^1$ to all of $W^{1,p}(\mathbb{R}^n)$.
+If $u$ is a $W^{1,p}$-limit of $C^1$ compactly supported $u_k$ --- $u_k\to u$ and $Du_k\to V$ in $L^p$
+--- then $u$ inherits $\|u\|_{p^*}\le C\|V\|_p$ with the \emph{same} constant
+(\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_tendsto}).  This is the standard density passage: the
+GNS constant is uniform along the sequence; $L^p$-convergence gives an a.e.\ convergent subsequence
+(convergence in measure, \texttt{tendstoInMeasure\_of\_tendsto\_eLpNorm} then
+\texttt{TendstoInMeasure.\allowbreak exists\_seq\_tendsto\_ae}); Fatou lower-semicontinuity of the
+seminorm (\texttt{Lp.eLpNorm'\_lim\_le\_liminf\_eLpNorm'}) passes the inequality to the limit; and the
+right-hand side converges since $\|Du_k\|_p\to\|V\|_p$.
+
+\paragraph{Density of $C^\infty_c$.}  The approximating sequence comes from the density of $C^\infty_c$
+in $W^{1,p}(\mathbb{R}^n)$ (\texttt{exists\_contDiff\_hasCompactSupport\_forall\_isWeakDerivInDir}):
 truncate by a scaled cutoff (\texttt{exists\_cutoff\_family}) to compact support --- the two $L^p$
 truncation limits \texttt{tendsto\_eLpNorm\_cutoff\_mul\_sub} and
-\texttt{tendsto\_eLpNorm\_fderiv\_cutoff\_mul} (with the weak Leibniz rule
-\texttt{IsWeakDerivInDir.mul\_smooth}) --- then mollify keeping compact support
-(\texttt{HasCompactSupport.convolution}), glued by $\varepsilon/2+\varepsilon/2$.  Finally the
-\textbf{embedding holds with no hypotheses} (\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_forall\_isWeakDerivInDir}):
-if $u\in L^p$ has weak derivatives given by a CLM-valued $V$ ($\partial_{e_i}u=V\cdot e_i$, $V\in L^p$),
-then $\|u\|_{p^*}\le C\|V\|_p$.  The per-direction convergence is turned into
-$\|\mathrm{fderiv}\,u_k-V\|_p\to0$ by the \emph{components bridge} $\|L\|\le\sum_i\|L\,e_i\|$
-(\texttt{opNorm\_le\_sum\_apply\_single}, lifted to $L^p$ by \texttt{eLpNorm\_clm\_sub\_le\_sum}); for
-smooth $u_k$ the weak partials agree a.e.\ with \texttt{fderiv} (\texttt{isWeakDerivInDir\_ae\_unique}).
-The bridge's $\mathbb{R}^n$ inner-product instance diamond (which blocks \texttt{rw}) was dodged by
-Riesz representation and closing with \texttt{exact} (definitional, not syntactic) equality.
+\texttt{tendsto\_eLpNorm\_fderiv\_cutoff\_mul}, using the weak Leibniz rule
+\texttt{IsWeakDerivInDir.mul\_smooth} --- then mollify keeping compact support
+(\texttt{HasCompactSupport.convolution}), the two errors glued by $\varepsilon/2+\varepsilon/2$.
+
+\paragraph{The hypothesis-free embedding.}  Combining the two, the embedding holds with no hypotheses
+(\texttt{exists\_eLpNorm\_le\_eLpNorm\_fderiv\_of\_forall\_isWeakDerivInDir}): if $u\in L^p$ has weak
+derivatives given by a CLM-valued $V$ ($\partial_{e_i}u=V\cdot e_i$, $V\in L^p$), then
+$\|u\|_{p^*}\le C\|V\|_p$.  The per-direction convergence becomes $\|\mathrm{fderiv}\,u_k-V\|_p\to0$ via
+the \emph{components bridge} $\|L\|\le\sum_i\|L\,e_i\|$ (\texttt{opNorm\_le\_sum\_apply\_single}, lifted
+to $L^p$ by \texttt{eLpNorm\_clm\_sub\_le\_sum}); for smooth $u_k$ the weak partials agree a.e.\ with
+\texttt{fderiv} (\texttt{isWeakDerivInDir\_ae\_unique}).  (The $\mathbb{R}^n$ inner-product instance
+diamond that blocks \texttt{rw} in the bridge was dodged by Riesz representation, closing with
+\texttt{exact}.)
 
 \begin{lstlisting}[caption={Sobolev embedding for all of W^1p via limits (proved, zero sorry)}]
 theorem exists_eLpNorm_le_eLpNorm_fderiv_of_tendsto (hp : 1 <= p) (hn : 0 < n) (hpn : p < n)
@@ -2481,26 +2483,33 @@ theorem exists_eLpNorm_self_le_eLpNorm_fderiv (hu : ContDiff R 1 u) (h2u : u.sup
 \subsection{Higher-order Sobolev spaces $W^{k,p}$ and $H^k$ (§5.2, §5.6)}
 
 The single-direction weak derivative of §5.2 iterates to a full higher-order theory in
-\texttt{Sobolev/\allowbreak Higher.\allowbreak lean}: iterated directional weak derivatives \texttt{IsWeakDerivList}
-(chains of single-direction weak derivatives, with the classical model \texttt{dirDerivList}) and
-the classical~$\Rightarrow$~weak bridge \texttt{isWeakDerivList\_of\_contDiff}; the space
-\texttt{MemWkp}~$=W^{k,p}$ (all iterated coordinate weak derivatives of order $\le k$ lie in $L^p$)
-with \texttt{memWkp\_of\_contDiff\_hasCompactSupport} ($C^\infty_c\subseteq W^{k,p}$), homogeneity
-\texttt{IsWeakDerivList.const\_smul}, and the consistency \texttt{memW1p\_iff\_memWkp\_one}.  The
-$W^{k,p}$-\emph{norm} $\|u\|_{W^{k,p}}=\bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$
-is realised concretely: \texttt{wkpSpace k} presents $W^{k,p}(\mathbb{R}^n)$ as a closed submodule
-of $\mathrm{PiLp}\,p$ over the finite index \texttt{DerivIdx} of derivative sequences of length
-$\le k$, with the genuine $\ell^p$ Sobolev norm (\texttt{norm\_eq\_wkp}) and completeness
-(\texttt{completeSpace\_wkpSpace}) as a closed subspace, mirroring the $W^{1,p}$ Banach
-construction.  \emph{Symmetry of mixed weak partials} (Clairaut/Schwarz for weak derivatives) is
-\texttt{isWeakDerivInDir\_comm}: the two mixed second weak derivatives
-$\partial_{e_2}\partial_{e_1}u$ and $\partial_{e_1}\partial_{e_2}u$ agree a.e., via classical
-Clairaut on a test function (\texttt{fderiv\_dirDeriv\_comm}, from Mathlib's symmetric second
-derivative) and the fundamental lemma.  Finally the \textbf{Hilbert space}
-$H^k(\mathbb{R}^n)=W^{k,2}(\mathbb{R}^n)$: at $p=2$ the ambient $\mathrm{PiLp}\,2$ is a Hilbert
-space, so \texttt{wkpSpace k} inherits an inner product and is complete, with explicit inner
-product $\langle u,v\rangle=\sum_{|l|\le k}\int D^l u\,D^l v$ (\texttt{inner\_wkpSpace}) and energy
-norm $\|u\|^2=\sum_{|l|\le k}\int |D^l u|^2$ (\texttt{norm\_sq\_wkpSpace}).
+\texttt{Sobolev/\allowbreak Higher.\allowbreak lean}.
+
+\paragraph{Iterated weak derivatives.}  \texttt{IsWeakDerivList} chains single-direction weak
+derivatives (with classical model \texttt{dirDerivList}), and the classical~$\Rightarrow$~weak bridge
+is \texttt{isWeakDerivList\_of\_contDiff}.  The space \texttt{MemWkp}~$=W^{k,p}$ asks that all iterated
+coordinate weak derivatives of order $\le k$ lie in $L^p$.  Then $C^\infty_c\subseteq W^{k,p}$
+(\texttt{memWkp\_of\_contDiff\_hasCompactSupport}), the derivative is homogeneous
+(\texttt{IsWeakDerivList.const\_smul}), and $W^{1,p}$ is the case $k=1$
+(\texttt{memW1p\_iff\_memWkp\_one}).
+
+\paragraph{The $W^{k,p}$ Banach space.}  The norm
+$\|u\|_{W^{k,p}}=\bigl(\sum_{|\alpha|\le k}\|D^\alpha u\|_{L^p}^p\bigr)^{1/p}$ is realised concretely:
+\texttt{wkpSpace k} presents $W^{k,p}(\mathbb{R}^n)$ as a closed submodule of $\mathrm{PiLp}\,p$ over
+the finite index \texttt{DerivIdx} of derivative sequences of length $\le k$, with the genuine $\ell^p$
+Sobolev norm (\texttt{norm\_eq\_wkp}) and completeness (\texttt{completeSpace\_wkpSpace}) as a closed
+subspace --- mirroring the $W^{1,p}$ construction.
+
+\paragraph{Symmetry of mixed partials.}  The Clairaut/Schwarz theorem holds weakly
+(\texttt{isWeakDerivInDir\_comm}): the mixed second weak derivatives $\partial_{e_2}\partial_{e_1}u$ and
+$\partial_{e_1}\partial_{e_2}u$ agree a.e., via classical Clairaut on a test function
+(\texttt{fderiv\_dirDeriv\_comm}, from Mathlib's symmetric second derivative) and the fundamental lemma.
+
+\paragraph{The Hilbert space $H^k$.}  At $p=2$ the ambient $\mathrm{PiLp}\,2$ is a Hilbert space, so
+\texttt{wkpSpace k} inherits an inner product and is complete.  This is
+$H^k(\mathbb{R}^n)=W^{k,2}(\mathbb{R}^n)$, with explicit inner product
+$\langle u,v\rangle=\sum_{|l|\le k}\int D^l u\,D^l v$ (\texttt{inner\_wkpSpace}) and energy norm
+$\|u\|^2=\sum_{|l|\le k}\int |D^l u|^2$ (\texttt{norm\_sq\_wkpSpace}).
 
 \subsection{Rellich--Kondrachov compactness (§5.7)}
 
@@ -2538,8 +2547,8 @@ These assemble into the \emph{self-contained} criterion
 \texttt{totallyBounded\_toLp\_restrict\_of\_equicontinuous} (discharging mollifiability with an
 explicit normalised \texttt{ContDiffBump}), whence \texttt{rellich\_kondrachov}.
 
-The \emph{necessary} direction (the converse) is also formalized, in its equicontinuity form:
-\texttt{uniformEquicontinuous\_translate\_of\_totallyBounded} shows that a family totally bounded in
+\paragraph{The converse: equicontinuity.}  The \emph{necessary} direction is also formalized, in its
+equicontinuity form.  \texttt{uniformEquicontinuous\_translate\_of\_totallyBounded} shows that a family totally bounded in
 $L^p(\mathbb{R}^n)$ is automatically uniformly $L^p$-equicontinuous,
 $\sup_i\|u_i(\cdot-y)-u_i\|_p\to0$ as $y\to0$ --- exactly the equicontinuity hypothesis consumed by
 the sufficient direction.  The proof is the symmetric $\varepsilon/3$ argument: a finite
@@ -2548,7 +2557,7 @@ $\varepsilon/3$-net of the (totally bounded) image, each net point being $L^p$-t
 \texttt{Set.Finite.eventually\_all}, and the splitting of $u_i(\cdot-y)-u_i$ through a nearby net
 point, two of whose three terms are $\|u_i-z\|_p<\varepsilon/3$ (translation is an $L^p$ isometry).
 
-The \emph{tightness} half is now also formalized, \texttt{unifTight\_of\_totallyBounded}: a family
+\paragraph{The converse: tightness.}  The \emph{tightness} half is \texttt{unifTight\_of\_totallyBounded}: a family
 totally bounded in $L^p(\mathbb{R}^n)$ is uniformly $p$-tight at infinity --- for every
 $\varepsilon>0$ there is a \emph{single} finite-measure set $s$ with
 $\sup_i\|\mathbf 1_{s^c}u_i\|_p\le\varepsilon$.  The proof is the symmetric $\varepsilon/2$-net
@@ -2624,7 +2633,7 @@ $u^2$).  All three run off the Chapter~6 general divergence theorem and rest on 
     \texttt{fderiv} and the basis expansion $Dg(Fx)=\sum_i \partial_i g\,(Fx)_i$.
 \end{itemize}
 
-Applying Gauss--Green to $(u^2)^{p/2}F$: on $\partial\Omega$,
+\paragraph{The estimate for $p\ge2$.}  Applying Gauss--Green to $(u^2)^{p/2}F$: on $\partial\Omega$,
 $\langle (u^2)^{p/2} F,\nu\rangle\ge (u^2)^{p/2}$; in $\Omega$, the Leibniz rule with Cauchy--Schwarz
 and Young's inequality give the pointwise bound
 $\operatorname{div}((u^2)^{p/2} F)\le C((u^2)^{p/2}+\|Du\|^p)$, with $C$ read off from the suprema of
@@ -2633,7 +2642,7 @@ $\operatorname{div}F$ and $\|F\|$ over the compact $\overline\Omega$.  The Young
 $p/(p-1)$ and $p$; the $p=2$ case is the elementary $2|u|\|Du\|\le u^2+\|Du\|^2$).  Chaining the two
 boundary/interior monotonicities through the divergence theorem yields the estimate for $p\ge 2$.
 
-For $1\le p<2$ the integrand $(u^2)^{p/2}$ is no longer $C^1$ at $u=0$, so \texttt{trace\_estimate\_lp}
+\paragraph{The range $1\le p<2$.}  For $1\le p<2$ the integrand $(u^2)^{p/2}$ is no longer $C^1$ at $u=0$, so \texttt{trace\_estimate\_lp}
 runs the \emph{same} Gauss--Green argument on the strictly positive smoothing $(\varepsilon^2+u^2)^{p/2}$
 (which is $C^1$ because its base never vanishes), with a positive-base Young step
 \texttt{trace\_young\_pos} valid for all $p\ge 1$ and a constant $C$ \emph{independent of
@@ -2641,7 +2650,7 @@ $\varepsilon$}; sending $\varepsilon\to0$ along $\varepsilon_k=1/(k+1)$ by domin
 (the smoothings decrease monotonically to $|u|^p$, dominated by the integrable $(1+u^2)^{p/2}$) passes
 the inequality to the limit.  This completes the boundary estimate over the whole Sobolev range.
 
-The estimate is then recast in \emph{operator} form: \texttt{trace\_lp\_bound} rewrites it through
+\paragraph{The trace operator.}  The estimate is then recast in \emph{operator} form: \texttt{trace\_lp\_bound} rewrites it through
 $\|f.\mathtt{toLp}\|=(\int\|f\|^p)^{1/p}$ (\texttt{MemLp.eLpNorm\_eq\_integral\_rpow\_norm}) as
 $\|\,u|_{\partial\Omega}\,\|_{L^p(\partial\Omega)}\le K\max(\|u\|_{L^p(\Omega)},\|Du\|_{L^p(\Omega)})$,
 uniformly over $C^1$ functions $u$.  The supporting linear structure is also built: the $C^1$
@@ -2699,59 +2708,79 @@ domains (\texttt{exists\_memW1p\_extension}); see the subsection below.
 
 \subsection{The extension operator (§5.4) --- complete}
 
-The extension theorem builds a bounded linear $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ by
-locally flattening the boundary and \emph{reflecting} across it.  We build it bottom-up in
-\texttt{Sobolev/\allowbreak Extension.\allowbreak lean}.
+\begin{theorem}[Sobolev extension, Evans §5.4]
+Let $\Omega\subseteq\mathbb{R}^{m+2}$ be a bounded $C^1$ domain and $1\le p<\infty$.  Every
+$u\in W^{1,p}(\Omega)$ extends to a $U\in W^{1,p}(\mathbb{R}^n)$ with $U=u$ almost everywhere on
+$\Omega$ (\texttt{exists\_memW1p\_extension}).
+\end{theorem}
 
-\textbf{Reflection engine.}  \texttt{refll}~$i$ is the reflection $x\mapsto x-2x_i e_i$ across
+We build it in two stages:
+\begin{enumerate}
+  \item a \emph{local model} on the flat half-space $\{x_i>0\}$, where the extension is even
+    reflection across the boundary hyperplane (\texttt{Sobolev/\allowbreak Extension.\allowbreak lean},
+    \texttt{ExtensionOperator.\allowbreak lean});
+  \item a \emph{globalisation} to an arbitrary $C^1$ domain, by flattening the boundary one chart at a
+    time and gluing the local extensions with a partition of unity
+    (\texttt{Extension\allowbreak General.\allowbreak lean}).
+\end{enumerate}
+
+\subsubsection*{Stage 1: the flat half-space}
+
+On $\{x_i>0\}$ the boundary is the hyperplane $\{x_i=0\}$, and the extension of $u$ is its
+\emph{even reflection} $Eu(x)=u(x)$ for $x_i\ge0$, $u(\texttt{refll}\,i\,x)$ for $x_i<0$.  Turning
+this into an extension \emph{operator} on $W^{1,p}$ takes four steps: a reflection engine, a change of
+variables for weak derivatives, the gluing of the two one-sided derivatives into one, and the passage
+from $C^1$ data to all of $W^{1,p}$.
+
+\paragraph{Reflection engine.}  \texttt{refll}~$i$ is the reflection $x\mapsto x-2x_i e_i$ across
 $\{x_i=0\}$, packaged as a \texttt{LinearIsometryEquiv} so that smoothness, involutivity, measure-
 and norm-preservation, and the half-space swap $\{x_i>0\}\leftrightarrow\{x_i<0\}$
 (\texttt{refll\_image\_upper}) are all one-liners.
 
-\textbf{Change of variables for weak derivatives} (\texttt{isWeakDerivInDir\_comp\_refll}).  If $v$ is
-the weak $e_j$-derivative of $u$ on the open upper half $\{x_i>0\}$, then $u\circ\texttt{refll}\,i$ has
-the sign-adjusted reflected weak $e_j$-derivative on the lower half $\{x_i<0\}$, with sign $-1$ when
-$j=i$ and $+1$ otherwise.  Proof: the measure-preserving substitution $x=\texttt{refll}\,i\,y$
+\paragraph{Weak derivatives under reflection} (\texttt{isWeakDerivInDir\_comp\_refll}).  If $v$ is
+the weak $e_j$-derivative of $u$ on the upper half $\{x_i>0\}$, then $u\circ\texttt{refll}\,i$ has a
+weak $e_j$-derivative on the lower half $\{x_i<0\}$: the reflected $v\circ\texttt{refll}\,i$, with sign
+$-1$ when $j=i$ and $+1$ otherwise.  Proof: the measure-preserving substitution $x=\texttt{refll}\,i\,y$
 (\texttt{MeasurePreserving.integral\_comp}) turns the lower-half integration-by-parts identity into the
 upper-half one, and the chain rule $\partial_j(\varphi\circ\texttt{refll}\,i)=\pm(\partial_j\varphi)
 \circ\texttt{refll}\,i$ (from \texttt{refll\_single}) transports the test function.
 
-\textbf{Gluing across the interface.}  The even reflection is only $C^0$ (not $C^1$) across
-$\{x_i=0\}$, so one must show its one-sided weak derivatives assemble into a single weak derivative on
-all of $\mathbb{R}^n$.  The tool is a smooth one-sided cutoff $\chi_m$ (\texttt{cutoffPos}/
-\texttt{cutoffNeg}, built from \texttt{Real.smoothTransition}) that is $0$ near the boundary and $1$
-away from it; $\chi_m\varphi$ is then a test function supported strictly inside a half-space, and one
-lets $m\to\infty$.  This is done so far for \textbf{tangential} directions
-(\texttt{isWeakDerivInDir\_glue\_tangential}, $j\ne i$): because $\chi_m$ varies only in the normal
-coordinate, $\partial_j\chi_m=0$, so \emph{no boundary term arises} and the two half-space identities
-stitch together directly by dominated convergence --- the interface hyperplane $\{x_i=0\}$ being
-Lebesgue-null (\texttt{volume\_hyperplane\_eq\_zero}, via \texttt{Measure.addHaar\_submodule}).  Note
-the tangential glue needs \emph{only} continuity of $w$, not matching of the one-sided derivatives:
-a jump in $w$ contributes to $\partial_i$, never to a tangential $\partial_j$.
+\paragraph{Gluing the one-sided derivatives.}  The even reflection is only $C^0$ across
+$\{x_i=0\}$, so its two one-sided weak derivatives must be shown to assemble into a single weak
+derivative on all of $\mathbb{R}^n$.  The device is a smooth one-sided cutoff $\chi_m$
+(\texttt{cutoffPos}/\texttt{cutoffNeg}, from \texttt{Real.smoothTransition}), equal to $0$ near the
+boundary and $1$ away from it, so that $\chi_m\varphi$ is a test function supported strictly inside a
+half-space; one then lets $m\to\infty$.
 
-The \textbf{normal} direction $j=i$ (\texttt{isWeakDerivInDir\_glue\_normal}) is the harder case:
-now $\partial_i\chi_m\ne0$, so each one-sided integration-by-parts identity carries an extra boundary
-term $\int w\,(\partial_i\chi_m)\,\varphi$.  The naive estimate fails --- $\partial_i\chi_m$ blows up
-like $(m{+}1)$ near the interface --- and one initially expects to need a Fubini integral in the
-$x_i$-marginal (Mathlib has no ready coarea/slicing lemma).  The \emph{key simplification} that
-avoids all of that: combining the $\chi^+$ and $\chi^-$ boundary integrals through the reflection
-symmetry $\partial_i\chi^-_m=-(\partial_i\chi^+_m)\circ\texttt{refll}$ and the measure-preserving
+For \textbf{tangential} directions $j\ne i$ (\texttt{isWeakDerivInDir\_glue\_tangential}) this is
+clean.  Since $\chi_m$ varies only in the normal coordinate, $\partial_j\chi_m=0$, so \emph{no boundary
+term arises}: the two half-space identities stitch together by dominated convergence, the interface
+$\{x_i=0\}$ being Lebesgue-null (\texttt{volume\_hyperplane\_eq\_zero}).  This needs only continuity of
+$w$, not that the one-sided derivatives match --- a jump in $w$ feeds $\partial_i$, never a tangential
+$\partial_j$.
+
+\paragraph{The normal boundary term.}  The normal direction $j=i$
+(\texttt{isWeakDerivInDir\_glue\_normal}) is harder.  Now $\partial_i\chi_m\ne0$, so each one-sided
+integration by parts leaves a boundary term $\int w\,(\partial_i\chi_m)\,\varphi$, and $\partial_i\chi_m$
+blows up like $(m{+}1)$ at the interface; one expects to need a Fubini slicing in the $x_i$-marginal,
+which Mathlib lacks.  The key simplification avoids it.  Combining the $\chi^+$ and $\chi^-$ boundary
+integrals through the symmetry $\partial_i\chi^-_m=-(\partial_i\chi^+_m)\circ\texttt{refll}$ and the
 substitution $x=\texttt{refll}\,y$ collapses them (\texttt{boundary\_reformulation}) into a single
-integral $\int (F-F\circ\texttt{refll})\,\partial_i\chi^+_m$ with $F=w\varphi$.  This is now
-\emph{directly} amenable to dominated convergence (\texttt{boundary\_tendsto\_zero}), with no change of
-variables: on $\operatorname{supp}(\partial_i\chi^+_m)$ one has $(m{+}1)x_i\in[1,2]$, so
-$(m{+}1)\lvert x_i\rvert\le2$, and the Lipschitz-in-$x_i$ difference bound
-$\lvert F(x)-F(\texttt{refll}\,x)\rvert\le L\lvert x_i\rvert$ makes the integrand
-$\le L\lvert s{+}1\rvert\,\lvert\Phi'(s)\rvert\le L\!\cdot\!B$ ($s=(m{+}1)x_i-1$) --- an
-\emph{$m$-independent} dominator $(L\!\cdot\!B)\mathbf 1_K$.  The $(m{+}1)$ blow-up is killed by the
-$\lvert x_i\rvert\lesssim1/(m{+}1)$ smallness of $F-F\circ\texttt{refll}$ \emph{at the integrand
-level}.  Assembling ``$(\text{boundary})+(\text{tangential})=-(\text{RHS})$'' and passing to the limit
-(boundary $\to0$, tangential $\to\int w\,\partial_i\varphi$, RHS $\to\int(\text{glue})\varphi$) yields
-the normal weak-derivative identity.  Thus weak differentiation is now handled across the flattened
-boundary in \emph{every} direction.
+integral $\int (F-F\circ\texttt{refll})\,\partial_i\chi^+_m$, with $F=w\varphi$.
 
-\textbf{The half-space reflection extension.}  Assembling the tangential and normal glue with the
-classical derivative on the upper half (\texttt{isWeakDerivInDir\_of\_contDiff}) and the reflection
+This integral is directly amenable to dominated convergence (\texttt{boundary\_tendsto\_zero}), with no
+change of variables.  On $\operatorname{supp}(\partial_i\chi^+_m)$ one has $(m{+}1)x_i\in[1,2]$, hence
+$(m{+}1)\lvert x_i\rvert\le2$; and the Lipschitz bound
+$\lvert F(x)-F(\texttt{refll}\,x)\rvert\le L\lvert x_i\rvert$ makes the integrand at most
+$L\lvert s{+}1\rvert\,\lvert\Phi'(s)\rvert\le L\!\cdot\!B$ (with $s=(m{+}1)x_i-1$) --- an
+\emph{$m$-independent} dominator $(L\!\cdot\!B)\mathbf 1_K$.  The $(m{+}1)$ blow-up of $\partial_i\chi^+_m$
+is exactly cancelled by the $\lvert x_i\rvert\lesssim1/(m{+}1)$ smallness of $F-F\circ\texttt{refll}$.
+Passing to the limit (boundary $\to0$, tangential $\to\int w\,\partial_i\varphi$) gives the normal
+weak-derivative identity.  Weak differentiation is thus handled across the flattened boundary in
+\emph{every} direction.
+
+\paragraph{The reflection extension on $C^1$ functions.}  Assembling the tangential and normal glue
+with the classical derivative on the upper half (\texttt{isWeakDerivInDir\_of\_contDiff}) and the reflection
 change-of-variables on the lower half (\texttt{isWeakDerivInDir\_comp\_refll}) gives
 \texttt{isWeakDerivInDir\_evenRefl}: the even reflection $Eu$ of a $C^1$ function has, in every
 direction, the reflected weak gradient.  The reflection-Lipschitz hypothesis of the normal glue is
@@ -2771,50 +2800,45 @@ composition form $(\cdot)\circ\texttt{refll}\,i$ by a function-level \texttt{rfl
 norm step keeps every $\texttt{eLpNorm}$ match syntactic and avoids it.  This completes the
 \emph{local} reflection-extension model as a bounded linear operator.
 
-\textbf{Toward the half-space operator: boundary density.}  The reflection extension is defined on
-the $C^1$ core; to promote it to all of $W^{1,p}(\{x_i>0\})$ one needs the $C^1$ functions dense in
-$W^{1,p}$ \emph{up to the boundary} (mollification of an inward-translated copy), whose translation
-half is now proved.  \texttt{tendsto\_eLpNorm\_translate\_sub\_restrict\_pos}: for $u\in
-L^p(\{x_i>0\})$, the inward shift satisfies $\|u(\cdot+s\,e_i)-u\|_{L^p(\{x_i>0\})}\to0$ as $s\downarrow0$.
-It reduces to the whole-space translation-continuity by extending $u$ by zero
-($\tilde u=\mathbf1_{\{x_i>0\}}u\in L^p(\mathbb R^n)$, via \texttt{memLp\_indicator\_iff\_restrict})
-and squeezing: on $\{x_i>0\}$ a shift $s>0$ keeps the argument inside $\{x_i>0\}$, where
-$\tilde u=u$, so the restricted increment agrees with the whole-space one, and
-$\|\cdot\|_{L^p(\text{restrict})}\le\|\cdot\|_{L^p(\mathbb R^n)}$ (\texttt{eLpNorm\_mono\_measure}).
-Summing over the function and its $n$ weak-gradient components gives the full $W^{1,p}$ increment
-\texttt{tendsto\_eLpNorm\_translate\_restrict\_memW1p} $\to0$, the translation half of the boundary
-density (the mollification half --- convolving the inward-translated copy with a mollifier of radius
-$<s$, so every sample point stays in $\{x_i>0\}$ --- remains).
+\paragraph{Boundary density.}  To extend the operator off the $C^1$ core one needs $C^1$ functions
+dense in $W^{1,p}(\{x_i>0\})$ \emph{up to the boundary}.  Direct mollification fails there --- it
+samples $u$ outside the domain --- so one first shifts inward.  For the shifted copy
+$u_s=u(\cdot+s\,e_i)$, convolving with a mollifier $\rho_k$ of radius $<s$ keeps every sample point
+inside $\{x_i>0\}$, where $u$ is genuinely Sobolev.  On the interior the gradient identity
+$\partial_j(\rho_k\star\tilde u)(\cdot+s e_i)=(\rho_k\star\tilde v_j)(\cdot+s e_i)$ holds
+(\texttt{convolution\_deriv\_eq\_of\_subset}, a localized $\partial_e\eta\star u=\eta\star v$ whose only
+test function is the reflected bump), yielding an explicit $C^\infty$ sequence $w_k\to u$ in
+$W^{1,p}(\{x_i>0\})$ (\texttt{exists\_seq\_contDiff\_tendsto\_halfspace}).  The one nonstandard input is
+$L^p$-continuity of the inward shift, $\|u(\cdot+s\,e_i)-u\|_{L^p(\{x_i>0\})}\to0$ as $s\downarrow0$
+(\texttt{tendsto\_eLpNorm\_translate\_sub\_restrict\_pos}), obtained from whole-space
+translation-continuity by zero-extension and squeezing.
 
-\textbf{The half-space extension theorem --- complete.}  The mollification half of the boundary
-density is proved by convolving the inward-translated copy $u_s=u(\cdot+s e_i)$ with a mollifier
-$\rho_k$ of radius $<s$: every sample point stays in $\{x_i>0\}$ where $u$ is genuinely Sobolev, so
-the gradient identity $\partial_j(\rho_k\star\tilde u)(\cdot+s e_i)=(\rho_k\star\tilde v_j)(\cdot+s e_i)$
-holds on the interior (\texttt{convolution\_deriv\_eq\_of\_subset}, a localized
-$\partial_e\eta\star u=\eta\star v$ whose only test function is the reflected bump), giving an explicit
-$C^\infty$ approximating sequence $w_k\to u$ in $W^{1,p}(\{x_i>0\})$
-(\texttt{exists\_seq\_contDiff\_tendsto\_halfspace}).  Reflecting, $E_k=\texttt{evenRefl}\,w_k\in
-W^{1,p}(\mathbb R^n)$ (\texttt{memW1p\_evenRefl\_restrict}, needing only upper-half $L^p$ data, so no
-convolution Young inequality --- unavailable in Mathlib --- is required; $L^p$-membership of the
-mollifications comes by triangle inequality from the project's own convolution-error bound,
-\texttt{memLp\_convolution}).  By the restricted $\le2$ bounds
-(\texttt{eLpNorm\_evenRefl\_le\_restrict}, \texttt{\_grad\_le\_restrict}) the $E_k$ and their reflected
-gradients are Cauchy in $L^p(\mathbb R^n)$, hence converge to $U$ and $V_j$ (Banach completeness of
-$L^p$, packaged as \texttt{exists\_memLp\_tendsto\_of\_dominated} --- one call for the function, one per
-coordinate); the weak-derivative relation passes to the limit by the closedness cornerstone
-\texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}; and $U=u$ a.e.\ on $\{x_i>0\}$ because $E_k=w_k$
-there.  This is \texttt{exists\_memW1p\_extension\_halfspace}: \emph{every $u\in W^{1,p}(\{x_i>0\})$ (weak
-derivatives $v$) extends to a $U\in W^{1,p}(\mathbb R^n)$ (with explicit weak derivatives $V$)
-agreeing with $u$ a.e.\ on $\{x_i>0\}$, and moreover the extension is \textbf{bounded}:
-$\|U\|_{L^p(\mathbb R^n)}\le 2\|u\|_{L^p(\{x_i>0\})}$ and $\|V_j\|_{L^p(\mathbb R^n)}\le
-2\|v_j\|_{L^p(\{x_i>0\})}$ for every $j$} (the per-approximant $\le2$ bounds pass to the $L^p$-limit,
-\texttt{eLpNorm\_le\_two\_of\_tendsto}) --- the flat-boundary extension theorem, the local model of
-\S5.4, now complete and sorry-free.
+\paragraph{Passing to all of $W^{1,p}$.}  Reflect the approximants: $E_k=\texttt{evenRefl}\,w_k\in
+W^{1,p}(\mathbb R^n)$ (\texttt{memW1p\_evenRefl\_restrict}).  This step uses only upper-half $L^p$ data,
+so it avoids a convolution Young inequality (which Mathlib does not have); $L^p$-membership of the
+mollifications instead comes by triangle inequality from the project's own error bound
+\texttt{memLp\_convolution}.  By the restricted $\le2$ bounds (\texttt{eLpNorm\_evenRefl\_le\_restrict},
+\texttt{\_grad\_le\_restrict}) the $E_k$ and their reflected gradients are Cauchy in $L^p(\mathbb R^n)$,
+hence converge to some $U$ and $V_j$ (completeness of $L^p$, packaged as
+\texttt{exists\_memLp\_tendsto\_of\_dominated}).  The weak-derivative relation survives the limit by the
+closedness cornerstone \texttt{isWeakDerivInDir\_of\_tendsto\_Lp\_restrict}, and $U=u$ a.e.\ on
+$\{x_i>0\}$ because $E_k=w_k$ there.
 
-\textbf{The general $C^1$-domain operator --- complete.}  The flat-boundary theorem is promoted to an
-arbitrary bounded $C^1$ domain $\Omega\subseteq\mathbb R^{m+2}$ by a partition-of-unity assembly
-(\texttt{exists\_memW1p\_extension}, in \texttt{Sobolev/\allowbreak Extension\allowbreak General.\allowbreak lean}),
-reusing the boundary-chart infrastructure built for the general divergence theorem (Chapter~6).  From
+This is the flat-boundary model \texttt{exists\_memW1p\_extension\_halfspace}.  It is moreover a
+\emph{bounded} operator, the per-approximant $\le2$ bounds passing to the limit
+(\texttt{eLpNorm\_le\_two\_of\_tendsto}):
+\[
+  \|U\|_{L^p(\mathbb R^n)}\le 2\,\|u\|_{L^p(\{x_i>0\})},
+  \qquad
+  \|V_j\|_{L^p(\mathbb R^n)}\le 2\,\|v_j\|_{L^p(\{x_i>0\})}\quad(\forall\, j).
+\]
+
+\subsubsection*{Stage 2: general $C^1$ domains}
+
+The flat-boundary theorem is globalised to an arbitrary bounded $C^1$ domain
+$\Omega\subseteq\mathbb R^{m+2}$ (\texttt{exists\_memW1p\_extension}, in
+\texttt{Sobolev/\allowbreak Extension\allowbreak General.\allowbreak lean}), reusing the
+boundary-chart infrastructure built for the general divergence theorem (Chapter~6).  From
 \texttt{IsBoundedC1Domain.\allowbreak exists\_smoothPartitionOfUnity} one gets a smooth partition of unity
 $\{\rho_i\}_{i:\,\texttt{Option}\,\iota}$ subordinate to the cover $\{\Omega\}\cup\{\text{chart balls}\}$
 (index \texttt{none} $\mapsto$ the interior $\Omega$, \texttt{some}~$j\mapsto$ the $j$-th boundary
@@ -2844,14 +2868,18 @@ subspace/finite-sum lemmas (\texttt{MemW1p.add}, packaged as \texttt{MemW1p.sum}
 recovers $u$: the per-piece a.e.\ agreements combine (\texttt{ae\_all\_iff} over the finite index) to
 $U=\sum_i\rho_i\,u$ a.e., and $\sum_i\rho_i=1$ on $\Omega$ (\texttt{SmoothPartitionOfUnity.\allowbreak
 sum\_eq\_one}, with $\sum^{\mathrm f}=\sum$ over the finite index via
-\texttt{finsum\_eq\_sum\_of\_fintype}) gives $U=u$ a.e.\ on $\Omega$.  The chief subtlety --- that a
-representative of $u$ carries arbitrary junk values off $\Omega$ --- is handled by the locality lemma
-\texttt{MemW1p.of\_eqOn\_open} (its transferred weak derivative is $\eta\!\cdot\!v$ for a cutoff
-$\eta$, compactly supported hence globally integrable, with the cross term $(\partial_e\eta)\,w$
-vanishing because $\eta$ is locally constant on $\operatorname{tsupport}w$) together with the
-subgraph indicator.  This is \emph{the} extension theorem of \S5.4: \emph{every $u\in W^{1,p}(\Omega)$
-on a bounded $C^1$ domain extends to a $U\in W^{1,p}(\mathbb R^n)$ agreeing a.e.\ with $u$ on
-$\Omega$} --- complete and sorry-free, closing Chapter~5's extension operator in full.
+\texttt{finsum\_eq\_sum\_of\_fintype}) gives $U=u$ a.e.\ on $\Omega$.
+
+\paragraph{The off-domain values.}  The one subtlety is that a representative of $u$ carries arbitrary
+junk values off $\Omega$, which a naive boundary piece would import.  It is handled by the locality
+lemma \texttt{MemW1p.of\_eqOn\_open} together with the subgraph indicator \texttt{MemW1p.indicator}.
+The locality lemma's transferred weak derivative is $\eta\!\cdot\!v$ for a cutoff $\eta$ --- compactly
+supported, hence globally integrable --- and its cross term $(\partial_e\eta)\,w$ vanishes because
+$\eta$ is locally constant on $\operatorname{tsupport}w$.
+
+This completes \emph{the} extension theorem of \S5.4 --- every $u\in W^{1,p}(\Omega)$ on a bounded
+$C^1$ domain extends to a $U\in W^{1,p}(\mathbb R^n)$ agreeing a.e.\ with $u$ on $\Omega$ --- and closes
+Chapter~5's extension operator in full.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 6: Surface Measure and the General Divergence Theorem}
