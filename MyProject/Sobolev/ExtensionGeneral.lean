@@ -810,6 +810,18 @@ theorem exists_bound_fderiv_gamma_base {m : ℕ} {γ' : EuclideanSpace ℝ (Fin 
   rw [hchain, ContinuousLinearMap.comp_apply, ← Real.norm_eq_abs]
   exact le_trans ((fderiv ℝ γ' (L x)).le_opNorm _) (by gcongr; exact hM (L x))
 
+
+/-- **`W^{1,p}` transfer under an affine isometry `x ↦ e x + c` on an open set.** Composition of the
+translation and linear-isometry restricted transfers. -/
+theorem MemW1p.comp_affineIsometry_restrict (e : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) (c : ℝⁿ) {S : Set ℝⁿ}
+    (hS : IsOpen S) {u : ℝⁿ → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hu : MemW1p S p u) :
+    MemW1p ((fun x => e x + c) ⁻¹' S) p (fun x => u (e x + c)) := by
+  have h1 : MemW1p ((fun x => x + c) ⁻¹' S) p (fun x => u (x + c)) :=
+    hu.comp_translate_restrict c hS
+  have h2 := h1.comp_linearIsometry_restrict e
+    (by exact (continuous_id.add continuous_const).isOpen_preimage _ hS)
+  exact h2
+
 section FlattenCoord
 variable {m : ℕ}
 
