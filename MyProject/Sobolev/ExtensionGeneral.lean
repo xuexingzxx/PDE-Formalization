@@ -780,6 +780,36 @@ theorem exists_contDiff_compactSupport_eqOn {γ : ℝⁿ → ℝ} (hγ : ContDif
   show χ x * γ x = γ x
   rw [χ.one_of_mem_closedBall hxb, one_mul]
 
+
+/-- A `C¹` compactly supported function has a uniformly bounded derivative (operator norm). -/
+theorem exists_bound_norm_fderiv {f : ℝⁿ → ℝ} (hf : ContDiff ℝ 1 f)
+    (hfs : HasCompactSupport f) : ∃ M : ℝ, ∀ y, ‖fderiv ℝ f y‖ ≤ M := by
+  have hcont : Continuous (fun y => fderiv ℝ f y) := hf.continuous_fderiv (by norm_num)
+  have hcs : HasCompactSupport (fun y => fderiv ℝ f y) := hfs.fderiv ℝ
+  obtain ⟨C, hC⟩ := hcs.isCompact.exists_bound_of_continuousOn hcont.norm.continuousOn
+  refine ⟨max C 0, fun y => ?_⟩
+  by_cases hy : y ∈ tsupport (fun y => fderiv ℝ f y)
+  · exact (norm_norm (fderiv ℝ f y) ▸ hC y hy).trans (le_max_left _ _)
+  · rw [image_eq_zero_of_notMem_tsupport hy, norm_zero]; exact le_max_right _ _
+
+/-- The chart shift `γ' ∘ base` (with `γ'` compactly supported) has bounded directional derivatives:
+by the chain rule `∂ⱼ(γ'∘base) = Dγ'(base ·) (base eⱼ)`, bounded by `‖Dγ'‖·‖base eⱼ‖`. -/
+theorem exists_bound_fderiv_gamma_base {m : ℕ} {γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ}
+    (hγ' : ContDiff ℝ 1 γ') (hγ's : HasCompactSupport γ') (j : Fin (m + 2)) :
+    ∃ M : ℝ, ∀ x, |fderiv ℝ (fun w => γ' ((((flatten m).symm w).ofLp).1)) x
+      (EuclideanSpace.single j (1 : ℝ))| ≤ M := by
+  obtain ⟨M, hM⟩ := exists_bound_norm_fderiv hγ' hγ's
+  set L : EuclideanSpace ℝ (Fin (m + 2)) →L[ℝ] EuclideanSpace ℝ (Fin (m + 1)) :=
+    (ContinuousLinearMap.fst ℝ (EuclideanSpace ℝ (Fin (m + 1))) ℝ).comp
+      ((flattenCLE m) : _ →L[ℝ] _) with hL
+  have hfun : (fun w => γ' ((((flatten m).symm w).ofLp).1)) = fun w => γ' (L w) := rfl
+  refine ⟨M * ‖L (EuclideanSpace.single j (1 : ℝ))‖, fun x => ?_⟩
+  rw [hfun]
+  have hchain : fderiv ℝ (fun w => γ' (L w)) x = (fderiv ℝ γ' (L x)).comp L :=
+    ((hγ'.differentiable (by norm_num) (L x)).hasFDerivAt.comp x L.hasFDerivAt).fderiv
+  rw [hchain, ContinuousLinearMap.comp_apply, ← Real.norm_eq_abs]
+  exact le_trans ((fderiv ℝ γ' (L x)).le_opNorm _) (by gcongr; exact hM (L x))
+
 section FlattenCoord
 variable {m : ℕ}
 
