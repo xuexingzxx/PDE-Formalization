@@ -975,6 +975,41 @@ theorem exists_bounded_chart_shear {γ : EuclideanSpace ℝ (Fin (m + 1)) → �
       hbdd, hγ'eq, fun w => by rw [h]; simp [smul_neg, neg_smul]⟩
 
 
+
+/-- **Rigid preimage of the chart subgraph.** Pulling the physical chart subgraph back through the
+inverse rigid motion `y ↦ e.symm y + c` gives the standard (flat-frame) subgraph. -/
+theorem chart_rigid_preimage
+    (e : EuclideanSpace ℝ (Fin (m + 2)) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin (m + 2)))
+    (c : EuclideanSpace ℝ (Fin (m + 2))) (γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ) :
+    (fun y => e.symm y + c) ⁻¹'
+        {x | (((flatten m).symm (e (x - c))).ofLp).2 < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}
+      = {y | (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)} := by
+  ext y
+  simp only [Set.mem_preimage, Set.mem_setOf_eq, add_sub_cancel_right,
+    LinearIsometryEquiv.apply_symm_apply]
+
+/-- **Inverse-shear preimage of the flat subgraph.** The inverse boundary shear (shift `-g`) pulls
+the flat subgraph `{(flatten.symm y).2 < γ'(base y)}` back to the flat lower half-space. This is the
+step that lands a subgraph function on the half-space the operator lives on. -/
+theorem shear_inv_preimage {g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+      g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y)
+    (γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ)
+    (hg : ∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+      = -(γ' ((((flatten m).symm w).ofLp).1)) • heightVec m) :
+    shearEquiv (γ := -g) (i := Fin.last (m + 1))
+        (fun y t => by simp only [Pi.neg_apply, hindep]) ⁻¹'
+        {y | (((flatten m).symm y).ofLp).2 < γ' ((((flatten m).symm y).ofLp).1)}
+      = {y | (((flatten m).symm y).ofLp).2 < 0} := by
+  have hg_neg : ∀ w, (-g) w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+      = -((-γ') ((((flatten m).symm w).ofLp).1)) • heightVec m := by
+    intro w; rw [Pi.neg_apply, neg_smul, hg]; simp [Pi.neg_apply]
+  ext y
+  simp only [Set.mem_preimage, Set.mem_setOf_eq,
+    shear_flatten_snd _ (-γ') hg_neg y, shear_flatten_fst _ (-γ') hg_neg y]
+  simp only [Pi.neg_apply]
+  constructor <;> intro h <;> linarith
+
 end FlattenCoord
 
 end Sobolev
