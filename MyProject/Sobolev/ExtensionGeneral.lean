@@ -822,6 +822,77 @@ theorem MemW1p.comp_affineIsometry_restrict (e : ℝⁿ ≃ₗᵢ[ℝ] ℝⁿ) (
     (by exact (continuous_id.add continuous_const).isOpen_preimage _ hS)
   exact h2
 
+
+
+/-- **Leibniz rule for the weak derivative on an open set.**  Restricted-measure version of
+`IsWeakDerivInDir.mul_smooth`. -/
+theorem IsWeakDerivInDir.mul_smooth_restrict {U : Set ℝⁿ} (hUmeas : MeasurableSet U) {e : ℝⁿ}
+    {u v ψ : ℝⁿ → ℝ} (hu : LocallyIntegrable u (volume.restrict U))
+    (hv : LocallyIntegrable v (volume.restrict U)) (hψ : ContDiff ℝ ∞ ψ)
+    (h : IsWeakDerivInDir U e u v) :
+    IsWeakDerivInDir U e (fun x => ψ x * u x)
+      (fun x => ψ x * v x + fderiv ℝ ψ x e * u x) := by
+  intro φ hφ
+  have hψc : Continuous ψ := hψ.continuous
+  have hψd : Differentiable ℝ ψ := hψ.differentiable (by norm_num)
+  have hdψc : Continuous (fun x => fderiv ℝ ψ x e) :=
+    (hψ.continuous_fderiv (by norm_num)).clm_apply continuous_const
+  have hφ0 : ∀ x ∉ U, φ x = 0 := fun x hx =>
+    image_eq_zero_of_notMem_tsupport (fun hc => hx (hφ.tsupport_subset hc))
+  have hdφ0 : ∀ x ∉ U, fderiv ℝ φ x e = 0 := fun x hx => by
+    rw [(notMem_tsupport_iff_eventuallyEq.1 (fun hc => hx (hφ.tsupport_subset hc))).fderiv_eq]; simp
+  have hψφ : IsTestFunction U (fun x => ψ x * φ x) :=
+    ⟨hψ.mul hφ.contDiff, hφ.hasCompactSupport.mul_left,
+      (tsupport_mul_subset_right (f := ψ) (g := φ)).trans hφ.tsupport_subset⟩
+  have hLeibniz : ∀ x, fderiv ℝ (fun y => ψ y * φ y) x e
+      = ψ x * fderiv ℝ φ x e + fderiv ℝ ψ x e * φ x := by
+    intro x
+    rw [fderiv_fun_mul (hψd x) (hφ.differentiable x)]
+    simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply, smul_eq_mul]
+    ring
+  have iA : Integrable (fun x => u x * (ψ x * fderiv ℝ φ x e)) volume :=
+    integrable_mul_of_locallyIntegrable_restrict hUmeas hu (hψc.mul (hφ.continuous_dirDeriv e))
+      (hφ.hasCompactSupport_dirDeriv e).mul_left (fun x hx => by rw [hdφ0 x hx, mul_zero])
+  have iB : Integrable (fun x => u x * (fderiv ℝ ψ x e * φ x)) volume :=
+    integrable_mul_of_locallyIntegrable_restrict hUmeas hu (hdψc.mul hφ.continuous)
+      hφ.hasCompactSupport.mul_left (fun x hx => by rw [hφ0 x hx, mul_zero])
+  have iC : Integrable (fun x => v x * (ψ x * φ x)) volume :=
+    integrable_mul_of_locallyIntegrable_restrict hUmeas hv (hψc.mul hφ.continuous)
+      hφ.hasCompactSupport.mul_left (fun x hx => by rw [hφ0 x hx, mul_zero])
+  have hkey := h (fun x => ψ x * φ x) hψφ
+  have hsplit : (∫ x, u x * (ψ x * fderiv ℝ φ x e)) + ∫ x, u x * (fderiv ℝ ψ x e * φ x)
+      = -∫ x, v x * (ψ x * φ x) := by
+    rw [← integral_add iA iB, ← hkey]
+    exact integral_congr_ae (Filter.Eventually.of_forall fun x => by simp only [hLeibniz]; ring)
+  have hgoalL : ∫ x, (ψ x * u x) * fderiv ℝ φ x e = ∫ x, u x * (ψ x * fderiv ℝ φ x e) :=
+    integral_congr_ae (Filter.Eventually.of_forall fun x => by ring)
+  have hgoalR : ∫ x, (ψ x * v x + fderiv ℝ ψ x e * u x) * φ x
+      = (∫ x, v x * (ψ x * φ x)) + ∫ x, u x * (fderiv ℝ ψ x e * φ x) := by
+    rw [show (fun x => (ψ x * v x + fderiv ℝ ψ x e * u x) * φ x)
+        = fun x => v x * (ψ x * φ x) + u x * (fderiv ℝ ψ x e * φ x) from funext fun x => by ring]
+    exact integral_add iC iB
+  rw [hgoalL, hgoalR]; linarith [hsplit]
+
+/-- **`W^{1,p}(U) · smooth cutoff ⊆ W^{1,p}(U)`.** Restricted-measure version of
+`MemW1p.mul_cutoff`. -/
+theorem MemW1p.mul_cutoff_restrict {U : Set ℝⁿ} (hUmeas : MeasurableSet U) {p : ℝ≥0∞} [Fact (1 ≤ p)]
+    {u ζ : ℝⁿ → ℝ} (hu : MemW1p U p u) (hζ : ContDiff ℝ ∞ ζ) (hζs : HasCompactSupport ζ) :
+    MemW1p U p (fun x => ζ x * u x) where
+  memLp := hu.memLp.mul (hζ.continuous.memLp_top_of_hasCompactSupport hζs _)
+  exists_weakDeriv i := by
+    obtain ⟨w, hw, hwLp⟩ := hu.exists_weakDeriv i
+    have hp1 : (1 : ℝ≥0∞) ≤ p := Fact.out
+    have huloc : LocallyIntegrable u (volume.restrict U) := hu.memLp.locallyIntegrable hp1
+    have hwloc : LocallyIntegrable w (volume.restrict U) := hwLp.locallyIntegrable hp1
+    have hdζc : Continuous (fun x => fderiv ℝ ζ x (EuclideanSpace.single i (1 : ℝ))) :=
+      (hζ.continuous_fderiv (by norm_num)).clm_apply continuous_const
+    have hdζs : HasCompactSupport (fun x => fderiv ℝ ζ x (EuclideanSpace.single i (1 : ℝ))) :=
+      hζs.fderiv_apply (𝕜 := ℝ) (EuclideanSpace.single i (1 : ℝ))
+    refine ⟨fun x => ζ x * w x + fderiv ℝ ζ x (EuclideanSpace.single i (1 : ℝ)) * u x,
+      IsWeakDerivInDir.mul_smooth_restrict hUmeas huloc hwloc hζ hw, ?_⟩
+    exact (hwLp.mul (hζ.continuous.memLp_top_of_hasCompactSupport hζs _)).add
+      (hu.memLp.mul (hdζc.memLp_top_of_hasCompactSupport hdζs _))
+
 section FlattenCoord
 variable {m : ℕ}
 
