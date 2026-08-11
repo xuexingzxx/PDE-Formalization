@@ -2686,16 +2686,15 @@ What remains:
   \item \textbf{Trace theorem --- density extension.}  The boundary estimate is \emph{done} for all
     $p\ge 1$, and the bounded trace \emph{operator} \texttt{traceCLM} is now built (on the range of the
     $u\mapsto(u,Du)$ embedding; see the trace-estimate subsection).  What remains is to extend it from
-    $C^1$ to all of $W^{1,p}(\Omega)$ by density --- which for a general domain requires a Sobolev
-    extension operator (next item; its half-space case is now done).
-  \item \textbf{Sobolev extension operator} $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$
-    (§5.4), in \texttt{Sobolev/\allowbreak Extension.\allowbreak lean}.  The \textbf{half-space case is
-    complete} (\texttt{exists\_memW1p\_extension\_halfspace}: every $u\in W^{1,p}(\{x_i>0\})$ extends to
-    $W^{1,p}(\mathbb{R}^n)$); only the general bounded-$C^1$-domain version remains, gated on
-    boundary-chart infrastructure.  See the subsection below.
+    $C^1$ to all of $W^{1,p}(\Omega)$ by density --- now \emph{unblocked}, since the general-domain
+    Sobolev extension operator (next item) is complete.
 \end{enumerate}
 
-\subsection{The extension operator (§5.4) --- half-space case complete}
+The \textbf{Sobolev extension operator} $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ (\S5.4) ---
+formerly the main gate on items~2 and~3 above --- is now \emph{complete} for arbitrary bounded $C^1$
+domains (\texttt{exists\_memW1p\_extension}); see the subsection below.
+
+\subsection{The extension operator (§5.4) --- complete}
 
 The extension theorem builds a bounded linear $E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ by
 locally flattening the boundary and \emph{reflecting} across it.  We build it bottom-up in
@@ -2809,11 +2808,47 @@ $\|U\|_{L^p(\mathbb R^n)}\le 2\|u\|_{L^p(\{x_i>0\})}$ and $\|V_j\|_{L^p(\mathbb 
 \texttt{eLpNorm\_le\_two\_of\_tendsto}) --- the flat-boundary extension theorem, the local model of
 \S5.4, now complete and sorry-free.
 
-\textbf{What remains.}  Only the general-domain operator: chart-flattening a bounded $C^1$ domain and a
-partition-of-unity gluing of these local reflection extensions into the global bounded operator
-$E\colon W^{1,p}(\Omega)\to W^{1,p}(\mathbb{R}^n)$ --- the substantial piece still ahead, requiring
-$C^1$-boundary-chart infrastructure (a flattening diffeomorphism and $W^{1,p}$-invariance under a
-nonlinear $C^1$ change of variables) the project does not yet have.
+\textbf{The general $C^1$-domain operator --- complete.}  The flat-boundary theorem is promoted to an
+arbitrary bounded $C^1$ domain $\Omega\subseteq\mathbb R^{m+2}$ by a partition-of-unity assembly
+(\texttt{exists\_memW1p\_extension}, in \texttt{Sobolev/\allowbreak Extension\allowbreak General.\allowbreak lean}),
+reusing the boundary-chart infrastructure built for the general divergence theorem (Chapter~6).  From
+\texttt{IsBoundedC1Domain.\allowbreak exists\_smoothPartitionOfUnity} one gets a smooth partition of unity
+$\{\rho_i\}_{i:\,\texttt{Option}\,\iota}$ subordinate to the cover $\{\Omega\}\cup\{\text{chart balls}\}$
+(index \texttt{none} $\mapsto$ the interior $\Omega$, \texttt{some}~$j\mapsto$ the $j$-th boundary
+chart ball).  Each piece $\rho_i\!\cdot\!u$ lies in $W^{1,p}(\Omega)$ (\texttt{MemW1p.\allowbreak
+mul\_cutoff\_restrict}) and is extended to $\mathbb R^{m+2}$ separately:
+
+\begin{itemize}
+  \item \emph{Interior piece} ($\rho_{\text{none}}\!\cdot\!u$, compactly supported inside $\Omega$):
+  extend by zero.  This is just the $W^{1,p}$-locality lemma \texttt{MemW1p.of\_eqOn\_open} in the
+  degenerate case $V=\Omega$, $D'=\mathbb R^n$ (the identity $\Omega\cap\Omega=\Omega\cap\text{univ}$),
+  so no separate ``extend by zero'' lemma is needed.
+  \item \emph{Boundary piece} ($\rho_j\!\cdot\!u$, supported in a chart ball
+  $B(c_j,r_j)$, \texttt{exists\_extension\_boundary\_piece}): pull the domain identity
+  $\Omega\cap B=\{\text{subgraph}\}\cap B$ into the flat frame using the chart shear
+  \texttt{exists\_bounded\_chart\_shear} (whose graph $\gamma'$, now also exported as $C^1$,
+  agrees with the true chart graph on the compact base of $B$); move $\rho_j\!\cdot\!u$ onto the
+  flattened subgraph with the locality lemma \texttt{MemW1p.of\_eqOn\_open}; zero it out below the
+  graph (\texttt{MemW1p.indicator}); apply the per-chart flat-halfspace extension
+  \texttt{exists\_memW1p\_extension\_chart} (which internally performs the shear change of variables and
+  the even reflection above); and finally multiply by a smooth cutoff $\chi_j$ that is $1$ on
+  $\operatorname{tsupport}\rho_j$ and supported in $B$, so that $\chi_j\!\cdot\!\tilde U_j$ agrees with
+  $\rho_j\!\cdot\!u$ on \emph{all} of $\Omega$ (using $\chi_j\rho_j=\rho_j$ pointwise).
+\end{itemize}
+
+The global extension is the finite sum $U=\sum_i\chi_i\tilde U_i$, in $W^{1,p}(\mathbb R^n)$ by the
+subspace/finite-sum lemmas (\texttt{MemW1p.add}, packaged as \texttt{MemW1p.sum}).  On $\Omega$ it
+recovers $u$: the per-piece a.e.\ agreements combine (\texttt{ae\_all\_iff} over the finite index) to
+$U=\sum_i\rho_i\,u$ a.e., and $\sum_i\rho_i=1$ on $\Omega$ (\texttt{SmoothPartitionOfUnity.\allowbreak
+sum\_eq\_one}, with $\sum^{\mathrm f}=\sum$ over the finite index via
+\texttt{finsum\_eq\_sum\_of\_fintype}) gives $U=u$ a.e.\ on $\Omega$.  The chief subtlety --- that a
+representative of $u$ carries arbitrary junk values off $\Omega$ --- is handled by the locality lemma
+\texttt{MemW1p.of\_eqOn\_open} (its transferred weak derivative is $\eta\!\cdot\!v$ for a cutoff
+$\eta$, compactly supported hence globally integrable, with the cross term $(\partial_e\eta)\,w$
+vanishing because $\eta$ is locally constant on $\operatorname{tsupport}w$) together with the
+subgraph indicator.  This is \emph{the} extension theorem of \S5.4: \emph{every $u\in W^{1,p}(\Omega)$
+on a bounded $C^1$ domain extends to a $U\in W^{1,p}(\mathbb R^n)$ agreeing a.e.\ with $u$ on
+$\Omega$} --- complete and sorry-free, closing Chapter~5's extension operator in full.
 
 % ══════════════════════════════════════════════════════════════════════════════
 \section{Chapter 6: Surface Measure and the General Divergence Theorem}
