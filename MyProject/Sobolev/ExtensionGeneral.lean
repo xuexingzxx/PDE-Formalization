@@ -927,6 +927,42 @@ theorem halfspace_flat_eq_coord :
     ext z; simp only [Set.mem_setOf_eq, hpt]
     constructor <;> intro hz <;> linarith
 
+
+/-- **Packaged chart shear.** For a `C¹` chart graph `γ` and a compact base region `K`, there is a
+cut-off graph `γ'` (equal to `γ` on `K`) and a shear shift `g = ∓ γ'∘base` that is `C¹`,
+last-coordinate independent, has globally bounded gradient, and satisfies the flattening relation. -/
+theorem exists_bounded_chart_shear {γ : EuclideanSpace ℝ (Fin (m + 1)) → ℝ}
+    (hγ : ContDiff ℝ 1 γ) {K : Set (EuclideanSpace ℝ (Fin (m + 1)))} (hK : IsCompact K) :
+    ∃ (γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ) (g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ)
+      (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+        g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y),
+      ContDiff ℝ 1 g ∧
+      (∀ j : Fin (m + 2), ∃ M : ℝ, ∀ x, |fderiv ℝ g x (EuclideanSpace.single j (1 : ℝ))| ≤ M) ∧
+      Set.EqOn γ' γ K ∧
+      (∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+        = -(γ' ((((flatten m).symm w).ofLp).1)) • heightVec m) := by
+  obtain ⟨γ', hγ'cd, hγ'cs, hγ'eq⟩ := exists_contDiff_compactSupport_eqOn hγ hK
+  have hbdd : ∀ j : Fin (m + 2), ∃ M : ℝ, ∀ x,
+      |fderiv ℝ (fun w => γ' ((((flatten m).symm w).ofLp).1)) x (EuclideanSpace.single j (1 : ℝ))|
+        ≤ M := fun j => exists_bound_fderiv_gamma_base hγ'cd hγ'cs j
+  rcases heightVec_eq_single_or_neg m with h | h
+  · refine ⟨γ', fun w => -(γ' ((((flatten m).symm w).ofLp).1)),
+      fun y t => by simp only [gamma_base_indep_last], (contDiff_gamma_base m hγ'cd).neg,
+      fun j => ?_, hγ'eq, fun w => by rw [h]⟩
+    obtain ⟨M, hM⟩ := hbdd j
+    refine ⟨M, fun x => ?_⟩
+    have hd : HasFDerivAt (fun w => γ' ((((flatten m).symm w).ofLp).1))
+        (fderiv ℝ (fun w => γ' ((((flatten m).symm w).ofLp).1)) x) x :=
+      ((contDiff_gamma_base m hγ'cd).differentiable (by norm_num) x).hasFDerivAt
+    have heq : (fun w => -(γ' ((((flatten m).symm w).ofLp).1)))
+        = -(fun w => γ' ((((flatten m).symm w).ofLp).1)) := rfl
+    rw [heq, hd.neg.fderiv, ContinuousLinearMap.neg_apply, abs_neg]
+    exact hM x
+  · refine ⟨γ', fun w => γ' ((((flatten m).symm w).ofLp).1),
+      fun y t => by simp only [gamma_base_indep_last], contDiff_gamma_base m hγ'cd,
+      hbdd, hγ'eq, fun w => by rw [h]; simp [smul_neg, neg_smul]⟩
+
+
 end FlattenCoord
 
 end Sobolev
