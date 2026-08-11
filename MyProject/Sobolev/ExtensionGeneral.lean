@@ -1138,4 +1138,71 @@ theorem exists_memW1p_extension_flat_halfspace {m : ℕ} {f : EuclideanSpace ℝ
   · rw [hc] at hf ⊢
     exact exists_memW1p_extension_coord_upper (Fin.last (m + 1)) hp hf
 
+
+/-- **Per-chart extension.** A `W^{1,p}` function `w` supported in a physical boundary-chart
+subgraph extends to `W^{1,p}(ℝⁿ)` agreeing with `w` a.e. on the subgraph. Composes the forward
+transfer (subgraph → flat half-space), the half-space operator, and the backward whole-space
+transfer along the chart map `Θ = shear ∘ rigid`. -/
+theorem exists_memW1p_extension_chart
+    (e : EuclideanSpace ℝ (Fin (m + 2)) ≃ₗᵢ[ℝ] EuclideanSpace ℝ (Fin (m + 2)))
+    (c : EuclideanSpace ℝ (Fin (m + 2))) {g : EuclideanSpace ℝ (Fin (m + 2)) → ℝ}
+    (hindep : ∀ (y : EuclideanSpace ℝ (Fin (m + 2))) (t : ℝ),
+      g (y + t • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)) = g y)
+    (hg_cd : ContDiff ℝ 1 g)
+    (hg_bdd : ∀ j : Fin (m + 2), ∃ M : ℝ, ∀ x, |fderiv ℝ g x (EuclideanSpace.single j (1 : ℝ))| ≤ M)
+    {γ' : EuclideanSpace ℝ (Fin (m + 1)) → ℝ} (hγ'cont : Continuous γ')
+    (hg_flat : ∀ w, g w • EuclideanSpace.single (Fin.last (m + 1)) (1 : ℝ)
+      = -(γ' ((((flatten m).symm w).ofLp).1)) • heightVec m)
+    {w : EuclideanSpace ℝ (Fin (m + 2)) → ℝ} {p : ℝ≥0∞} [Fact (1 ≤ p)] (hp : p ≠ ⊤)
+    (hw : MemW1p {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} p w)
+    (hw_sub : tsupport w ⊆ {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}) :
+    ∃ Ũ : EuclideanSpace ℝ (Fin (m + 2)) → ℝ, MemW1p Set.univ p Ũ ∧
+      Ũ =ᵐ[volume.restrict {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)}] w := by
+  -- forward transfer + half-space operator
+  have hfwd := memW1p_halfspace_of_subgraph e c hindep hg_cd hg_bdd hγ'cont hg_flat hw hw_sub
+  obtain ⟨U, hU, hUeq⟩ := exists_memW1p_extension_flat_halfspace hp hfwd
+  -- backward whole-space transfer:  Ũ x = U (Ψ (e (x - c)))
+  obtain ⟨M, hM⟩ : ∃ M : ℝ, ∀ (z : EuclideanSpace ℝ (Fin (m + 2))) (j : Fin (m + 2)),
+      |fderiv ℝ g z (EuclideanSpace.single j (1 : ℝ))| ≤ M := by
+    choose Mf hMf using hg_bdd
+    exact ⟨Finset.univ.sup' Finset.univ_nonempty Mf,
+      fun z j => (hMf j z).trans (Finset.le_sup' Mf (Finset.mem_univ j))⟩
+  have hUS := memW1p_comp_shearEquiv hindep hg_cd hM hp hU
+  have hUSe := hUS.comp_linearIsometry e
+  have hUSec := hUSe.comp_translate (-c)
+  refine ⟨fun x => U (shearEquiv hindep (e (x + -c))), hUSec, ?_⟩
+  -- the chart map Θ x = Ψ (e (x - c)) as a homeomorphism
+  set shearHomeo : Homeomorph (EuclideanSpace ℝ (Fin (m + 2))) (EuclideanSpace ℝ (Fin (m + 2))) :=
+    ⟨shearEquiv hindep, continuous_id.add (hg_cd.continuous.smul continuous_const),
+      continuous_id.add (hg_cd.neg.continuous.smul continuous_const)⟩ with hshearHomeo
+  set ΘH : Homeomorph (EuclideanSpace ℝ (Fin (m + 2))) (EuclideanSpace ℝ (Fin (m + 2))) :=
+    (Homeomorph.addRight (-c)).trans (e.toHomeomorph.trans shearHomeo) with hΘH
+  have hΘmp : MeasurePreserving (fun x => shearEquiv hindep (e (x + -c))) volume volume :=
+    (measurePreserving_shearEquiv hindep hg_cd).comp
+      (e.measurePreserving.comp (measurePreserving_add_right volume (-c)))
+  -- Θ⁻¹ (flat half-space) = physical subgraph
+  have hΘpre : (fun x => shearEquiv hindep (e (x + -c))) ⁻¹'
+      {z | (((flatten m).symm z).ofLp).2 < 0}
+      = {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)} := by
+    rw [show (fun x => shearEquiv hindep (e (x + -c)))
+        = shearEquiv hindep ∘ (fun x => e (x + -c)) from rfl, Set.preimage_comp,
+      shear_preimage_halfspace hindep γ' hg_flat]
+    ext x; simp only [Set.mem_preimage, Set.mem_setOf_eq, sub_eq_add_neg]
+  have hΘmp_res : MeasurePreserving (fun x => shearEquiv hindep (e (x + -c)))
+      (volume.restrict {x | (((flatten m).symm (e (x - c))).ofLp).2
+        < γ' ((((flatten m).symm (e (x - c))).ofLp).1)})
+      (volume.restrict {z | (((flatten m).symm z).ofLp).2 < 0}) := by
+    rw [← hΘpre]; exact hΘmp.restrict_preimage_emb ΘH.measurableEmbedding _
+  refine (hΘmp_res.quasiMeasurePreserving.ae_eq_comp hUeq).trans ?_
+  filter_upwards with x
+  have hinv : shearEquiv (γ := -g) (i := Fin.last (m + 1))
+      (fun y t => by simp only [Pi.neg_apply, hindep]) (shearEquiv hindep (e (x + -c)))
+      = e (x + -c) := (shearEquiv hindep).symm_apply_apply _
+  show w (e.symm _ + c) = w x
+  rw [hinv, e.symm_apply_apply]; congr 1; abel
+
 end Sobolev
